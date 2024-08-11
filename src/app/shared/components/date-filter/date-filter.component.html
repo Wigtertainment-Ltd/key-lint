@@ -1,0 +1,33 @@
+<div class="flex align-items-center">
+	@if (selectedFilterDropDown.value === FILTERDATE.individuel) {
+	<wig-calendar
+		[date]="dateRange"
+		[selectionMode]="'range'"
+		(dateChange)="dateChanged($event)"
+	></wig-calendar>
+	}
+	<div class="filterDate">
+		<p-dropdown
+			[disabled]="isLoading"
+			[styleClass]="'b-none'"
+			[options]="filterOptions"
+			[(ngModel)]="selectedFilterOption"
+			(ngModelChange)="filterChanged($event)"
+			[optionLabel]="'text'"
+			[optionValue]="'value'"
+		>
+			<ng-template pTemplate="selectedItem">
+				@if (selectedFilterDropDown) {
+				<div class="flex align-items-center">
+					<div>{{ selectedFilterDropDown.text }}</div>
+				</div>
+				}
+			</ng-template>
+			<ng-template let-item pTemplate="item">
+				<div class="flex align-items-center">
+					<div>{{ item.text }}</div>
+				</div>
+			</ng-template>
+		</p-dropdown>
+	</div>
+</div>

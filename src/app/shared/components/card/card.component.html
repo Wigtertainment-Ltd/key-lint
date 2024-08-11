@@ -1,0 +1,10 @@
+<div class="card">
+	@if (header) {
+		<h2 class="header">{{ header | uppercase }}</h2>
+	} @else {
+		<span class="header">
+			<ng-content select="[header]"></ng-content>
+		</span>
+	}
+	<ng-content></ng-content>
+</div>

@@ -1,0 +1,13 @@
+@if (visible) {
+	<p-sidebar [styleClass]="isMobileView ? 'w-100' : size" [visible]="visible" [position]="position" (visibleChange)="visibleChanged($event)">
+		<ng-template pTemplate="header">
+			<span class="mr-3" [class]="icon" style="font-size: 1.5rem"></span>
+			<h4>
+				{{ header }}
+			</h4>
+		</ng-template>
+		<ng-template pTemplate="content">
+			<ng-content></ng-content>
+		</ng-template>
+	</p-sidebar>
+}

@@ -1,0 +1,44 @@
+{
+	"GENERIC": {
+		"ENUMS": {
+			"FILTERDATE": {
+				"TODAY": "Today",
+				"CURRENTWEEK": "Current Week",
+				"LASTWEEK": "Last Week",
+				"CURRENTMONTH": "Current Month",
+				"LASTMONTH": "Last Month",
+				"LAST30DAYS": "Last 30 Days",
+				"CURRENTYEAR": "Current Year",
+				"INDIVIDUEL": "individuel"
+			},
+			"ROLES": {
+				"APPADMIN": "App Admin",
+				"ADMIN": "Admin",
+				"USER": "User"
+			}
+		},
+		"FORM": {
+			"ERRORS": {
+				"REQUIRED": "This Field is required",
+				"EQUALS": "Fields must be equals",
+				"EMAIL": "This is not a valid E-Mail",
+				"MINLENGTH": "Field must be at least {{requiredLength}} characters long",
+				"MAXLENGTH": "Only {{requiredLength}} characters are allowed in this field ({{actualLength}}/{{requiredLength}})",
+				"MINLENGTH12REQUIRED": "Field must be at least 12 characters long",
+				"NUMBERSREQUIRED": "A number is required",
+				"LOWERCASELETTERSREQUIRED": "A lowercase letter is required",
+				"UPPERCASELETTERSREQUIRED": "A uppercase letter is required",
+				"SPECIALCHARACTERSREQUIRED": "A special character is required",
+				"ALLREADYINUSE": "Name is allready in use",
+				"PATTERN": "Field may only contain lowercase/uppercase letters, numbers and the following special characters '. -'",
+				"INVALIDIBAN": "IBAN is not valid",
+				"INVALIDVAT": "It seems the VAT ID is not valid, we will not be able to reverse charge the VAT for you.",
+				"MISMATCH": "Passwords do not match"
+			}
+		},
+		"ERRORTOAST": {
+			"TITLE": "Error",
+			"MESSAGE": "Unfortunately, an error has occurred!"
+		}
+	}
+}

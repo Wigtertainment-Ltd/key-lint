@@ -1,0 +1,17 @@
+<p-dialog
+	[header]="event?.title"
+	[(visible)]="isOpen"
+	[modal]="true"
+	[style]="{ width: '50vw' }"
+	[draggable]="false"
+	[resizable]="false"
+	(onHide)="cancel()"
+>
+	<p class="m-0">
+		{{ event?.text }}
+	</p>
+	<ng-template pTemplate="footer">
+		<wig-button [label]="'Cancel'" [text]="true" (click)="cancel()" />
+		<wig-button [label]="'Ok'" (click)="ok()" />
+	</ng-template>
+</p-dialog>
