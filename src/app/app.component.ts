@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { ModalShowOption, WigButtonComponent, WigModalComponent } from './shared';
 import { ElectronService } from './shared/services/electron.service';
+import { WigModalComponent, ModalShowOption, WigButtonComponent } from '@wigtertainment-ltd/comp-lib';
 
 @Component({
 	selector: 'app-root',
