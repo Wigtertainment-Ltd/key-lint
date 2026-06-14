@@ -14,16 +14,23 @@ describe('AppComponent', () => {
 		expect(app).toBeTruthy();
 	});
 
-	it(`should have the 'check-i18n' title`, () => {
+	it('should initialize modal state', () => {
 		const fixture = TestBed.createComponent(AppComponent);
 		const app = fixture.componentInstance;
-		expect(app.title).toEqual('check-i18n');
+		expect(app.modalVisible).toBeTrue();
+		expect(app.projectPath).toBeUndefined();
 	});
 
-	it('should render title', () => {
+	it('should keep projectName undefined when no project is selected', () => {
 		const fixture = TestBed.createComponent(AppComponent);
-		fixture.detectChanges();
-		const compiled = fixture.nativeElement as HTMLElement;
-		expect(compiled.querySelector('h1')?.textContent).toContain('Hello, check-i18n');
+		const app = fixture.componentInstance;
+		expect(app.projectName).toBeUndefined();
+	});
+
+	it('should not throw when checkProject is called without a selected project', async () => {
+		const fixture = TestBed.createComponent(AppComponent);
+		const app = fixture.componentInstance;
+
+		await expectAsync(app.checkProject()).toBeResolved();
 	});
 });

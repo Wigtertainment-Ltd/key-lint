@@ -5,8 +5,46 @@
 	} @else {
 		<div>Please choose a project!</div>
 	}
+
+	@if (scanState !== 'idle') {
+		<div class="mt-2">
+			<strong>Status:</strong> {{ scanState }}
+			@if (scanStage) {
+				<div><small>{{ scanStage }}</small></div>
+			}
+		</div>
+	}
+
+	@if (scanError) {
+		<div class="mt-2">
+			<strong>Scan Error:</strong> {{ scanError }}
+		</div>
+	}
+
+	@if (scanResult) {
+		<div class="mt-2">
+			<div><strong>Summary</strong></div>
+			<small>
+				Keys: {{ scanResult.summary.totalKeys }} |
+				Used: {{ scanResult.summary.used }} |
+				Unused: {{ scanResult.summary.unused }} |
+				Dynamic: {{ scanResult.summary.dynamicOrUncertain }} |
+				Missing: {{ scanResult.summary.missingInLanguage }}
+			</small>
+		</div>
+
+		<div class="mt-2">
+			<div><strong>Top Findings</strong></div>
+			@for (finding of scanResult.findings.slice(0, 8); track finding.id) {
+				<div>
+					<small>[{{ finding.status }}] {{ finding.key }} - {{ finding.message }}</small>
+				</div>
+			}
+		</div>
+	}
+
 	<wig-button [label]="'Select'" styleClass="w-full mt-1" (click)="selectProject()"></wig-button>
 	<div footer>
-		<wig-button [disabled]="!projectPath" [label]="'Check'" styleClass="w-full mt-1" (click)="checkProject()"></wig-button>
+		<wig-button [disabled]="!projectPath || scanState === 'running'" [label]="scanState === 'running' ? 'Checking...' : 'Check'" styleClass="w-full mt-1" (click)="checkProject()"></wig-button>
 	</div>
 </wig-modal>
