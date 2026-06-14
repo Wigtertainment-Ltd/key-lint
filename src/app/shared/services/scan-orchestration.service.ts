@@ -26,8 +26,10 @@ function escapeRegex(text: string): string {
 function globToRegex(glob: string): RegExp {
 	const normalized = normalizePath(glob);
 	const escaped = escapeRegex(normalized)
+		.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
 		.replace(/\*\*/g, '__DOUBLE_STAR__')
 		.replace(/\*/g, '[^/]*')
+		.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
 		.replace(/__DOUBLE_STAR__/g, '.*');
 
 	return new RegExp(`^${escaped}$`);

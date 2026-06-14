@@ -32,8 +32,10 @@ class InMemoryFsAdapter implements FileSystemAdapter {
 			const escaped = pattern
 				.replace(/\\/g, '/')
 				.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')
+				.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
 				.replace(/\*\*/g, '__DOUBLE_STAR__')
 				.replace(/\*/g, '[^/]*')
+				.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
 				.replace(/__DOUBLE_STAR__/g, '.*');
 			return new RegExp(`^${escaped}$`).test(filePath);
 		};
@@ -115,5 +117,51 @@ describe('angularScanAdapter', () => {
 		expect(findings.some((item) => item.status === 'used' && item.key === 'GENERIC.HELLO')).toBeTrue();
 		expect(findings.some((item) => item.status === 'unused' && item.key === 'GENERIC.BYE')).toBeTrue();
 		expect(findings.some((item) => item.status === 'missing-in-language' && item.key === 'GENERIC.MISSING')).toBeTrue();
+	});
+
+	it('classifies dynamic key expressions in pipe bindings as uncertain', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"main":{"recipients":{"recipient":{"import":{"recipientType":{"company":{"title":"Company"}}}}}}}',
+			'workspace/project/src/app/sample.component.html':
+				"<h3 [title]=\"'main.recipients.recipient.import.recipientType.' + recipientType() + '.title' | translate\"></h3>"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.isDynamic && item.matchType === 'html-dynamic-pipe-concat-binding')).toBeTrue();
+		expect(
+			findings.some(
+				(item) =>
+					item.status === 'dynamic-uncertain' &&
+					item.key.includes("recipientType()")
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'missing-in-language' && item.key === '.title'
+			)
+		).toBeFalse();
+	});
+
+	it('does not treat Cypress get calls as translation usage', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"GENERIC":{"HELLO":"Hello"}}',
+			'workspace/project/cypress/e2e/setup-sender.cy.ts':
+				"describe('Feature: Setup sender', () => { cy.get('cosmos-button').contains('Ok'); cy.get('div').contains('Sender successfully created.'); });"
+		});
+
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+
+		expect(usedKeys.some((item) => item.key === 'cosmos-button')).toBeFalse();
+		expect(usedKeys.some((item) => item.key === 'div')).toBeFalse();
 	});
 });

@@ -15,8 +15,14 @@ interface PatternDescriptor {
 
 const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
 	{
-		matchType: 'html-pipe-translate',
-		regex: /['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*translate\b/g,
+		matchType: 'html-pipe-translate-interpolation',
+		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*translate\b[^}]*\}\}/g,
+		dynamic: false,
+		keyCaptureIndex: 1
+	},
+	{
+		matchType: 'html-pipe-translate-binding',
+		regex: /=\s*['"]\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*translate\b[^'"\n]*['"]/g,
 		dynamic: false,
 		keyCaptureIndex: 1
 	},
@@ -37,7 +43,7 @@ const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
 const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 	{
 		matchType: 'ts-translate-method',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/g,
+		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
 		dynamic: false,
 		keyCaptureIndex: 1
 	}
@@ -46,19 +52,37 @@ const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 const DYNAMIC_PATTERNS: PatternDescriptor[] = [
 	{
 		matchType: 'ts-dynamic-template-literal',
-		regex: /\b(?:instant|get|stream)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/g,
+		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
 	{
 		matchType: 'ts-dynamic-concat',
-		regex: /\b(?:instant|get|stream)\s*\(\s*([^)\n]*\+[^)\n]*)\)/g,
+		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
 	{
 		matchType: 'html-dynamic-translate-binding',
 		regex: /\[translate\]\s*=\s*['"]([^'"\n]*\+[^'"\n]*)['"]/g,
+		dynamic: true,
+		keyCaptureIndex: 1
+	},
+	{
+		matchType: 'html-dynamic-pipe-concat-interpolation',
+		regex: /\{\{\s*([^}\n]*\+[^}\n]*?)\s*\|\s*translate\b[^}]*\}\}/g,
+		dynamic: true,
+		keyCaptureIndex: 1
+	},
+	{
+		matchType: 'html-dynamic-pipe-concat-binding',
+		regex: /=\s*['"]\s*([^'"\n]*\+[^'"\n]*?)\s*\|\s*translate\b[^'"\n]*['"]/g,
+		dynamic: true,
+		keyCaptureIndex: 1
+	},
+	{
+		matchType: 'html-dynamic-pipe-template-literal',
+		regex: /=\s*['"]\s*(`[^`]*\$\{[^}]+\}[^`]*`)\s*\|\s*translate\b[^'"\n]*['"]/g,
 		dynamic: true,
 		keyCaptureIndex: 1
 	}
@@ -75,8 +99,10 @@ function escapeRegex(text: string): string {
 function globToRegex(glob: string): RegExp {
 	const normalized = normalizePath(glob);
 	const escaped = escapeRegex(normalized)
+		.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
 		.replace(/\*\*/g, '__DOUBLE_STAR__')
 		.replace(/\*/g, '[^/]*')
+		.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
 		.replace(/__DOUBLE_STAR__/g, '.*');
 
 	return new RegExp(`^${escaped}$`);
