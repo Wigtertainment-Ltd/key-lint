@@ -1,0 +1,64 @@
+<div class="page">
+	<div class="grid-bg" aria-hidden="true"></div>
+
+	<main class="content">
+		<section class="hero">
+			<div class="brand-badge" aria-hidden="true">
+				<span class="material-symbols-outlined filled">translate</span>
+			</div>
+			<h1>LingoLint</h1>
+			<p>
+				Select an Angular or TypeScript project to begin. We will automatically detect your translation files.
+			</p>
+		</section>
+
+		<section class="card">
+			<div
+				class="drop-zone"
+				[class.drag-over]="isDragOver"
+				(click)="openFolderDialog()"
+				(dragenter)="onDragEnter($event)"
+				(dragover)="onDragOver($event)"
+				(dragleave)="onDragLeave($event)"
+				(drop)="onDrop($event)"
+				role="button"
+				tabindex="0"
+				(keydown.enter)="openFolderDialog()"
+				(keydown.space)="openFolderDialog()"
+			>
+				<div class="drop-icon-wrap">
+					<span class="material-symbols-outlined">folder_open</span>
+				</div>
+				<p class="drop-title">Select Project Folder</p>
+				<p class="drop-subtitle">Drag and drop your project here, or click to browse</p>
+				<input class="hidden-input" type="file" webkitdirectory directory multiple (change)="onFolderInputChange($event)" />
+			</div>
+
+			<div class="selection">
+				<label>Selected Path</label>
+				<div class="path-box">
+					<span class="material-symbols-outlined marker">location_on</span>
+					<code class="path" [class.placeholder]="!hasSelection" [class.selected]="hasSelection">
+						{{ pathDisplay }}
+					</code>
+					<button
+						type="button"
+						class="clear-btn"
+						[class.hidden]="!hasSelection"
+						(click)="clearSelection($event)"
+						aria-label="Clear selected project"
+					>
+						<span class="material-symbols-outlined">close</span>
+					</button>
+				</div>
+			</div>
+
+			<button type="button" class="start-btn" [disabled]="!hasSelection" (click)="startAnalysis()">
+				<span>Start Analysis</span>
+				<span class="material-symbols-outlined">arrow_forward</span>
+			</button>
+		</section>
+
+		<footer class="version">v2.4.0-stable</footer>
+	</main>
+</div>

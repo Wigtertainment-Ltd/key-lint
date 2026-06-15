@@ -1,0 +1,66 @@
+<div class="scan-layout">
+	<aside class="side-nav">
+		<div class="brand">
+			<h1>i18n Analyzer</h1>
+			<p>v2.4.0-stable</p>
+		</div>
+
+		<button class="new-analysis-btn" type="button" (click)="startNewAnalysis()">
+			<span class="material-symbols-outlined">add</span>
+			New Analysis
+		</button>
+
+		<nav class="nav-links">
+			<a class="nav-item" routerLink="/scan-progress/results" routerLinkActive="active">
+				<span class="material-symbols-outlined">dashboard</span>
+				<span>Dashboard</span>
+			</a>
+			<a class="nav-item">
+				<span class="material-symbols-outlined">translate</span>
+				<span>Translation Keys</span>
+			</a>
+			<a class="nav-item" routerLink="/scan-progress/results" routerLinkActive="active">
+				<span class="material-symbols-outlined">analytics</span>
+				<span>Analysis Results</span>
+			</a>
+			<a class="nav-item">
+				<span class="material-symbols-outlined">extension</span>
+				<span>Integrations</span>
+			</a>
+			<a class="nav-item">
+				<span class="material-symbols-outlined">settings</span>
+				<span>Settings</span>
+			</a>
+		</nav>
+
+		<div class="side-bottom">
+			<a class="nav-item">
+				<span class="material-symbols-outlined">menu_book</span>
+				<span>Documentation</span>
+			</a>
+			<a class="nav-item">
+				<span class="material-symbols-outlined">contact_support</span>
+				<span>Support</span>
+			</a>
+		</div>
+	</aside>
+
+	<main class="main-content">
+		<header class="top-bar">
+			<div class="project-info">
+				<h2>Project: {{ displayProjectPath }}</h2>
+				<span class="last-scan-chip">Last Scan: {{ lastScanText }}</span>
+			</div>
+
+			<div class="top-right">
+				<div class="toolbar-icons">
+					<span class="material-symbols-outlined">notifications</span>
+					<span class="material-symbols-outlined">history</span>
+					<span class="material-symbols-outlined">account_circle</span>
+				</div>
+			</div>
+		</header>
+
+		<router-outlet></router-outlet>
+	</main>
+</div>

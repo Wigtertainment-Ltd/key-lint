@@ -1,0 +1,184 @@
+<main class="keys-shell" [class.drawer-closed]="!selectedFinding">
+	<section class="findings-pane">
+		<header class="table-toolbar">
+			<div class="chip-row">
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'all'"
+					(click)="onFilterChange('all')"
+				>
+					All ({{ allFilterCount }})
+				</button>
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'missing-in-language'"
+					(click)="onFilterChange('missing-in-language')"
+				>
+					Missing ({{ missingFilterCount }})
+				</button>
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'unused'"
+					(click)="onFilterChange('unused')"
+				>
+					Unused ({{ unusedFilterCount }})
+				</button>
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'dynamic-uncertain'"
+					(click)="onFilterChange('dynamic-uncertain')"
+				>
+					Dynamic ({{ dynamicFilterCount }})
+				</button>
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'used'"
+					(click)="onFilterChange('used')"
+				>
+					Used ({{ usedFilterCount }})
+				</button>
+			</div>
+
+			<div class="toolbar-right">
+				<span class="result-count">{{ filteredFindings.length }} of {{ allFilterCount }} keys</span>
+				<label class="search-box">
+					<span class="material-symbols-outlined">search</span>
+					<input
+						type="text"
+						placeholder="Search key, message or file path"
+						(input)="onSearchChange(($any($event.target).value ?? '').toString())"
+					/>
+				</label>
+			</div>
+		</header>
+
+		<div class="table-scroll custom-scrollbar">
+			<table>
+				<thead>
+					<tr>
+						<th>Key Name</th>
+						<th>Status</th>
+						<th>Last Used / File Path</th>
+						<th>Severity</th>
+					</tr>
+					</thead>
+				<tbody>
+					@for (finding of filteredFindings; track finding.id) {
+						<tr
+							(click)="onSelectFinding(finding)"
+							[class.selected]="selectedFinding?.id === finding.id"
+						>
+							<td>
+								<span class="key-cell">{{ finding.key }}</span>
+							</td>
+							<td>
+								<span
+									class="status-pill"
+									[class.used]="finding.status === 'used'"
+									[class.unused]="finding.status === 'unused'"
+									[class.dynamic]="finding.status === 'dynamic-uncertain'"
+									[class.missing]="finding.status === 'missing-in-language'"
+									[class.extra]="finding.status === 'extra-in-language'"
+								>
+									{{ statusLabel(finding.status) }}
+								</span>
+							</td>
+							<td class="path-cell">{{ finding.evidence[0]?.filePath ?? 'No evidence path available' }}</td>
+							<td>
+								<div class="severity-meter">
+									<div
+										class="severity-bar"
+										[class.error]="finding.severity === 'error'"
+										[class.warning]="finding.severity === 'warning'"
+										[class.info]="finding.severity === 'info'"
+										[style.width.%]="severityPercent(finding.severity)"
+									></div>
+								</div>
+							</td>
+						</tr>
+					} @empty {
+						<tr>
+							<td colspan="4" class="empty-state">No keys matched your current filter.</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<aside class="details-pane" [class.hidden]="!selectedFinding">
+		@if (selectedFinding) {
+			<header class="details-head">
+				<div>
+					<p class="eyebrow">Key Details</p>
+					<h3>{{ selectedFinding.key }}</h3>
+				</div>
+				<button type="button" class="icon-button" (click)="closeDetailPanel()">
+					<span class="material-symbols-outlined">close</span>
+				</button>
+			</header>
+
+			<div class="details-scroll custom-scrollbar">
+				<section class="detail-section">
+					<div class="status-row">
+						<span
+							class="status-pill"
+							[class.used]="selectedFinding.status === 'used'"
+							[class.unused]="selectedFinding.status === 'unused'"
+							[class.dynamic]="selectedFinding.status === 'dynamic-uncertain'"
+							[class.missing]="selectedFinding.status === 'missing-in-language'"
+							[class.extra]="selectedFinding.status === 'extra-in-language'"
+						>
+							{{ statusLabel(selectedFinding.status) }}
+						</span>
+						<span class="severity-label">{{ severityLabel(selectedFinding.severity) }} severity</span>
+					</div>
+					<p class="detail-message">{{ selectedFinding.message }}</p>
+				</section>
+
+				<section class="detail-section">
+					<h4>Evidence</h4>
+					<div class="info-block">
+						<span class="material-symbols-outlined">description</span>
+						<div>
+							<p class="mono">{{ selectedEvidencePath }}</p>
+							<p>Adapter: {{ frameworkLabel }} • Duration: {{ scanDurationLabel }}</p>
+						</div>
+					</div>
+				</section>
+
+				<section class="detail-section">
+					<div class="section-head">
+						<h4>Code Context</h4>
+						<button type="button" class="link-button" (click)="copySelectedKey()">
+							<span class="material-symbols-outlined">content_copy</span>
+							{{ keyCopied ? 'Copied' : 'Copy key' }}
+						</button>
+					</div>
+					<pre><code>{{ selectedSnippet }}</code></pre>
+				</section>
+
+				<section class="detail-section metric-grid">
+					<div class="metric-card">
+						<p>Occurrences</p>
+						<strong>{{ selectedFinding.evidence.length }}</strong>
+					</div>
+					<div class="metric-card">
+						<p>Locales</p>
+						<strong>{{ selectedFinding.status === 'missing-in-language' ? '0/' + localeCount : localeCount + '/' + localeCount }}</strong>
+					</div>
+				</section>
+
+				<section class="detail-section action-stack">
+					<button type="button" class="primary-action">Add to Translation Files</button>
+					<button type="button" class="secondary-action">Ignore Key</button>
+				</section>
+			</div>
+		}
+	</aside>
+</main>

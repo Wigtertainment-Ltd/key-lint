@@ -1,0 +1,91 @@
+<section class="scan-content">
+	<section class="progress-block">
+		<div class="progress-header">
+			<div>
+				<h2>
+					@if (scanState === 'completed') {
+						Scan Completed
+					} @else if (scanState === 'failed') {
+						Scan Failed
+					} @else {
+						Scanning Repository...
+					}
+				</h2>
+				<p>Deep analysis of source code and translation assets in progress.</p>
+			</div>
+			<div class="percent">{{ scanPercentLabel }}</div>
+		</div>
+		<div class="progress-rail">
+			<div class="scan-line"></div>
+			<div class="progress-fill" [style.width.%]="progressPercent"></div>
+		</div>
+	</section>
+
+	<section class="scan-grid">
+		<div class="steps-col">
+			@for (step of steps; track step.id) {
+				<div class="step-card" [class.active]="isStepActive(step)" [class.completed]="isStepCompleted(step)" [class.pending]="!isStepActive(step) && !isStepCompleted(step)">
+					<div class="step-icon-wrap">
+						@if (isStepCompleted(step)) {
+							<span class="material-symbols-outlined">check</span>
+						} @else if (isStepActive(step)) {
+							<span class="material-symbols-outlined spin">sync</span>
+							<span class="pulse-effect"></span>
+						} @else {
+							<span class="material-symbols-outlined">radio_button_unchecked</span>
+						}
+					</div>
+					<div>
+						<p class="step-title">{{ step.title }}</p>
+						<p class="step-state">
+							@if (isStepCompleted(step)) {
+								Completed
+							} @else if (isStepActive(step)) {
+								Active
+							} @else {
+								Pending
+							}
+						</p>
+					</div>
+				</div>
+			}
+		</div>
+
+		<div class="log-col">
+			<div class="console">
+				<div class="console-top">
+					<div class="dots">
+						<div class="dot red"></div>
+						<div class="dot yellow"></div>
+						<div class="dot green"></div>
+					</div>
+					<span>Process Console</span>
+				</div>
+				<div class="console-body custom-scrollbar">
+					@for (line of logLines; track $index) {
+						<p>{{ line }}</p>
+					}
+					<span class="cursor"></span>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	@if (scanState !== 'completed') {
+		<div class="actions">
+			<button class="cancel-btn" (click)="cancelAnalysis()" [disabled]="isCancelling">
+				<span class="material-symbols-outlined">cancel</span>
+				{{ isCancelling ? 'Cancelling...' : 'Cancel Analysis' }}
+			</button>
+		</div>
+	} @else {
+		<div class="actions">
+			<button class="show-result-btn" (click)="showResults()">
+				<span class="material-symbols-outlined">insights</span>
+				Show Result
+			</button>
+		</div>
+	}
+
+	<div class="ambient-circle" aria-hidden="true"></div>
+</section>
