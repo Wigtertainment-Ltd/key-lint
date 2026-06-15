@@ -119,6 +119,171 @@ describe('angularScanAdapter', () => {
 		expect(findings.some((item) => item.status === 'missing-in-language' && item.key === 'GENERIC.MISSING')).toBeTrue();
 	});
 
+	it('detects keys used via translate method call in TypeScript', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"deactivate":{"success":"Done"}}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"this.snackbarService.success(this.languageService.translate('administration.groups.deactivate.success'));"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.key === 'administration.groups.deactivate.success')).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'used' && item.key === 'administration.groups.deactivate.success'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'unused' && item.key === 'administration.groups.deactivate.success'
+			)
+		).toBeFalse();
+	});
+
+	it('detects keys used via translate call on a generic service accessor', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"deactivate":{"error":"Failed"}}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"DecoratorService.getService<CosmosSnackbarService>(AppDecoratorServiceKeys.snackbarService).error(DecoratorService.getService<LanguageService>(AppDecoratorServiceKeys.languageService).translate('administration.groups.deactivate.error'));"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.key === 'administration.groups.deactivate.error')).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'used' && item.key === 'administration.groups.deactivate.error'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'unused' && item.key === 'administration.groups.deactivate.error'
+			)
+		).toBeFalse();
+	});
+
+	it('detects both keys used inside a ternary translate argument', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json':
+				'{"administration":{"groups":{"membership":{"active":"Active","inactive":"Inactive"}}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"this.isActiveText = languageService.translate(this.isActive ? 'administration.groups.membership.active' : 'administration.groups.membership.inactive');"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.key === 'administration.groups.membership.active')).toBeTrue();
+		expect(usedKeys.some((item) => item.key === 'administration.groups.membership.inactive')).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'used' && item.key === 'administration.groups.membership.active'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'used' && item.key === 'administration.groups.membership.inactive'
+			)
+		).toBeTrue();
+	});
+
+	it('detects translate pipe keys inside an inline component template in a TS file', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"archived":"Archived"}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"@Component({ template: `<cosmos-tab heading=\"{{ 'administration.groups.archived' | translate }}\" (onSelected)=\"tabActiveSelected(true)\" #tabArchived></cosmos-tab>` }) export class SampleComponent {}"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.key === 'administration.groups.archived')).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'used' && item.key === 'administration.groups.archived'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'unused' && item.key === 'administration.groups.archived'
+			)
+		).toBeFalse();
+	});
+
+	it('classifies keys built via translate concatenation as dynamic, not unused', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json':
+				'{"dynamicFilter":{"DynamicFilterOperator":{"EQUALS":"=","EQUALS_NOT":"!="}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"label: this.languageService.translate('dynamicFilter.DynamicFilterOperator.' + val)"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.isDynamic && item.matchType === 'ts-dynamic-translate-call')).toBeTrue();
+		expect(
+			usedKeys.some((item) => !item.isDynamic && item.key === 'dynamicFilter.DynamicFilterOperator.')
+		).toBeFalse();
+		expect(
+			findings.some(
+				(item) => item.status === 'dynamic-uncertain' && item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS_NOT'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'dynamic-uncertain' && item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) =>
+					item.status === 'unused' &&
+					(item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS' ||
+						item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS_NOT')
+			)
+		).toBeFalse();
+		expect(findings.some((item) => item.status === 'missing-in-language')).toBeFalse();
+	});
+
 	it('classifies dynamic key expressions in pipe bindings as uncertain', async () => {
 		const fs = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',

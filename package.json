@@ -4,7 +4,8 @@
 	"main": "app.js",
 	"scripts": {
 		"ng": "ng",
-		"start": "ng build --base-href ./ && electron .",
+		"start": "concurrently -k \"ng serve --hmr\" \"wait-on tcp:4200 && cross-env ELECTRON_START_URL=http://localhost:4200 electron .\"",
+		"start:dist": "ng build --base-href ./ && electron .",
 		"build": "ng build",
 		"test": "ng test",
 		"lint": "ng lint",
@@ -38,6 +39,8 @@
 		"@angular/cli": "^18.1.4",
 		"@angular/compiler-cli": "^18.1.0",
 		"@types/jasmine": "~5.1.0",
+		"concurrently": "^9.0.1",
+		"cross-env": "^7.0.3",
 		"electron": "^31.3.1",
 		"jasmine-core": "~5.1.0",
 		"karma": "~6.4.0",
@@ -45,6 +48,7 @@
 		"karma-coverage": "~2.2.0",
 		"karma-jasmine": "~5.1.0",
 		"karma-jasmine-html-reporter": "~2.1.0",
-		"typescript": "~5.5.2"
+		"typescript": "~5.5.2",
+		"wait-on": "^8.0.1"
 	}
 }

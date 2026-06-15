@@ -11,6 +11,7 @@ interface PatternDescriptor {
 	regex: RegExp;
 	dynamic: boolean;
 	keyCaptureIndex?: number;
+	literalKeyExtraction?: boolean;
 }
 
 const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
@@ -43,22 +44,29 @@ const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
 const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 	{
 		matchType: 'ts-translate-method',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
+		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
 		dynamic: false,
 		keyCaptureIndex: 1
+	},
+	{
+		matchType: 'ts-translate-call',
+		regex: /\.\s*translate\s*\(([^)]*)\)/g,
+		dynamic: false,
+		keyCaptureIndex: 1,
+		literalKeyExtraction: true
 	}
 ];
 
 const DYNAMIC_PATTERNS: PatternDescriptor[] = [
 	{
 		matchType: 'ts-dynamic-template-literal',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
+		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
 	{
 		matchType: 'ts-dynamic-concat',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
+		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
@@ -162,8 +170,54 @@ function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	return result;
 }
 
-function extractMatches(source: string, filePath: string, descriptors: PatternDescriptor[]): KeyUsage[] {
-	const matches: KeyUsage[] = [];
+function firstCallArgument(argumentList: string): string {
+	let depth = 0;
+	let stringDelimiter: string | null = null;
+
+	for (let i = 0; i < argumentList.length; i += 1) {
+		const char = argumentList[i];
+
+		if (stringDelimiter) {
+			if (char === stringDelimiter && argumentList[i - 1] !== '\\') {
+				stringDelimiter = null;
+			}
+			continue;
+		}
+
+		if (char === '\'' || char === '"' || char === '`') {
+			stringDelimiter = char;
+			continue;
+		}
+
+		if (char === '(' || char === '[' || char === '{') {
+			depth += 1;
+			continue;
+		}
+
+		if (char === ')' || char === ']' || char === '}') {
+			depth -= 1;
+			continue;
+		}
+
+		if (char === ',' && depth === 0) {
+			return argumentList.slice(0, i);
+		}
+	}
+
+	return argumentList;
+}
+
+function leadingLiteralPrefix(expression: string): string | null {
+	const match = /['"`]([A-Za-z0-9_.-]*)['"`]/.exec(expression);
+	if (!match) {
+		return null;
+	}
+
+	const prefix = match[1];
+	return prefix.endsWith('.') ? prefix : null;
+}
+
+function extractMatches(source: string, filePath: string, descriptors: PatternDescriptor[]): KeyUsage[] {	const matches: KeyUsage[] = [];
 
 	for (const descriptor of descriptors) {
 		const regex = new RegExp(descriptor.regex.source, descriptor.regex.flags);
@@ -172,6 +226,48 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 		while (match) {
 			const keyIndex = descriptor.keyCaptureIndex ?? 1;
 			const rawKey = match[keyIndex]?.trim();
+
+			if (descriptor.literalKeyExtraction) {
+				const argumentSource = firstCallArgument(match[keyIndex] ?? '');
+				const lineCol = getLineColumn(source, match.index);
+				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
+
+				if (isDynamicArgument) {
+					matches.push({
+						key: argumentSource.trim(),
+						filePath,
+						line: lineCol.line,
+						column: lineCol.column,
+						matchType: 'ts-dynamic-translate-call',
+						isDynamic: true
+					});
+
+					match = regex.exec(source);
+					continue;
+				}
+
+				const literalRegex = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
+				let literalMatch: RegExpExecArray | null = literalRegex.exec(argumentSource);
+
+				while (literalMatch) {
+					const literalKey = literalMatch[1]?.trim();
+					if (literalKey) {
+						matches.push({
+							key: literalKey,
+							filePath,
+							line: lineCol.line,
+							column: lineCol.column,
+							matchType: descriptor.matchType,
+							isDynamic: descriptor.dynamic
+						});
+					}
+
+					literalMatch = literalRegex.exec(argumentSource);
+				}
+
+				match = regex.exec(source);
+				continue;
+			}
 
 			if (rawKey) {
 				const lineCol = getLineColumn(source, match.index);
@@ -434,7 +530,7 @@ export const angularScanAdapter: ScanAdapter = {
 			const source = await fs.readFile(filePath);
 			const descriptors = filePath.endsWith('.html')
 				? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS]
-				: [...STATIC_TS_PATTERNS, ...DYNAMIC_PATTERNS];
+				: [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
 			used.push(...extractMatches(source, filePath, descriptors));
 		}
 
@@ -445,6 +541,7 @@ export const angularScanAdapter: ScanAdapter = {
 		const findings: Finding[] = [];
 		const staticUsage = new Set<string>();
 		const dynamicUsage = new Map<string, KeyUsage>();
+		const dynamicPrefixes = new Map<string, KeyUsage>();
 		const allDefined = new Set(input.definedKeys);
 
 		for (const usage of input.usedKeys) {
@@ -452,11 +549,26 @@ export const angularScanAdapter: ScanAdapter = {
 				if (!dynamicUsage.has(usage.key)) {
 					dynamicUsage.set(usage.key, usage);
 				}
+
+				const prefix = leadingLiteralPrefix(usage.key);
+				if (prefix && !dynamicPrefixes.has(prefix)) {
+					dynamicPrefixes.set(prefix, usage);
+				}
 				continue;
 			}
 
 			staticUsage.add(usage.key);
 		}
+
+		const matchDynamicPrefix = (key: string): KeyUsage | undefined => {
+			for (const [prefix, usage] of dynamicPrefixes.entries()) {
+				if (key.startsWith(prefix)) {
+					return usage;
+				}
+			}
+
+			return undefined;
+		};
 
 		for (const key of uniqueSorted([...allDefined])) {
 			if (staticUsage.has(key)) {
@@ -475,6 +587,27 @@ export const angularScanAdapter: ScanAdapter = {
 							column: usage.column,
 							matchType: usage.matchType
 						}))
+				});
+				continue;
+			}
+
+			const dynamicEvidence = matchDynamicPrefix(key);
+			if (dynamicEvidence) {
+				findings.push({
+					id: `dynamic-key:${key}`,
+					adapterId: this.id,
+					key,
+					status: 'dynamic-uncertain',
+					severity: 'warning',
+					message: `Key "${key}" is likely used through a dynamic translation expression and could not be confirmed statically.`,
+					evidence: [
+						{
+							filePath: dynamicEvidence.filePath,
+							line: dynamicEvidence.line,
+							column: dynamicEvidence.column,
+							matchType: dynamicEvidence.matchType
+						}
+					]
 				});
 				continue;
 			}

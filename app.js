@@ -18,15 +18,22 @@ function createWindow() {
 	})
 	remoteMain.enable(mainWindow.webContents);
 
-	mainWindow.loadURL(
-		url.format({
-			pathname: path.join(__dirname, `/dist/check-i18n/browser/index.html`),
-			protocol: "file:",
-			slashes: true
-		})
-	);
-	// Open the DevTools.
-	mainWindow.webContents.openDevTools()
+	const startUrl = process.env.ELECTRON_START_URL;
+	if (startUrl) {
+		mainWindow.loadURL(startUrl);
+	} else {
+		mainWindow.loadURL(
+			url.format({
+				pathname: path.join(__dirname, `/dist/check-i18n/browser/index.html`),
+				protocol: "file:",
+				slashes: true
+			})
+		);
+	}
+
+	if (startUrl) {
+		mainWindow.webContents.openDevTools();
+	}
 
 	mainWindow.setMenu(null);
 

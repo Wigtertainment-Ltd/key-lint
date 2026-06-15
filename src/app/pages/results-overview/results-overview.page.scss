@@ -126,7 +126,7 @@
 .table-scroll {
 	flex: 1;
 	height: 100%;
-	overflow-y: auto;
+	overflow: auto;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -143,7 +143,9 @@
 }
 
 table {
-	width: 100%;
+	width: max-content;
+	min-width: 100%;
+	min-width: 980px;
 	border-collapse: collapse;
 }
 
