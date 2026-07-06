@@ -32,6 +32,7 @@ export interface KeyUsage {
 	filePath: string;
 	line?: number;
 	column?: number;
+	snippet?: string;
 	matchType?: string;
 	isDynamic?: boolean;
 }

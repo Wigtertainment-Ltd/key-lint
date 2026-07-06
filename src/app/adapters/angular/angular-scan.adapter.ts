@@ -141,6 +141,21 @@ function getLineColumn(source: string, index: number): { line: number; column: n
 	return { line, column };
 }
 
+function extractSnippet(source: string, index: number): string {
+	const lineStart = source.lastIndexOf('\n', index - 1) + 1;
+	const lineEndIndex = source.indexOf('\n', index);
+	const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
+	const currentLine = source.slice(lineStart, lineEnd).trim();
+
+	if (currentLine) {
+		return currentLine;
+	}
+
+	const from = Math.max(0, index - 80);
+	const to = Math.min(source.length, index + 120);
+	return source.slice(from, to).replace(/\s+/g, ' ').trim();
+}
+
 function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	if (value === null || value === undefined) {
 		return [];
@@ -226,6 +241,7 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 		while (match) {
 			const keyIndex = descriptor.keyCaptureIndex ?? 1;
 			const rawKey = match[keyIndex]?.trim();
+			const snippet = extractSnippet(source, match.index);
 
 			if (descriptor.literalKeyExtraction) {
 				const argumentSource = firstCallArgument(match[keyIndex] ?? '');
@@ -238,6 +254,7 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 						filePath,
 						line: lineCol.line,
 						column: lineCol.column,
+						snippet,
 						matchType: 'ts-dynamic-translate-call',
 						isDynamic: true
 					});
@@ -257,6 +274,7 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 							filePath,
 							line: lineCol.line,
 							column: lineCol.column,
+							snippet,
 							matchType: descriptor.matchType,
 							isDynamic: descriptor.dynamic
 						});
@@ -276,6 +294,7 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 					filePath,
 					line: lineCol.line,
 					column: lineCol.column,
+					snippet,
 					matchType: descriptor.matchType,
 					isDynamic: descriptor.dynamic
 				});
@@ -585,6 +604,7 @@ export const angularScanAdapter: ScanAdapter = {
 							filePath: usage.filePath,
 							line: usage.line,
 							column: usage.column,
+							snippet: usage.snippet,
 							matchType: usage.matchType
 						}))
 				});
@@ -605,6 +625,7 @@ export const angularScanAdapter: ScanAdapter = {
 							filePath: dynamicEvidence.filePath,
 							line: dynamicEvidence.line,
 							column: dynamicEvidence.column,
+							snippet: dynamicEvidence.snippet,
 							matchType: dynamicEvidence.matchType
 						}
 					]
@@ -636,6 +657,7 @@ export const angularScanAdapter: ScanAdapter = {
 						filePath: evidence.filePath,
 						line: evidence.line,
 						column: evidence.column,
+						snippet: evidence.snippet,
 						matchType: evidence.matchType
 					}
 				]
@@ -659,6 +681,7 @@ export const angularScanAdapter: ScanAdapter = {
 					filePath: usage.filePath,
 					line: usage.line,
 					column: usage.column,
+					snippet: usage.snippet,
 					matchType: usage.matchType
 				}))
 			});

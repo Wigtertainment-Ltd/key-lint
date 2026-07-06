@@ -3,6 +3,37 @@
 /* You can add global styles to this file, and also import other style files */
 html,
 body {
+	height: 100%;
 	margin: 0;
 	padding: 0;
+}
+
+:root {
+	--app-scrollbar-size: 8px;
+	--app-scrollbar-track: transparent;
+	--app-scrollbar-thumb: #c7c4d7;
+	--app-scrollbar-thumb-hover: #b3b0c4;
+}
+
+.custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+	width: var(--app-scrollbar-size);
+	height: var(--app-scrollbar-size);
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: var(--app-scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: var(--app-scrollbar-thumb);
+	border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: var(--app-scrollbar-thumb-hover);
 }

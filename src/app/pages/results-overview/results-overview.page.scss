@@ -20,15 +20,23 @@
 	--tertiary-fixed: #ffdcc3;
 	--mono: 'JetBrains Mono', monospace;
 
-	display: block;
+	display: flex;
+	flex-direction: column;
 	height: 100%;
+	min-height: 0;
+	min-width: 0;
+	overflow: hidden;
 	background: var(--surface-container-low);
 }
 
 .keys-shell {
-	height: 100%;
+	flex: 1;
+	height: auto;
+	width: 100%;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 430px;
+	min-height: 0;
+	min-width: 0;
 	overflow: hidden;
 
 	&.drawer-closed {
@@ -40,6 +48,8 @@
 	background: var(--surface-container-low);
 	display: flex;
 	flex-direction: column;
+	min-height: 0;
+	min-width: 0;
 	overflow: hidden;
 }
 
@@ -125,21 +135,11 @@
 
 .table-scroll {
 	flex: 1;
-	height: 100%;
-	overflow: auto;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-	width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-	background: var(--outline-variant);
-	border-radius: 10px;
+	min-height: 0;
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: auto;
+	scrollbar-gutter: stable both-edges;
 }
 
 table {
@@ -282,6 +282,7 @@ tbody tr.selected .key-cell {
 	border-left: 1px solid var(--outline-variant);
 	display: flex;
 	flex-direction: column;
+	min-height: 0;
 	min-width: 0;
 
 	&.hidden {
@@ -330,6 +331,7 @@ tbody tr.selected .key-cell {
 
 .details-scroll {
 	flex: 1;
+	min-height: 0;
 	overflow: auto;
 	padding: 1rem;
 	display: flex;
@@ -430,7 +432,7 @@ pre {
 		line-height: 18px;
 		color: #f3effb;
 		white-space: pre-wrap;
-		word-break: break-word;
+		overflow-wrap: anywhere;
 	}
 }
 

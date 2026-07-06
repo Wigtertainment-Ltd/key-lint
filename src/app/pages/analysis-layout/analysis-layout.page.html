@@ -11,7 +11,12 @@
 		</button>
 
 		<nav class="nav-links">
-			<a class="nav-item" routerLink="/scan-progress/results" routerLinkActive="active">
+			<a
+				class="nav-item"
+				routerLink="/scan-progress"
+				routerLinkActive="active"
+				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+			>
 				<span class="material-symbols-outlined">dashboard</span>
 				<span>Dashboard</span>
 			</a>
@@ -19,7 +24,12 @@
 				<span class="material-symbols-outlined">translate</span>
 				<span>Translation Keys</span>
 			</a>
-			<a class="nav-item" routerLink="/scan-progress/results" routerLinkActive="active">
+			<a
+				class="nav-item"
+				routerLink="/scan-progress/results"
+				routerLinkActive="active"
+				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+			>
 				<span class="material-symbols-outlined">analytics</span>
 				<span>Analysis Results</span>
 			</a>
