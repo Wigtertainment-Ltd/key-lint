@@ -1,25 +1,4 @@
 :host {
-	--outline-variant: #c7c4d7;
-	--outline: #777586;
-	--surface: #fcf8ff;
-	--surface-container-lowest: #ffffff;
-	--surface-container-low: #f6f2fe;
-	--surface-container: #f0ecf8;
-	--surface-container-high: #eae6f3;
-	--surface-container-highest: #e4e1ed;
-	--inverse-surface: #302f39;
-	--on-surface: #1b1b23;
-	--on-surface-variant: #464554;
-	--primary: #2a14b4;
-	--primary-container: #4338ca;
-	--secondary: #006c4a;
-	--secondary-container: #82f5c1;
-	--error: #ba1a1a;
-	--error-container: #ffdad6;
-	--tertiary: #5c2f00;
-	--tertiary-fixed: #ffdcc3;
-	--mono: 'JetBrains Mono', monospace;
-
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -30,17 +9,19 @@
 }
 
 .keys-shell {
+	--drawer-width: 430px;
 	flex: 1;
 	height: auto;
 	width: 100%;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 430px;
+	grid-template-columns: minmax(0, 1fr) var(--drawer-width);
 	min-height: 0;
 	min-width: 0;
 	overflow: hidden;
+	transition: grid-template-columns 220ms ease;
 
 	&.drawer-closed {
-		grid-template-columns: minmax(0, 1fr);
+		--drawer-width: 0px;
 	}
 }
 
@@ -284,9 +265,19 @@ tbody tr.selected .key-cell {
 	flex-direction: column;
 	min-height: 0;
 	min-width: 0;
+	overflow: hidden;
+	opacity: 1;
+	transform: translateX(0);
+	visibility: visible;
+	transition: opacity 180ms ease, transform 220ms ease, border-color 180ms ease;
+	will-change: opacity, transform;
 
 	&.hidden {
-		display: none;
+		opacity: 0;
+		transform: translateX(18px);
+		visibility: hidden;
+		pointer-events: none;
+		border-left-color: transparent;
 	}
 }
 
@@ -496,12 +487,21 @@ pre {
 @media (max-width: 760px) {
 	.keys-shell {
 		grid-template-columns: 1fr;
+		transition: none;
 	}
 
 	.details-pane {
 		border-left: 0;
 		border-top: 1px solid var(--outline-variant);
 		max-height: 45vh;
+		transition: none;
+		opacity: 1;
+		transform: none;
+		visibility: visible;
+
+		&.hidden {
+			display: none;
+		}
 	}
 
 	.toolbar-right {

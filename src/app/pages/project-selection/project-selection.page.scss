@@ -1,20 +1,4 @@
 :host {
-	--surface: #fcf8ff;
-	--surface-container-lowest: #ffffff;
-	--surface-container-low: #f6f2fe;
-	--surface-container: #f0ecf8;
-	--on-surface: #1b1b23;
-	--on-surface-variant: #464554;
-	--outline: #777586;
-	--outline-variant: #c7c4d7;
-	--primary: #2a14b4;
-	--primary-container: #4338ca;
-	--on-primary: #ffffff;
-	--error: #ba1a1a;
-	--error-container: #ffdad6;
-	--mono: 'JetBrains Mono', monospace;
-	--sans: 'Inter', sans-serif;
-
 	display: block;
 	min-height: 100vh;
 	font-family: var(--sans);
@@ -271,12 +255,6 @@
 	letter-spacing: 0.05em;
 	color: var(--outline);
 	text-transform: uppercase;
-}
-
-.material-symbols-outlined {
-	font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-	line-height: 1;
-	vertical-align: middle;
 }
 
 @media (max-width: 640px) {

@@ -9,6 +9,34 @@ body {
 }
 
 :root {
+	/* Global design tokens for all pages/components */
+	--surface: #fcf8ff;
+	--surface-container-lowest: #ffffff;
+	--surface-container-low: #f6f2fe;
+	--surface-container: #f0ecf8;
+	--surface-container-high: #eae6f3;
+	--surface-container-highest: #e4e1ed;
+	--surface-variant: #e4e1ed;
+	--inverse-surface: #302f39;
+	--on-surface: #1b1b23;
+	--on-surface-variant: #464554;
+	--on-background: #1b1b23;
+	--primary: #2a14b4;
+	--on-primary: #ffffff;
+	--primary-container: #4338ca;
+	--on-primary-container: #e3dfff;
+	--primary-fixed-dim: #c3c0ff;
+	--secondary: #006c4a;
+	--secondary-container: #82f5c1;
+	--tertiary: #5c2f00;
+	--tertiary-fixed: #ffdcc3;
+	--error: #ba1a1a;
+	--error-container: #ffdad6;
+	--outline: #777586;
+	--outline-variant: #c7c4d7;
+	--sans: 'Inter', sans-serif;
+	--mono: 'JetBrains Mono', monospace;
+
 	--app-scrollbar-size: 8px;
 	--app-scrollbar-track: transparent;
 	--app-scrollbar-thumb: #c7c4d7;
@@ -36,4 +64,10 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: var(--app-scrollbar-thumb-hover);
+}
+
+.material-symbols-outlined {
+	font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+	line-height: 1;
+	vertical-align: middle;
 }

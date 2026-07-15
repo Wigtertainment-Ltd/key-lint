@@ -1,19 +1,4 @@
 :host {
-	--outline-variant: #c7c4d7;
-	--surface: #fcf8ff;
-	--on-surface: #1b1b23;
-	--on-surface-variant: #464554;
-	--primary: #2a14b4;
-	--on-primary: #ffffff;
-	--primary-container: #4338ca;
-	--on-primary-container: #e3dfff;
-	--surface-container-low: #f6f2fe;
-	--surface-container: #f0ecf8;
-	--surface-container-high: #eae6f3;
-	--surface-container-highest: #e4e1ed;
-	--mono: 'JetBrains Mono', monospace;
-	--sans: 'Inter', sans-serif;
-
 	display: block;
 	height: 100vh;
 	overflow: hidden;
@@ -301,11 +286,6 @@
 			background: var(--surface-container-highest);
 		}
 	}
-}
-
-.material-symbols-outlined {
-	font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-	line-height: 1;
 }
 
 .side-nav.collapsed {
