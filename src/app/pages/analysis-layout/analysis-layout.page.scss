@@ -192,6 +192,10 @@
 	padding: 1rem 1.25rem 1.25rem;
 }
 
+.content-shell.edge-to-edge {
+	padding: 0;
+}
+
 .top-bar {
 	height: 64px;
 	border-bottom: 1px solid var(--outline-variant);
@@ -414,6 +418,10 @@
 
 	.content-shell {
 		padding: 0.75rem;
+	}
+
+	.content-shell.edge-to-edge {
+		padding: 0;
 	}
 
 	.project-info {

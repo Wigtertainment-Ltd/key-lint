@@ -55,6 +55,10 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 		return segments.at(-1) ?? this.projectPath;
 	}
 
+	get isEdgeToEdgeContent(): boolean {
+		return this.router.url.includes('/scan-progress/results');
+	}
+
 	startNewAnalysis(): void {
 		this.scanOrchestrationService.reset();
 		void this.router.navigate(['/']);
