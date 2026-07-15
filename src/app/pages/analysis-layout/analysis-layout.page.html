@@ -1,65 +1,74 @@
-<div class="scan-layout">
-	<aside class="side-nav">
+<div class="scan-layout" [class.sidebar-collapsed]="isSidebarCollapsed">
+	<aside class="side-nav" [class.collapsed]="isSidebarCollapsed">
 		<div class="brand">
-			<h1>i18n Analyzer</h1>
+			<h1 class="brand-full">i18n Analyzer</h1>
+			<h1 class="brand-compact" title="i18n Analyzer">iA</h1>
 			<p>v2.4.0-stable</p>
 		</div>
 
-		<button class="new-analysis-btn" type="button" (click)="startNewAnalysis()">
+		<button class="new-analysis-btn" type="button" (click)="startNewAnalysis()" title="New Analysis">
 			<span class="material-symbols-outlined">add</span>
-			New Analysis
+			<span class="label">New Analysis</span>
 		</button>
 
 		<nav class="nav-links">
 			<a
 				class="nav-item"
+				title="Dashboard"
 				routerLink="/scan-progress"
 				routerLinkActive="active"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
 				<span class="material-symbols-outlined">dashboard</span>
-				<span>Dashboard</span>
+				<span class="label">Dashboard</span>
 			</a>
-			<a class="nav-item">
+			<a class="nav-item" title="Translation Keys">
 				<span class="material-symbols-outlined">translate</span>
-				<span>Translation Keys</span>
+				<span class="label">Translation Keys</span>
 			</a>
 			<a
 				class="nav-item"
+				title="Analysis Results"
 				routerLink="/scan-progress/results"
 				routerLinkActive="active"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
 				<span class="material-symbols-outlined">analytics</span>
-				<span>Analysis Results</span>
+				<span class="label">Analysis Results</span>
 			</a>
-			<a class="nav-item">
+			<a class="nav-item" title="Integrations">
 				<span class="material-symbols-outlined">extension</span>
-				<span>Integrations</span>
+				<span class="label">Integrations</span>
 			</a>
-			<a class="nav-item">
+			<a class="nav-item" title="Settings">
 				<span class="material-symbols-outlined">settings</span>
-				<span>Settings</span>
+				<span class="label">Settings</span>
 			</a>
 		</nav>
 
 		<div class="side-bottom">
-			<a class="nav-item">
+			<a class="nav-item" title="Documentation">
 				<span class="material-symbols-outlined">menu_book</span>
-				<span>Documentation</span>
+				<span class="label">Documentation</span>
 			</a>
-			<a class="nav-item">
+			<a class="nav-item" title="Support">
 				<span class="material-symbols-outlined">contact_support</span>
-				<span>Support</span>
+				<span class="label">Support</span>
 			</a>
 		</div>
 	</aside>
 
 	<main class="main-content">
 		<header class="top-bar">
-			<div class="project-info">
+			<div class="top-left">
+				<button class="menu-toggle-btn" type="button" (click)="toggleSidebar()" [attr.aria-expanded]="!isSidebarCollapsed" aria-label="Toggle menu" title="Toggle menu">
+					<span class="material-symbols-outlined">menu</span>
+				</button>
+
+				<div class="project-info">
 				<h4 [title]="displayProjectPath">Project: {{ displayProjectName }}</h4>
 				<span class="last-scan-chip">Last Scan: {{ lastScanText }}</span>
+				</div>
 			</div>
 
 			<div class="top-right">

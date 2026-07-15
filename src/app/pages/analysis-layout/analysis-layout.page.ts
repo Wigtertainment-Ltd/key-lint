@@ -13,6 +13,7 @@ import { ScanOrchestrationService } from '../../shared/services/scan-orchestrati
 export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	projectPath = '';
 	lastScanText = 'Running now';
+	isSidebarCollapsed = false;
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -57,5 +58,9 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	startNewAnalysis(): void {
 		this.scanOrchestrationService.reset();
 		void this.router.navigate(['/']);
+	}
+
+	toggleSidebar(): void {
+		this.isSidebarCollapsed = !this.isSidebarCollapsed;
 	}
 }
