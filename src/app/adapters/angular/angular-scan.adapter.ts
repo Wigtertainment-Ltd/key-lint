@@ -5,6 +5,7 @@ import {
 	ScanAdapter
 } from '../../core/adapters/scan-adapter.interface';
 import { Finding } from '../../core/models/finding.model';
+import { TranslationMatrix } from '../../core/models/scan-result.model';
 
 interface PatternDescriptor {
 	matchType: string;
@@ -311,6 +312,67 @@ function uniqueSorted(values: string[]): string[] {
 	return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
+function flattenTranslationValueObject(
+	value: unknown,
+	prefix = '',
+	collector: Record<string, string>
+): void {
+	if (value === null || value === undefined) {
+		if (prefix) {
+			collector[prefix] = '';
+		}
+		return;
+	}
+
+	if (Array.isArray(value)) {
+		if (prefix) {
+			collector[prefix] = JSON.stringify(value);
+		}
+		return;
+	}
+
+	if (typeof value !== 'object') {
+		if (prefix) {
+			collector[prefix] = String(value);
+		}
+		return;
+	}
+
+	const entries = Object.entries(value as Record<string, unknown>);
+	if (entries.length === 0 && prefix) {
+		collector[prefix] = '';
+		return;
+	}
+
+	for (const [key, child] of entries) {
+		const nextPrefix = prefix ? `${prefix}.${key}` : key;
+		if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
+			flattenTranslationValueObject(child, nextPrefix, collector);
+			continue;
+		}
+
+		if (child === null || child === undefined) {
+			collector[nextPrefix] = '';
+			continue;
+		}
+
+		collector[nextPrefix] = Array.isArray(child) ? JSON.stringify(child) : String(child);
+	}
+}
+
+function inferLocaleFromTranslationFile(filePath: string): string {
+	const normalized = normalizePath(filePath);
+	const fileName = normalized.split('/').at(-1) ?? normalized;
+	const withoutExtension = fileName.replace(/\.[^.]+$/, '');
+	const dottedParts = withoutExtension.split('.').filter(Boolean);
+
+	if (dottedParts.length > 1) {
+		return dottedParts.at(-1) ?? withoutExtension;
+	}
+
+	return withoutExtension;
+}
+
 function getParentDirectory(path: string): string {
 	const normalized = normalizePath(path).replace(/\/$/, '');
 	const lastSlash = normalized.lastIndexOf('/');
@@ -530,6 +592,49 @@ export const angularScanAdapter: ScanAdapter = {
 		}
 
 		return uniqueSorted(allKeys);
+	},
+
+	async buildTranslationMatrix(translationFiles: string[], fs: FileSystemAdapter): Promise<TranslationMatrix> {
+		const localeToValues = new Map<string, Record<string, string>>();
+
+		for (const filePath of translationFiles) {
+			try {
+				const raw = await fs.readFile(filePath);
+				const parsed = JSON.parse(raw) as Record<string, unknown>;
+				const locale = inferLocaleFromTranslationFile(filePath);
+				const flattened: Record<string, string> = {};
+				flattenTranslationValueObject(parsed, '', flattened);
+
+				const existing = localeToValues.get(locale) ?? {};
+				localeToValues.set(locale, {
+					...existing,
+					...flattened
+				});
+			} catch {
+				// Invalid translation files are ignored here and reflected by findings/rule checks.
+			}
+		}
+
+		const locales = uniqueSorted([...localeToValues.keys()]);
+		const allKeys = uniqueSorted(
+			locales.flatMap((locale) => Object.keys(localeToValues.get(locale) ?? {}))
+		);
+
+		const rows = allKeys.map((key) => {
+			const values: Record<string, string> = {};
+			for (const locale of locales) {
+				const localeValues = localeToValues.get(locale) ?? {};
+				values[locale] = localeValues[key] ?? '';
+			}
+
+			return { key, values };
+		});
+
+		return {
+			locales,
+			rows,
+			totalKeys: rows.length
+		};
 	},
 
 	async extractUsedKeys(context: ProjectContext, fs: FileSystemAdapter) {

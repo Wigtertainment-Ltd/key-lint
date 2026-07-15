@@ -29,8 +29,9 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		{ id: 1, title: 'Detecting framework', trigger: 'Detecting project adapter' },
 		{ id: 2, title: 'Discovering translation files', trigger: 'Collecting translation files' },
 		{ id: 3, title: 'Extracting keys', trigger: 'Extracting translation keys' },
-		{ id: 4, title: 'Evaluating source code usage', trigger: 'Scanning source key usage' },
-		{ id: 5, title: 'Running rule evaluation', trigger: 'Evaluating scan rules' }
+		{ id: 4, title: 'Building translation table', trigger: 'Building translation matrix' },
+		{ id: 5, title: 'Evaluating source code usage', trigger: 'Scanning source key usage' },
+		{ id: 6, title: 'Running rule evaluation', trigger: 'Evaluating scan rules' }
 	];
 
 	logLines: string[] = [

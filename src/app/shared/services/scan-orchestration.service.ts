@@ -170,6 +170,15 @@ export class ScanOrchestrationService {
 			this.stateSubject.next({ state: 'running', stage: 'Extracting translation keys...' });
 			const definedKeys = await adapter.extractDefinedKeys(translationFiles, this.fsAdapter);
 
+			this.stateSubject.next({ state: 'running', stage: 'Building translation matrix...' });
+			const translationMatrix = adapter.buildTranslationMatrix
+				? await adapter.buildTranslationMatrix(translationFiles, this.fsAdapter)
+				: {
+					locales: [],
+					rows: [],
+					totalKeys: 0
+				};
+
 			this.stateSubject.next({ state: 'running', stage: 'Scanning source key usage...' });
 			const usedKeys = await adapter.extractUsedKeys(context, this.fsAdapter);
 
@@ -190,12 +199,14 @@ export class ScanOrchestrationService {
 				summary: buildSummary(findings, definedKeys.length),
 				findings,
 				errors: [],
+				translationMatrix,
 				metadata: {
 					selectedProjectRoot: normalizedProjectRoot,
 					adapterDetectionReason: adapterMatch.detection.reason,
 					adapterDetectionConfidence: adapterMatch.detection.confidence,
 					translationFileCount: translationFiles.length,
-					usedKeyEvidenceCount: usedKeys.length
+					usedKeyEvidenceCount: usedKeys.length,
+					translationLocaleCount: translationMatrix.locales.length
 				}
 			};
 

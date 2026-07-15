@@ -329,4 +329,47 @@ describe('angularScanAdapter', () => {
 		expect(usedKeys.some((item) => item.key === 'cosmos-button')).toBeFalse();
 		expect(usedKeys.some((item) => item.key === 'div')).toBeFalse();
 	});
+
+	it('builds translation matrix with all locales and empty values for missing keys', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json':
+				'{"COMMON":{"HELLO":"Hello","BYE":"Bye"},"PROFILE":{"TITLE":"Profile"}}',
+			'workspace/project/src/assets/i18n/de.json':
+				'{"COMMON":{"HELLO":"Hallo"},"PROFILE":{"TITLE":"Profil"}}'
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const matrix = await angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs);
+
+		expect(matrix).toBeDefined();
+		expect(matrix?.locales).toEqual(['de', 'en']);
+		expect(matrix?.totalKeys).toBe(3);
+
+		const byeRow = matrix?.rows.find((row) => row.key === 'COMMON.BYE');
+		expect(byeRow).toBeDefined();
+		expect(byeRow?.values['en']).toBe('Bye');
+		expect(byeRow?.values['de']).toBe('');
+	});
+
+	it('merges multiple files per locale when building matrix', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/common.en.json': '{"COMMON":{"OK":"OK"}}',
+			'workspace/project/src/assets/i18n/feature.en.json': '{"FEATURE":{"NAME":"Feature"}}',
+			'workspace/project/src/assets/i18n/common.fr.json': '{"COMMON":{"OK":"D\'accord"}}'
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const matrix = await angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs);
+
+		expect(matrix?.locales).toEqual(['en', 'fr']);
+		const commonRow = matrix?.rows.find((row) => row.key === 'COMMON.OK');
+		const featureRow = matrix?.rows.find((row) => row.key === 'FEATURE.NAME');
+
+		expect(commonRow?.values['en']).toBe('OK');
+		expect(commonRow?.values['fr']).toBe('D\'accord');
+		expect(featureRow?.values['en']).toBe('Feature');
+		expect(featureRow?.values['fr']).toBe('');
+	});
 });

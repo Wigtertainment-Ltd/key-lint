@@ -22,7 +22,13 @@
 				<span class="material-symbols-outlined">dashboard</span>
 				<span class="label">Dashboard</span>
 			</a>
-			<a class="nav-item" title="Translation Keys">
+			<a
+				class="nav-item"
+				title="Translation Keys"
+				routerLink="/scan-progress/translation-keys"
+				routerLinkActive="active"
+				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+			>
 				<span class="material-symbols-outlined">translate</span>
 				<span class="label">Translation Keys</span>
 			</a>

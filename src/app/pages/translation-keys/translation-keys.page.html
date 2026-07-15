@@ -1,0 +1,128 @@
+<main class="keys-shell" [class.drawer-closed]="!selectedRow">
+	<section class="findings-pane">
+		<header class="table-toolbar">
+			<div class="chip-row">
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'all'"
+					(click)="onFilterChange('all')"
+				>
+					All ({{ allFilterCount }})
+				</button>
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'missing'"
+					(click)="onFilterChange('missing')"
+				>
+					Missing ({{ missingFilterCount }})
+				</button>
+			</div>
+
+			<div class="toolbar-right">
+				<span class="result-count">{{ totalRowsLabel }}</span>
+				<label class="search-box">
+					<span class="material-symbols-outlined">search</span>
+					<input
+						type="text"
+						placeholder="Search key"
+						(input)="onSearchChange(($any($event.target).value ?? '').toString())"
+					/>
+				</label>
+			</div>
+		</header>
+
+		<div class="table-scroll custom-scrollbar">
+			@if (!locales.length || !matrix.rows.length) {
+				<div class="empty-state">
+					No translation data available yet. Run an analysis to populate this table.
+				</div>
+			} @else {
+				<table>
+					<thead>
+						<tr>
+							<th>Key Name</th>
+							<th>Locales</th>
+							<th>Missing Locales</th>
+						</tr>
+					</thead>
+					<tbody>
+						@for (row of filteredRows; track row.key) {
+							<tr
+								(click)="onSelectRow(row)"
+								(keydown)="onRowKeydown($event, row)"
+								[class.selected]="selectedRow?.key === row.key"
+								tabindex="0"
+							>
+								<td><span class="key-cell">{{ row.key }}</span></td>
+								<td>
+									<span class="status-pill" [class.missing]="isRowMissing(row)" [class.used]="!isRowMissing(row)">
+										{{ localeStatusLabel(row) }}
+									</span>
+								</td>
+								<td class="path-cell">{{ missingLocalesLabel(row) }}</td>
+							</tr>
+						} @empty {
+							<tr>
+								<td colspan="3" class="empty-state">No keys matched your current filter.</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+	</section>
+
+	<aside class="details-pane" [class.hidden]="!selectedRow">
+		@if (selectedRow) {
+			<header class="details-head">
+				<div>
+					<p class="eyebrow">Translation Key</p>
+					<h3>{{ selectedRow.key }}</h3>
+				</div>
+				<button type="button" class="icon-button" (click)="closeDetailPanel()">
+					<span class="material-symbols-outlined">close</span>
+				</button>
+			</header>
+
+			<div class="details-scroll custom-scrollbar">
+				<section class="detail-section">
+					<div class="status-row">
+						<span class="status-pill" [class.missing]="selectedMissingLocales.length > 0" [class.used]="selectedMissingLocales.length === 0">
+							Coverage {{ selectedCoverageLabel }}
+						</span>
+						<span class="severity-label">{{ selectedMissingLocales.length }} missing locale(s)</span>
+					</div>
+					<p class="detail-message">
+						@if (selectedMissingLocales.length) {
+							Missing in: {{ selectedMissingLocales.join(', ') }}
+						} @else {
+							This key is available in all detected locales.
+						}
+					</p>
+				</section>
+
+				<section class="detail-section">
+					<div class="section-head">
+						<h4>Values by Locale</h4>
+						<button type="button" class="link-button" (click)="copySelectedKey()">
+							<span class="material-symbols-outlined">content_copy</span>
+							{{ keyCopied ? 'Copied' : 'Copy key' }}
+						</button>
+					</div>
+					<div class="translations-list">
+						@for (locale of locales; track locale) {
+							<div class="translation-item" [class.is-missing]="!valueFor(selectedRow, locale)">
+								<p class="locale-name">{{ locale }}</p>
+								<p class="locale-value" [title]="valueFor(selectedRow, locale)">
+									{{ valueFor(selectedRow, locale) || 'Missing translation' }}
+								</p>
+							</div>
+						}
+					</div>
+				</section>
+			</div>
+		}
+	</aside>
+</main>

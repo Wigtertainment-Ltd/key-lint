@@ -3,6 +3,7 @@ import { ProjectSelectionPage } from './pages/project-selection/project-selectio
 import { ScanProgressPage } from './pages/scan-progress/scan-progress.page';
 import { AnalysisLayoutPage } from './pages/analysis-layout/analysis-layout.page';
 import { ResultsOverviewPage } from './pages/results-overview/results-overview.page';
+import { TranslationKeysPage } from './pages/translation-keys/translation-keys.page';
 
 export const routes: Routes = [
 	{
@@ -16,6 +17,10 @@ export const routes: Routes = [
 			{
 				path: '',
 				component: ScanProgressPage
+			},
+			{
+				path: 'translation-keys',
+				component: TranslationKeysPage
 			},
 			{
 				path: 'results',

@@ -1,5 +1,6 @@
 import { ScannerConfig } from '../config/scanner-defaults';
 import { Finding } from '../models/finding.model';
+import { TranslationMatrix } from '../models/scan-result.model';
 
 export type TranslationFormat = 'json' | 'yaml' | 'xliff' | 'po';
 
@@ -45,6 +46,7 @@ export interface ScanAdapter {
 	collectTranslationFiles(context: ProjectContext, fs: FileSystemAdapter): Promise<string[]>;
 	extractDefinedKeys(translationFiles: string[], fs: FileSystemAdapter): Promise<string[]>;
 	extractUsedKeys(context: ProjectContext, fs: FileSystemAdapter): Promise<KeyUsage[]>;
+	buildTranslationMatrix?(translationFiles: string[], fs: FileSystemAdapter): Promise<TranslationMatrix>;
 	runRules(input: {
 		definedKeys: string[];
 		usedKeys: KeyUsage[];

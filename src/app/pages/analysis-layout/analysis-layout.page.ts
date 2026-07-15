@@ -56,7 +56,10 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	}
 
 	get isEdgeToEdgeContent(): boolean {
-		return this.router.url.includes('/scan-progress/results');
+		return (
+			this.router.url.includes('/scan-progress/results') ||
+			this.router.url.includes('/scan-progress/translation-keys')
+		);
 	}
 
 	startNewAnalysis(): void {

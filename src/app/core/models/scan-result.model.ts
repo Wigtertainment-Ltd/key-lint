@@ -1,5 +1,16 @@
 import { Finding, FindingStatus } from './finding.model';
 
+export interface TranslationMatrixRow {
+	key: string;
+	values: Record<string, string>;
+}
+
+export interface TranslationMatrix {
+	locales: string[];
+	rows: TranslationMatrixRow[];
+	totalKeys: number;
+}
+
 export interface ScanSummary {
 	totalKeys: number;
 	used: number;
@@ -25,6 +36,7 @@ export interface ProjectScanResult {
 	summary: ScanSummary;
 	findings: Finding[];
 	errors: ScanError[];
+	translationMatrix?: TranslationMatrix;
 	metadata?: Record<string, unknown>;
 }
 
