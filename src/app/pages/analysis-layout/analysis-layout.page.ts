@@ -39,6 +39,21 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 		return this.projectPath;
 	}
 
+	get displayProjectName(): string {
+		let normalizedPath = this.projectPath.trim();
+
+		while (normalizedPath.endsWith('/') || normalizedPath.endsWith('\\')) {
+			normalizedPath = normalizedPath.slice(0, -1);
+		}
+
+		if (!normalizedPath) {
+			return this.projectPath;
+		}
+
+		const segments = normalizedPath.split(/[\\/]+/).filter(Boolean);
+		return segments.at(-1) ?? this.projectPath;
+	}
+
 	startNewAnalysis(): void {
 		this.scanOrchestrationService.reset();
 		void this.router.navigate(['/']);

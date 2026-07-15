@@ -58,7 +58,7 @@
 	<main class="main-content">
 		<header class="top-bar">
 			<div class="project-info">
-				<h4>Project: {{ displayProjectPath }}</h4>
+				<h4 [title]="displayProjectPath">Project: {{ displayProjectName }}</h4>
 				<span class="last-scan-chip">Last Scan: {{ lastScanText }}</span>
 			</div>
 
@@ -71,6 +71,8 @@
 			</div>
 		</header>
 
-		<router-outlet></router-outlet>
+		<section class="content-shell">
+			<router-outlet></router-outlet>
+		</section>
 	</main>
 </div>

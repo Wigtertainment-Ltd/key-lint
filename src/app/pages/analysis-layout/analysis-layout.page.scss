@@ -152,9 +152,12 @@
 	background: #ffffff;
 }
 
-.main-content > :not(.top-bar) {
+
+.content-shell {
 	flex: 1;
 	min-height: 0;
+	overflow: auto;
+	padding: 1rem 1.25rem 1.25rem;
 }
 
 .top-bar {
@@ -256,6 +259,10 @@
 		height: 100%;
 	}
 
+	.content-shell {
+		padding: 0.75rem;
+	}
+
 	.project-info {
 		gap: 0.5rem;
 
@@ -263,7 +270,7 @@
 			display: none;
 		}
 
-		h2 {
+		h4 {
 			font-size: 16px;
 			line-height: 24px;
 		}
