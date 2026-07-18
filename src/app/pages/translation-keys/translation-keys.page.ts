@@ -21,6 +21,12 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	selectedKey?: string;
 	isDetailOpen = false;
 	keyCopied = false;
+	isAddTranslationModalOpen = false;
+	addTranslationLocale?: string;
+	addTranslationValue = '';
+	isAddingTranslation = false;
+	addTranslationError = '';
+	addTranslationSuccess = '';
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -60,6 +66,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	onSelectRow(row: TranslationMatrixRow): void {
 		this.selectedKey = row.key;
 		this.isDetailOpen = true;
+		this.addTranslationSuccess = '';
 	}
 
 	onRowKeydown(event: KeyboardEvent, row: TranslationMatrixRow): void {
@@ -73,6 +80,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 
 	closeDetailPanel(): void {
 		this.isDetailOpen = false;
+		this.isAddTranslationModalOpen = false;
 	}
 
 	get matrix(): TranslationMatrix {
@@ -165,6 +173,69 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		setTimeout(() => {
 			this.keyCopied = false;
 		}, 1500);
+	}
+
+	openAddTranslationModal(locale: string): void {
+		if (!this.selectedRow) {
+			return;
+		}
+
+		this.addTranslationLocale = locale;
+		this.addTranslationValue = '';
+		this.addTranslationError = '';
+		this.isAddTranslationModalOpen = true;
+	}
+
+	closeAddTranslationModal(force = false): void {
+		if (this.isAddingTranslation && !force) {
+			return;
+		}
+
+		this.isAddTranslationModalOpen = false;
+		this.addTranslationLocale = undefined;
+		this.addTranslationValue = '';
+		this.addTranslationError = '';
+	}
+
+	onModalBackdropClick(event: MouseEvent): void {
+		if (event.target === event.currentTarget) {
+			this.closeAddTranslationModal();
+		}
+	}
+
+	onModalBackdropKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			this.closeAddTranslationModal();
+		}
+	}
+
+	async addSelectedKeyToLocale(): Promise<void> {
+		if (!this.selectedRow || !this.addTranslationLocale) {
+			return;
+		}
+
+		this.isAddingTranslation = true;
+		this.addTranslationError = '';
+
+		try {
+			await this.scanOrchestrationService.addTranslationKeyForLocale(
+				this.addTranslationLocale,
+				this.selectedRow.key,
+				this.addTranslationValue
+			);
+			this.ensureSelectedRow();
+			this.addTranslationSuccess = `Key added for locale ${this.addTranslationLocale}.`;
+			this.closeAddTranslationModal(true);
+			setTimeout(() => {
+				this.addTranslationSuccess = '';
+			}, 2500);
+		} catch (error) {
+			this.addTranslationError =
+				error instanceof Error ? error.message : 'Unable to add key to translation file.';
+		} finally {
+			this.isAddingTranslation = false;
+		}
 	}
 
 	valueFor(row: TranslationMatrixRow, locale: string): string {

@@ -43,6 +43,39 @@ function matchesAny(path: string, patterns: string[]): boolean {
 	return patterns.some((pattern) => globToRegex(pattern).test(path));
 }
 
+function inferLocaleFromTranslationFile(filePath: string): string {
+	const normalized = normalizePath(filePath);
+	const fileName = normalized.split('/').at(-1) ?? normalized;
+	const withoutExtension = fileName.replace(/\.[^.]+$/, '');
+	const dottedParts = withoutExtension.split('.').filter(Boolean);
+
+	if (dottedParts.length > 1) {
+		return dottedParts.at(-1) ?? withoutExtension;
+	}
+
+	return withoutExtension;
+}
+
+function setNestedTranslationKey(target: Record<string, unknown>, key: string, value: string): void {
+	const segments = key.split('.').map((segment) => segment.trim()).filter(Boolean);
+	if (!segments.length) {
+		return;
+	}
+
+	let cursor: Record<string, unknown> = target;
+	for (let i = 0; i < segments.length - 1; i += 1) {
+		const segment = segments[i];
+		const current = cursor[segment];
+		if (current === null || typeof current !== 'object' || Array.isArray(current)) {
+			cursor[segment] = {};
+		}
+
+		cursor = cursor[segment] as Record<string, unknown>;
+	}
+
+	cursor[segments.at(-1) as string] = value;
+}
+
 class ElectronFileSystemAdapter implements FileSystemAdapter {
 	constructor(private readonly electronService: ElectronService) { }
 
@@ -137,6 +170,104 @@ export class ScanOrchestrationService {
 
 	reset(): void {
 		this.stateSubject.next({ state: 'idle' });
+	}
+
+	async addTranslationKeyForLocale(locale: string, key: string, value: string): Promise<string> {
+		if (!this.electronService.isElectron) {
+			throw new Error('Adding translation keys requires the Electron app runtime.');
+		}
+
+		const currentResult = this.snapshot.result;
+		if (!currentResult) {
+			throw new Error('No scan result available. Run a scan before adding translation keys.');
+		}
+
+		const projectRoot = normalizePath(currentResult.projectRoot);
+		const match = await this.resolveLocaleTranslationFile(projectRoot, locale);
+		const parsed = await this.readTranslationJson(match);
+		setNestedTranslationKey(parsed, key, value);
+		const serialized = `${JSON.stringify(parsed, null, 2)}\n`;
+		this.electronService.fs.writeFileSync(match, serialized, 'utf8');
+		this.updateMatrixWithAddedKey(locale, key, value);
+
+		return match;
+	}
+
+	private async resolveLocaleTranslationFile(projectRoot: string, locale: string): Promise<string> {
+		const translationFiles = await this.fsAdapter.listFiles(
+			projectRoot,
+			DEFAULT_SCANNER_CONFIG.includeTranslationGlobs,
+			DEFAULT_SCANNER_CONFIG.excludeGlobs
+		);
+
+		const normalizedLocale = locale.trim().toLowerCase();
+		const match = translationFiles
+			.map((filePath) => normalizePath(filePath))
+			.sort((a, b) => a.localeCompare(b))
+			.find((filePath) => inferLocaleFromTranslationFile(filePath).toLowerCase() === normalizedLocale);
+
+		if (!match) {
+			throw new Error(`No translation file found for locale "${locale}".`);
+		}
+
+		return match;
+	}
+
+	private async readTranslationJson(filePath: string): Promise<Record<string, unknown>> {
+		try {
+			const raw = await this.fsAdapter.readFile(filePath);
+			const loaded = JSON.parse(raw) as unknown;
+			if (loaded !== null && typeof loaded === 'object' && !Array.isArray(loaded)) {
+				return loaded as Record<string, unknown>;
+			}
+		} catch {
+			// Fall through to create an empty JSON object.
+		}
+
+		return {};
+	}
+
+	private updateMatrixWithAddedKey(locale: string, key: string, value: string): void {
+		const snapshot = this.snapshot;
+		const existingResult = snapshot.result;
+		const existingMatrix = existingResult?.translationMatrix;
+		if (!existingResult || !existingMatrix) {
+			return;
+		}
+
+		const locales = [...existingMatrix.locales];
+		if (!locales.includes(locale)) {
+			locales.push(locale);
+			locales.sort((a, b) => a.localeCompare(b));
+		}
+
+		const updatedRows = [...existingMatrix.rows.map((row) => ({ ...row, values: { ...row.values } }))];
+		const row = updatedRows.find((entry) => entry.key === key);
+
+		if (row) {
+			row.values[locale] = value;
+		} else {
+			const values: Record<string, string> = {};
+			for (const localeName of locales) {
+				values[localeName] = '';
+			}
+			values[locale] = value;
+
+			updatedRows.push({ key, values });
+			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
+		}
+
+		this.stateSubject.next({
+			...snapshot,
+			result: {
+				...existingResult,
+				translationMatrix: {
+					locales,
+					rows: updatedRows,
+					totalKeys: updatedRows.length
+				}
+			}
+		});
 	}
 
 	async scanProject(projectRoot: string): Promise<ProjectScanResult> {

@@ -94,6 +94,9 @@
 						</span>
 						<span class="severity-label">{{ selectedMissingLocales.length }} missing locale(s)</span>
 					</div>
+					@if (addTranslationSuccess) {
+						<p class="success-message">{{ addTranslationSuccess }}</p>
+					}
 					<p class="detail-message">
 						@if (selectedMissingLocales.length) {
 							Missing in: {{ selectedMissingLocales.join(', ') }}
@@ -101,6 +104,16 @@
 							This key is available in all detected locales.
 						}
 					</p>
+					@if (selectedMissingLocales.length) {
+						<div class="missing-actions">
+							@for (locale of selectedMissingLocales; track locale) {
+								<button type="button" class="add-missing-button" (click)="openAddTranslationModal(locale)">
+									<span class="material-symbols-outlined">add</span>
+									Add to {{ locale }} file
+								</button>
+							}
+						</div>
+					}
 				</section>
 
 				<section class="detail-section">
@@ -125,4 +138,43 @@
 			</div>
 		}
 	</aside>
+
+	@if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
+		<dialog class="modal-backdrop" open (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
+			<div class="modal-card">
+				<header class="modal-header">
+					<h4 id="add-translation-title">Add Translation</h4>
+					<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">
+						<span class="material-symbols-outlined">close</span>
+					</button>
+				</header>
+				<p class="modal-context">
+					Key: <span>{{ selectedRow.key }}</span>
+				</p>
+				<p class="modal-context">
+					Locale file: <span>{{ addTranslationLocale }}</span>
+				</p>
+				<label class="modal-label" for="translation-value-input">Translation text</label>
+				<textarea
+					id="translation-value-input"
+					rows="4"
+					class="modal-textarea"
+					placeholder="Type translation text"
+					(input)="addTranslationValue = ($any($event.target).value ?? '').toString()"
+				></textarea>
+				<p class="modal-hint">
+					You can leave this empty. The key will then be added with an empty string value.
+				</p>
+				@if (addTranslationError) {
+					<p class="modal-error">{{ addTranslationError }}</p>
+				}
+				<footer class="modal-actions">
+					<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">Cancel</button>
+					<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation">
+						{{ isAddingTranslation ? 'Saving...' : 'Add Key' }}
+					</button>
+				</footer>
+			</div>
+		</dialog>
+	}
 </main>
