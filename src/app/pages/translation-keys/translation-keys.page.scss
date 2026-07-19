@@ -361,6 +361,32 @@ tbody tr.selected .key-cell {
 	&:hover {
 		background: var(--surface-container-high);
 	}
+
+	&.resolved-success {
+		background: #e8f7ee;
+		border-color: #87cfaa;
+		color: #0b6b40;
+		animation: resolvedLocaleButtonFade 1.6s ease forwards;
+	}
+
+	&:disabled {
+		cursor: default;
+	}
+}
+
+@keyframes resolvedLocaleButtonFade {
+	0% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	55% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	100% {
+		opacity: 0.45;
+		transform: translateY(-2px);
+	}
 }
 
 .section-head {

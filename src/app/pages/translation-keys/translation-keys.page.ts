@@ -16,7 +16,7 @@ import { ScanOrchestrationService } from '../../shared/services/scan-orchestrati
 })
 export class TranslationKeysPage implements OnInit, OnDestroy {
 	scanResult?: ProjectScanResult;
-	activeFilter: 'all' | 'missing' = 'all';
+	activeFilter: 'all' | 'missing-key' | 'empty-value' = 'all';
 	searchTerm = '';
 	selectedKey?: string;
 	isDetailOpen = false;
@@ -33,6 +33,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private modalDragPointerId?: number;
 	private modalDragStartX = 0;
 	private modalDragStartY = 0;
+	private readonly resolvedLocaleIds = new Set<string>();
+	private readonly resolvedLocaleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -57,6 +59,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 
 	ngOnDestroy(): void {
 		this.stateSubscription?.unsubscribe();
+		for (const timer of this.resolvedLocaleTimers.values()) {
+			clearTimeout(timer);
+		}
+		this.resolvedLocaleTimers.clear();
 	}
 
 	onSearchChange(value: string): void {
@@ -64,7 +70,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.ensureSelectedRow();
 	}
 
-	onFilterChange(filter: 'all' | 'missing'): void {
+	onFilterChange(filter: 'all' | 'missing-key' | 'empty-value'): void {
 		this.activeFilter = filter;
 		this.ensureSelectedRow();
 	}
@@ -106,7 +112,15 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	get filteredRows(): TranslationMatrixRow[] {
 		const normalizedSearch = this.searchTerm.trim().toLowerCase();
 		return this.matrix.rows.filter((row) => {
-			if (this.activeFilter === 'missing' && !this.isRowMissing(row)) {
+			if (
+				this.activeFilter === 'missing-key' &&
+				!this.isRowMissingKey(row) &&
+				!this.isKeyRecentlyResolved(row.key)
+			) {
+				return false;
+			}
+
+			if (this.activeFilter === 'empty-value' && !this.isRowEmptyValue(row)) {
 				return false;
 			}
 
@@ -131,7 +145,11 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	get missingFilterCount(): number {
-		return this.matrix.rows.filter((row) => this.isRowMissing(row)).length;
+		return this.matrix.rows.filter((row) => this.isRowMissingKey(row)).length;
+	}
+
+	get emptyValueFilterCount(): number {
+		return this.matrix.rows.filter((row) => this.isRowEmptyValue(row)).length;
 	}
 
 	get totalRowsLabel(): string {
@@ -143,7 +161,30 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		return this.locales.filter((locale) => !this.valueFor(this.selectedRow as TranslationMatrixRow, locale));
+		return this.locales.filter(
+			(locale) => !this.hasLocaleKey(this.selectedRow as TranslationMatrixRow, locale)
+		);
+	}
+
+	get selectedEmptyValueLocales(): string[] {
+		if (!this.selectedRow) {
+			return [];
+		}
+
+		return this.locales.filter((locale) => this.isLocaleEmptyValue(this.selectedRow as TranslationMatrixRow, locale));
+	}
+
+	get displayedMissingLocales(): string[] {
+		if (!this.selectedRow) {
+			return [];
+		}
+
+		const missing = this.selectedMissingLocales;
+		const pendingResolved = this.locales.filter(
+			(locale) => !missing.includes(locale) && this.isLocaleRecentlyResolvedForKey(this.selectedRow!.key, locale)
+		);
+
+		return [...missing, ...pendingResolved];
 	}
 
 	get selectedCoverageLabel(): string {
@@ -151,22 +192,34 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return '0/0';
 		}
 
-		const presentCount = this.locales.filter((locale) => Boolean(this.valueFor(this.selectedRow as TranslationMatrixRow, locale))).length;
+		const presentCount = this.locales.filter(
+			(locale) => this.hasLocaleTranslation(this.selectedRow as TranslationMatrixRow, locale)
+		).length;
 		return `${presentCount}/${this.locales.length}`;
 	}
 
 	localeStatusLabel(row: TranslationMatrixRow): string {
-		const presentCount = this.locales.filter((locale) => Boolean(this.valueFor(row, locale))).length;
+		const presentCount = this.locales.filter((locale) => this.hasLocaleTranslation(row, locale)).length;
 		return `${presentCount}/${this.locales.length}`;
 	}
 
 	missingLocalesLabel(row: TranslationMatrixRow): string {
-		const missingLocales = this.locales.filter((locale) => !this.valueFor(row, locale));
-		if (!missingLocales.length) {
+		const missingKeyLocales = this.locales.filter((locale) => !this.hasLocaleKey(row, locale));
+		const emptyValueLocales = this.locales.filter((locale) => this.isLocaleEmptyValue(row, locale));
+
+		const chunks: string[] = [];
+		if (missingKeyLocales.length) {
+			chunks.push(`Missing key: ${missingKeyLocales.join(', ')}`);
+		}
+		if (emptyValueLocales.length) {
+			chunks.push(`Empty text: ${emptyValueLocales.join(', ')}`);
+		}
+
+		if (!chunks.length) {
 			return 'None';
 		}
 
-		return missingLocales.join(', ');
+		return chunks.join(' | ');
 	}
 
 	async copySelectedKey(): Promise<void> {
@@ -183,6 +236,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 
 	openAddTranslationModal(locale: string): void {
 		if (!this.selectedRow) {
+			return;
+		}
+
+		if (this.isLocaleRecentlyResolved(locale)) {
 			return;
 		}
 
@@ -299,15 +356,18 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 
 		this.isAddingTranslation = true;
 		this.addTranslationError = '';
+		const locale = this.addTranslationLocale;
+		const key = this.selectedRow.key;
 
 		try {
 			await this.scanOrchestrationService.addTranslationKeyForLocale(
-				this.addTranslationLocale,
-				this.selectedRow.key,
+				locale,
+				key,
 				this.addTranslationValue
 			);
+			this.markLocaleResolvedForAnimation(key, locale);
 			this.ensureSelectedRow();
-			this.addTranslationSuccess = `Key added for locale ${this.addTranslationLocale}.`;
+			this.addTranslationSuccess = `Key added for locale ${locale}.`;
 			this.closeAddTranslationModal(true);
 			setTimeout(() => {
 				this.addTranslationSuccess = '';
@@ -324,8 +384,74 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return row.values[locale] ?? '';
 	}
 
+	hasLocaleTranslation(row: TranslationMatrixRow, locale: string): boolean {
+		return this.valueFor(row, locale).trim().length > 0;
+	}
+
+	hasLocaleKey(row: TranslationMatrixRow, locale: string): boolean {
+		if (row.keyPresence && locale in row.keyPresence) {
+			return Boolean(row.keyPresence[locale]);
+		}
+
+		return this.hasLocaleTranslation(row, locale);
+	}
+
+	isLocaleEmptyValue(row: TranslationMatrixRow, locale: string): boolean {
+		return this.hasLocaleKey(row, locale) && !this.hasLocaleTranslation(row, locale);
+	}
+
 	isRowMissing(row: TranslationMatrixRow): boolean {
-		return this.locales.some((locale) => !this.valueFor(row, locale));
+		return this.isRowMissingKey(row) || this.isRowEmptyValue(row);
+	}
+
+	isRowMissingKey(row: TranslationMatrixRow): boolean {
+		return this.locales.some((locale) => !this.hasLocaleKey(row, locale));
+	}
+
+	isRowEmptyValue(row: TranslationMatrixRow): boolean {
+		return this.locales.some((locale) => this.isLocaleEmptyValue(row, locale));
+	}
+
+	isLocaleRecentlyResolved(locale: string): boolean {
+		if (!this.selectedRow) {
+			return false;
+		}
+
+		return this.isLocaleRecentlyResolvedForKey(this.selectedRow.key, locale);
+	}
+
+	private isLocaleRecentlyResolvedForKey(key: string, locale: string): boolean {
+		return this.resolvedLocaleIds.has(this.buildLocaleResolutionId(key, locale));
+	}
+
+	private isKeyRecentlyResolved(key: string): boolean {
+		for (const id of this.resolvedLocaleIds) {
+			if (id.startsWith(`${key}::`)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private markLocaleResolvedForAnimation(key: string, locale: string): void {
+		const id = this.buildLocaleResolutionId(key, locale);
+		this.resolvedLocaleIds.add(id);
+
+		const existingTimer = this.resolvedLocaleTimers.get(id);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+		}
+
+		const timer = setTimeout(() => {
+			this.resolvedLocaleIds.delete(id);
+			this.resolvedLocaleTimers.delete(id);
+		}, 1600);
+		this.resolvedLocaleTimers.set(id, timer);
+	}
+
+	private buildLocaleResolutionId(key: string, locale: string): string {
+		return `${key}::${locale}`;
 	}
 
 	private ensureSelectedRow(): void {

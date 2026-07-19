@@ -3,6 +3,7 @@ import { Finding, FindingStatus } from './finding.model';
 export interface TranslationMatrixRow {
 	key: string;
 	values: Record<string, string>;
+	keyPresence?: Record<string, boolean>;
 }
 
 export interface TranslationMatrix {

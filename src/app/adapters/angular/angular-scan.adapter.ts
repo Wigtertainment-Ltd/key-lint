@@ -596,6 +596,7 @@ export const angularScanAdapter: ScanAdapter = {
 
 	async buildTranslationMatrix(translationFiles: string[], fs: FileSystemAdapter): Promise<TranslationMatrix> {
 		const localeToValues = new Map<string, Record<string, string>>();
+		const localeToPresence = new Map<string, Set<string>>();
 
 		for (const filePath of translationFiles) {
 			try {
@@ -610,6 +611,12 @@ export const angularScanAdapter: ScanAdapter = {
 					...existing,
 					...flattened
 				});
+
+				const existingPresence = localeToPresence.get(locale) ?? new Set<string>();
+				for (const key of Object.keys(flattened)) {
+					existingPresence.add(key);
+				}
+				localeToPresence.set(locale, existingPresence);
 			} catch {
 				// Invalid translation files are ignored here and reflected by findings/rule checks.
 			}
@@ -622,12 +629,15 @@ export const angularScanAdapter: ScanAdapter = {
 
 		const rows = allKeys.map((key) => {
 			const values: Record<string, string> = {};
+			const keyPresence: Record<string, boolean> = {};
 			for (const locale of locales) {
 				const localeValues = localeToValues.get(locale) ?? {};
+				const localePresence = localeToPresence.get(locale) ?? new Set<string>();
 				values[locale] = localeValues[key] ?? '';
+				keyPresence[locale] = localePresence.has(key);
 			}
 
-			return { key, values };
+			return { key, values, keyPresence };
 		});
 
 		return {

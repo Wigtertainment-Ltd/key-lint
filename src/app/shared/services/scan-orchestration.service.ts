@@ -241,19 +241,29 @@ export class ScanOrchestrationService {
 			locales.sort((a, b) => a.localeCompare(b));
 		}
 
-		const updatedRows = [...existingMatrix.rows.map((row) => ({ ...row, values: { ...row.values } }))];
+		const updatedRows = [
+			...existingMatrix.rows.map((row) => ({
+				...row,
+				values: { ...row.values },
+				keyPresence: row.keyPresence ? { ...row.keyPresence } : undefined
+			}))
+		];
 		const row = updatedRows.find((entry) => entry.key === key);
 
 		if (row) {
 			row.values[locale] = value;
+			row.keyPresence = row.keyPresence ? { ...row.keyPresence, [locale]: true } : { [locale]: true };
 		} else {
 			const values: Record<string, string> = {};
+			const keyPresence: Record<string, boolean> = {};
 			for (const localeName of locales) {
 				values[localeName] = '';
+				keyPresence[localeName] = false;
 			}
 			values[locale] = value;
+			keyPresence[locale] = true;
 
-			updatedRows.push({ key, values });
+			updatedRows.push({ key, values, keyPresence });
 			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
 		}
 

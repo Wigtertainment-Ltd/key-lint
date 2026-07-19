@@ -13,10 +13,18 @@
 				<button
 					type="button"
 					class="filter-chip"
-					[class.active]="activeFilter === 'missing'"
-					(click)="onFilterChange('missing')"
+					[class.active]="activeFilter === 'missing-key'"
+					(click)="onFilterChange('missing-key')"
 				>
-					Missing ({{ missingFilterCount }})
+					Missing Key ({{ missingFilterCount }})
+				</button>
+				<button
+					type="button"
+					class="filter-chip"
+					[class.active]="activeFilter === 'empty-value'"
+					(click)="onFilterChange('empty-value')"
+				>
+					Empty Text ({{ emptyValueFilterCount }})
 				</button>
 			</div>
 
@@ -44,7 +52,7 @@
 						<tr>
 							<th>Key Name</th>
 							<th>Locales</th>
-							<th>Missing Locales</th>
+							<th>Issues</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -89,27 +97,43 @@
 			<div class="details-scroll custom-scrollbar">
 				<section class="detail-section">
 					<div class="status-row">
-						<span class="status-pill" [class.missing]="selectedMissingLocales.length > 0" [class.used]="selectedMissingLocales.length === 0">
+						<span
+							class="status-pill"
+							[class.missing]="selectedMissingLocales.length + selectedEmptyValueLocales.length > 0"
+							[class.used]="selectedMissingLocales.length + selectedEmptyValueLocales.length === 0"
+						>
 							Coverage {{ selectedCoverageLabel }}
 						</span>
-						<span class="severity-label">{{ selectedMissingLocales.length }} missing locale(s)</span>
+						<span class="severity-label">{{ selectedMissingLocales.length + selectedEmptyValueLocales.length }} locale issue(s)</span>
 					</div>
 					@if (addTranslationSuccess) {
 						<p class="success-message">{{ addTranslationSuccess }}</p>
 					}
 					<p class="detail-message">
-						@if (selectedMissingLocales.length) {
-							Missing in: {{ selectedMissingLocales.join(', ') }}
+						@if (selectedMissingLocales.length || selectedEmptyValueLocales.length) {
+							@if (selectedMissingLocales.length) {
+								Missing key in: {{ selectedMissingLocales.join(', ') }}
+							}
+							@if (selectedEmptyValueLocales.length) {
+								<br />
+								Empty text in: {{ selectedEmptyValueLocales.join(', ') }}
+							}
 						} @else {
 							This key is available in all detected locales.
 						}
 					</p>
-					@if (selectedMissingLocales.length) {
+					@if (displayedMissingLocales.length) {
 						<div class="missing-actions">
-							@for (locale of selectedMissingLocales; track locale) {
-								<button type="button" class="add-missing-button" (click)="openAddTranslationModal(locale)">
-									<span class="material-symbols-outlined">add</span>
-									Add to {{ locale }} file
+							@for (locale of displayedMissingLocales; track locale) {
+								<button
+									type="button"
+									class="add-missing-button"
+									[class.resolved-success]="isLocaleRecentlyResolved(locale)"
+									(click)="openAddTranslationModal(locale)"
+									[disabled]="isLocaleRecentlyResolved(locale)"
+								>
+									<span class="material-symbols-outlined">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
+									{{ isLocaleRecentlyResolved(locale) ? 'Added to ' + locale + ' file' : 'Add to ' + locale + ' file' }}
 								</button>
 							}
 						</div>
@@ -126,10 +150,10 @@
 					</div>
 					<div class="translations-list">
 						@for (locale of locales; track locale) {
-							<div class="translation-item" [class.is-missing]="!valueFor(selectedRow, locale)">
+							<div class="translation-item" [class.is-missing]="!hasLocaleTranslation(selectedRow, locale)">
 								<p class="locale-name">{{ locale }}</p>
 								<p class="locale-value" [title]="valueFor(selectedRow, locale)">
-									{{ valueFor(selectedRow, locale) || 'Missing translation' }}
+									{{ hasLocaleTranslation(selectedRow, locale) ? valueFor(selectedRow, locale) : 'Missing translation' }}
 								</p>
 							</div>
 						}
