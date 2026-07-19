@@ -144,7 +144,8 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 				await this.scanOrchestrationService.addTranslationKeyForLocale(
 					locale,
 					key,
-					this.translationDrafts[locale] ?? ''
+					this.translationDrafts[locale] ?? '',
+					'results-overview'
 				);
 			}
 

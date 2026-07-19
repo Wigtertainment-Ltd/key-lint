@@ -42,6 +42,16 @@
 				<span class="material-symbols-outlined">analytics</span>
 				<span class="label">Analysis Results</span>
 			</a>
+			<a
+				class="nav-item"
+				title="History"
+				routerLink="/scan-progress/history"
+				routerLinkActive="active"
+				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+			>
+				<span class="material-symbols-outlined">history</span>
+				<span class="label">History</span>
+			</a>
 			<a class="nav-item" title="Integrations">
 				<span class="material-symbols-outlined">extension</span>
 				<span class="label">Integrations</span>
@@ -80,7 +90,15 @@
 			<div class="top-right">
 				<div class="toolbar-icons">
 					<span class="material-symbols-outlined">notifications</span>
-					<span class="material-symbols-outlined">history</span>
+					<a
+						class="toolbar-icon-btn"
+						title="History"
+						routerLink="/scan-progress/history"
+						routerLinkActive="active"
+						[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+					>
+						<span class="material-symbols-outlined">history</span>
+					</a>
 					<span class="material-symbols-outlined">account_circle</span>
 				</div>
 			</div>

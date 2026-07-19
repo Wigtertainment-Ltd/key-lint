@@ -286,6 +286,29 @@
 			background: var(--surface-container-highest);
 		}
 	}
+
+	.toolbar-icon-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		text-decoration: none;
+		border-radius: 9999px;
+
+		.material-symbols-outlined {
+			padding: 0.5rem;
+		}
+
+		&.active .material-symbols-outlined,
+		&:hover .material-symbols-outlined {
+			background: var(--surface-container-highest);
+			color: var(--on-surface);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--primary-container);
+			outline-offset: 2px;
+		}
+	}
 }
 
 .side-nav.collapsed {

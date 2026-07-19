@@ -363,7 +363,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			await this.scanOrchestrationService.addTranslationKeyForLocale(
 				locale,
 				key,
-				this.addTranslationValue
+				this.addTranslationValue,
+				'translation-keys'
 			);
 			this.markLocaleResolvedForAnimation(key, locale);
 			this.ensureSelectedRow();

@@ -1,0 +1,55 @@
+<main class="history-shell custom-scrollbar">
+	<header class="history-header">
+		<div>
+			<p class="eyebrow">History / Changes</p>
+			<h2>Translation Timeline</h2>
+			<p class="project-path" [title]="projectPath">
+				@if (projectPath) {
+					{{ projectPath }}
+				} @else {
+					No active project selected.
+				}
+			</p>
+		</div>
+		<div class="filter-row">
+			<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">All</button>
+			<button type="button" class="filter-chip" [class.active]="activeFilter === 'scan'" (click)="setFilter('scan')">Scan</button>
+			<button type="button" class="filter-chip" [class.active]="activeFilter === 'translation'" (click)="setFilter('translation')">Translations</button>
+		</div>
+	</header>
+
+	@if (!hasProjectContext) {
+		<section class="empty-state">
+			<span class="material-symbols-outlined">history</span>
+			<h3>No project context</h3>
+			<p>Start a scan first so the app can determine which project history should be displayed.</p>
+		</section>
+	} @else if (!hasEvents) {
+		<section class="empty-state">
+			<span class="material-symbols-outlined">event_busy</span>
+			<h3>No events yet</h3>
+			<p>No scan or translation changes have been recorded for this project.</p>
+		</section>
+	} @else {
+		<section class="timeline">
+			@for (group of groupedEvents; track group.label) {
+				<div class="day-group">
+					<p class="day-label">{{ group.label }}</p>
+					<ul>
+						@for (event of group.events; track event.id) {
+							<li>
+								<div class="timeline-marker" [class.scan]="event.type === 'scan-started' || event.type === 'scan-completed'" [class.translation]="event.type === 'translation-key-added'"></div>
+								<div class="timeline-card">
+									<p class="timeline-time">{{ formatTime(event.timestamp) }}</p>
+									<h4>{{ eventTitle(event) }}</h4>
+									<p>{{ eventDescription(event) }}</p>
+									<p class="meta" [title]="eventMeta(event)">{{ eventMeta(event) }}</p>
+								</div>
+							</li>
+						}
+					</ul>
+				</div>
+			}
+		</section>
+	}
+</main>

@@ -5,6 +5,8 @@ import { FileSystemAdapter, ProjectContext } from '../../core/adapters/scan-adap
 import { DEFAULT_SCANNER_CONFIG } from '../../core/config/scanner-defaults';
 import { buildSummary, ProjectScanResult } from '../../core/models/scan-result.model';
 import { ElectronService } from './electron.service';
+import { TranslationEventSource } from '../../core/models/history-event.model';
+import { ProjectHistoryService } from './project-history.service';
 
 export type ScanExecutionState = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -160,7 +162,10 @@ export class ScanOrchestrationService {
 
 	private readonly fsAdapter: FileSystemAdapter;
 
-	constructor(private readonly electronService: ElectronService) {
+	constructor(
+		private readonly electronService: ElectronService,
+		private readonly projectHistoryService: ProjectHistoryService
+	) {
 		this.fsAdapter = new ElectronFileSystemAdapter(electronService);
 	}
 
@@ -172,7 +177,12 @@ export class ScanOrchestrationService {
 		this.stateSubject.next({ state: 'idle' });
 	}
 
-	async addTranslationKeyForLocale(locale: string, key: string, value: string): Promise<string> {
+	async addTranslationKeyForLocale(
+		locale: string,
+		key: string,
+		value: string,
+		source: TranslationEventSource = 'unknown'
+	): Promise<string> {
 		if (!this.electronService.isElectron) {
 			throw new Error('Adding translation keys requires the Electron app runtime.');
 		}
@@ -189,6 +199,17 @@ export class ScanOrchestrationService {
 		const serialized = `${JSON.stringify(parsed, null, 2)}\n`;
 		this.electronService.fs.writeFileSync(match, serialized, 'utf8');
 		this.updateMatrixWithAddedKey(locale, key, value);
+		this.projectHistoryService.addEvent({
+			projectPath: projectRoot,
+			type: 'translation-key-added',
+			payload: {
+				locale,
+				key,
+				filePath: match,
+				valueWasEmpty: value.trim().length === 0,
+				source
+			}
+		});
 
 		return match;
 	}
@@ -283,6 +304,13 @@ export class ScanOrchestrationService {
 	async scanProject(projectRoot: string): Promise<ProjectScanResult> {
 		const startedAt = new Date();
 		const normalizedProjectRoot = normalizePath(projectRoot);
+		this.projectHistoryService.addEvent({
+			projectPath: normalizedProjectRoot,
+			type: 'scan-started',
+			payload: {
+				requestedProjectRoot: normalizedProjectRoot
+			}
+		});
 
 		this.stateSubject.next({
 			state: 'running',
@@ -355,6 +383,17 @@ export class ScanOrchestrationService {
 				state: 'completed',
 				stage: 'Scan completed.',
 				result
+			});
+			this.projectHistoryService.addEvent({
+				projectPath: resolvedProjectRoot,
+				type: 'scan-completed',
+				payload: {
+					adapterId: adapter.id,
+					durationMs: result.durationMs,
+					totalFindings: result.summary.totalFindings,
+					totalKeys: result.summary.totalKeys,
+					localeCount: result.translationMatrix.locales.length
+				}
 			});
 
 			return result;
