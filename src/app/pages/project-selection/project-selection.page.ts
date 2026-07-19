@@ -1,9 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
+import { RecentProjectItem, RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 
 type ElectronFile = File & { path?: string; webkitRelativePath?: string };
+interface RecentProjectViewModel extends RecentProjectItem {
+	name: string;
+}
 
 @Component({
 	selector: 'app-project-selection-page',
@@ -11,16 +15,22 @@ type ElectronFile = File & { path?: string; webkitRelativePath?: string };
 	templateUrl: './project-selection.page.html',
 	styleUrl: './project-selection.page.scss'
 })
-export class ProjectSelectionPage {
+export class ProjectSelectionPage implements OnInit {
 	projectPath?: string = undefined;
 	projectName?: string = undefined;
 	isDragOver = false;
+	recentProjects: RecentProjectViewModel[] = [];
 
 	constructor(
 		private readonly electronService: ElectronService,
+		private readonly recentProjectsService: RecentProjectsService,
 		private readonly scanOrchestrationService: ScanOrchestrationService,
 		private readonly router: Router
 	) {}
+
+	ngOnInit(): void {
+		this.loadRecentProjects();
+	}
 
 	get hasSelection(): boolean {
 		return Boolean(this.projectPath);
@@ -30,7 +40,16 @@ export class ProjectSelectionPage {
 		return this.projectPath ?? 'No project selected';
 	}
 
-	async openFolderDialog(): Promise<void> {
+	get hasRecentProjects(): boolean {
+		return this.recentProjects.length > 0;
+	}
+
+	async openFolderDialog(folderInput?: HTMLInputElement): Promise<void> {
+		if (!this.electronService.isElectron) {
+			folderInput?.click();
+			return;
+		}
+
 		try {
 			const result: Electron.OpenDialogReturnValue = await this.electronService.remote.dialog.showOpenDialog({
 				properties: ['openDirectory']
@@ -102,6 +121,24 @@ export class ProjectSelectionPage {
 		this.scanOrchestrationService.reset();
 	}
 
+	onSelectRecentProject(project: RecentProjectViewModel): void {
+		if (!project.exists) {
+			return;
+		}
+
+		this.setSelectedPath(project.path);
+	}
+
+	onRemoveRecentProject(project: RecentProjectViewModel, event: Event): void {
+		event.stopPropagation();
+		this.recentProjectsService.removeRecentProject(project.path);
+		this.loadRecentProjects();
+
+		if (this.projectPath && this.isSamePath(this.projectPath, project.path)) {
+			this.clearSelection();
+		}
+	}
+
 	startAnalysis(): void {
 		if (!this.projectPath) {
 			return;
@@ -118,13 +155,22 @@ export class ProjectSelectionPage {
 	private setSelectedPath(path: string): void {
 		this.projectPath = path;
 		this.projectName = this.getProjectName(path);
+		this.recentProjectsService.addRecentProject(path);
+		this.loadRecentProjects();
 		this.scanOrchestrationService.reset();
 	}
 
+	private loadRecentProjects(): void {
+		this.recentProjects = this.recentProjectsService.getRecentProjects().map((project) => ({
+			...project,
+			name: this.getProjectName(project.path)
+		}));
+	}
+
 	private getProjectName(path: string): string {
-		const normalized = path.replace(/\\/g, '/');
+		const normalized = path.replaceAll('\\', '/');
 		const parts = normalized.split('/').filter(Boolean);
-		return parts[parts.length - 1] ?? path;
+		return parts.at(-1) ?? path;
 	}
 
 	private extractRootFromWebkitPath(webkitRelativePath?: string): string | undefined {
@@ -134,5 +180,18 @@ export class ProjectSelectionPage {
 
 		const root = webkitRelativePath.split('/')[0];
 		return root || undefined;
+	}
+
+	private isSamePath(left: string, right: string): boolean {
+		return this.normalizePathForCompare(left) === this.normalizePathForCompare(right);
+	}
+
+	private normalizePathForCompare(path: string): string {
+		let normalized = path.replaceAll('\\', '/').trim();
+		while (normalized.length > 1 && normalized.endsWith('/')) {
+			normalized = normalized.slice(0, -1);
+		}
+
+		return normalized.toLowerCase();
 	}
 }

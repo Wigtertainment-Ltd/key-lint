@@ -27,6 +27,12 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	isAddingTranslation = false;
 	addTranslationError = '';
 	addTranslationSuccess = '';
+	modalOffsetX = 0;
+	modalOffsetY = 0;
+	isModalDragging = false;
+	private modalDragPointerId?: number;
+	private modalDragStartX = 0;
+	private modalDragStartY = 0;
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -183,6 +189,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.addTranslationLocale = locale;
 		this.addTranslationValue = '';
 		this.addTranslationError = '';
+		this.modalOffsetX = 0;
+		this.modalOffsetY = 0;
+		this.isModalDragging = false;
+		this.modalDragPointerId = undefined;
 		this.isAddTranslationModalOpen = true;
 	}
 
@@ -195,6 +205,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.addTranslationLocale = undefined;
 		this.addTranslationValue = '';
 		this.addTranslationError = '';
+		this.isModalDragging = false;
+		this.modalDragPointerId = undefined;
 	}
 
 	onModalBackdropClick(event: MouseEvent): void {
@@ -208,6 +220,76 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			event.preventDefault();
 			this.closeAddTranslationModal();
 		}
+	}
+
+	onModalHeaderPointerDown(event: PointerEvent, modalCard: HTMLElement): void {
+		if (event.button !== 0) {
+			return;
+		}
+
+		const target = event.target as HTMLElement | null;
+		if (target?.closest('button')) {
+			return;
+		}
+
+		const header = event.currentTarget as HTMLElement | null;
+		if (!header) {
+			return;
+		}
+
+		this.clampModalToViewport(modalCard);
+		this.isModalDragging = true;
+		this.modalDragPointerId = event.pointerId;
+		this.modalDragStartX = event.clientX - this.modalOffsetX;
+		this.modalDragStartY = event.clientY - this.modalOffsetY;
+		header.setPointerCapture(event.pointerId);
+		event.preventDefault();
+	}
+
+	onModalHeaderPointerMove(event: PointerEvent, modalCard: HTMLElement): void {
+		if (!this.isModalDragging || this.modalDragPointerId !== event.pointerId) {
+			return;
+		}
+
+		const nextOffsetX = event.clientX - this.modalDragStartX;
+		const nextOffsetY = event.clientY - this.modalDragStartY;
+		const { x, y } = this.clampOffsets(nextOffsetX, nextOffsetY, modalCard);
+		this.modalOffsetX = x;
+		this.modalOffsetY = y;
+	}
+
+	onModalHeaderPointerUp(event: PointerEvent): void {
+		if (this.modalDragPointerId !== event.pointerId) {
+			return;
+		}
+
+		const header = event.currentTarget as HTMLElement | null;
+		header?.releasePointerCapture(event.pointerId);
+		this.isModalDragging = false;
+		this.modalDragPointerId = undefined;
+	}
+
+	get modalCardTransform(): string {
+		return `translate(${this.modalOffsetX}px, ${this.modalOffsetY}px)`;
+	}
+
+	private clampModalToViewport(modalCard: HTMLElement): void {
+		const { x, y } = this.clampOffsets(this.modalOffsetX, this.modalOffsetY, modalCard);
+		this.modalOffsetX = x;
+		this.modalOffsetY = y;
+	}
+
+	private clampOffsets(offsetX: number, offsetY: number, modalCard: HTMLElement): { x: number; y: number } {
+		const viewportPadding = 16;
+		const cardWidth = modalCard.offsetWidth;
+		const cardHeight = modalCard.offsetHeight;
+		const maxAbsX = Math.max(0, (window.innerWidth - cardWidth) / 2 - viewportPadding);
+		const maxAbsY = Math.max(0, (window.innerHeight - cardHeight) / 2 - viewportPadding);
+
+		return {
+			x: Math.min(maxAbsX, Math.max(-maxAbsX, offsetX)),
+			y: Math.min(maxAbsY, Math.max(-maxAbsY, offsetY))
+		};
 	}
 
 	async addSelectedKeyToLocale(): Promise<void> {

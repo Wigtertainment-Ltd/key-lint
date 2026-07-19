@@ -72,6 +72,7 @@
 						<tr
 							(click)="onSelectFinding(finding)"
 							[class.selected]="selectedFinding?.id === finding.id"
+							[class.resolved-success]="isResolvedFinding(finding)"
 						>
 							<td>
 								<span class="key-cell">{{ finding.key }}</span>
@@ -175,10 +176,70 @@
 				</section>
 
 				<section class="detail-section action-stack">
-					<button type="button" class="primary-action">Add to Translation Files</button>
+					@if (isSelectedFindingResolved) {
+						<p class="success-message">Successfully added. This entry will be removed in a moment.</p>
+					}
+					@if (canShowAddToTranslationsAction) {
+						<button type="button" class="primary-action" (click)="openAddTranslationModal()">Add to Translation Files</button>
+					}
+					@if (addTranslationsSuccess) {
+						<p class="success-message">{{ addTranslationsSuccess }}</p>
+					}
 					<button type="button" class="secondary-action">Ignore Key</button>
 				</section>
 			</div>
 		}
 	</aside>
+
+	@if (isAddTranslationModalOpen && selectedFinding) {
+		<dialog
+			class="modal-backdrop"
+			open
+			(click)="onAddTranslationModalBackdropClick($event)"
+			(keydown)="onAddTranslationModalBackdropKeydown($event)"
+			(cancel)="closeAddTranslationModal()"
+		>
+			<div class="modal-card">
+				<header class="modal-header">
+					<h4 id="add-translation-title">Add Missing Translations</h4>
+					<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">
+						<span class="material-symbols-outlined">close</span>
+					</button>
+				</header>
+				<p class="modal-context">
+					Key: <span>{{ selectedFinding.key }}</span>
+				</p>
+				<p class="modal-hint">
+					Fill translations per missing locale. You can leave fields empty to add the key with an empty string.
+				</p>
+
+				<div class="locale-input-list custom-scrollbar">
+					@for (locale of selectedMissingLocales; track locale) {
+						<div class="locale-input-item">
+							<label class="modal-label" [for]="'translation-locale-' + locale">{{ locale }}</label>
+							<textarea
+								[id]="'translation-locale-' + locale"
+								rows="3"
+								class="modal-textarea"
+								placeholder="Translation text"
+								[value]="translationDrafts[locale] ?? ''"
+								(input)="onTranslationDraftChange(locale, ($any($event.target).value ?? '').toString())"
+							></textarea>
+						</div>
+					}
+				</div>
+
+				@if (addTranslationsError) {
+					<p class="modal-error">{{ addTranslationsError }}</p>
+				}
+
+				<footer class="modal-actions">
+					<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">Cancel</button>
+					<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations">
+						{{ isSavingTranslations ? 'Saving...' : 'Add Key to Files' }}
+					</button>
+				</footer>
+			</div>
+		</dialog>
+	}
 </main>

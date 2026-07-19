@@ -141,8 +141,14 @@
 
 	@if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
 		<dialog class="modal-backdrop" open (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
-			<div class="modal-card">
-				<header class="modal-header">
+			<div #modalCard class="modal-card" [style.transform]="modalCardTransform" [class.dragging]="isModalDragging">
+				<header
+					class="modal-header modal-drag-handle"
+					(pointerdown)="onModalHeaderPointerDown($event, modalCard)"
+					(pointermove)="onModalHeaderPointerMove($event, modalCard)"
+					(pointerup)="onModalHeaderPointerUp($event)"
+					(pointercancel)="onModalHeaderPointerUp($event)"
+				>
 					<h4 id="add-translation-title">Add Translation</h4>
 					<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">
 						<span class="material-symbols-outlined">close</span>

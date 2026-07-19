@@ -18,6 +18,13 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	selectedFindingId?: string;
 	isDetailOpen = false;
 	keyCopied = false;
+	isAddTranslationModalOpen = false;
+	isSavingTranslations = false;
+	addTranslationsError = '';
+	addTranslationsSuccess = '';
+	translationDrafts: Record<string, string> = {};
+	private readonly resolvedFindingIds = new Set<string>();
+	private readonly resolvedRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -42,6 +49,10 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 	ngOnDestroy(): void {
 		this.stateSubscription?.unsubscribe();
+		for (const timer of this.resolvedRemovalTimers.values()) {
+			clearTimeout(timer);
+		}
+		this.resolvedRemovalTimers.clear();
 	}
 
 	onFilterChange(filter: 'all' | 'missing-in-language' | 'unused' | 'dynamic-uncertain' | 'used'): void {
@@ -57,10 +68,12 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	onSelectFinding(finding: Finding): void {
 		this.selectedFindingId = finding.id;
 		this.isDetailOpen = true;
+		this.addTranslationsSuccess = '';
 	}
 
 	closeDetailPanel(): void {
 		this.isDetailOpen = false;
+		this.closeAddTranslationModal(true);
 	}
 
 	async copySelectedKey(): Promise<void> {
@@ -73,6 +86,82 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		setTimeout(() => {
 			this.keyCopied = false;
 		}, 1500);
+	}
+
+	openAddTranslationModal(): void {
+		if (!this.selectedFinding || !this.canShowAddToTranslationsAction) {
+			return;
+		}
+
+		this.translationDrafts = {};
+		for (const locale of this.selectedMissingLocales) {
+			this.translationDrafts[locale] = '';
+		}
+
+		this.addTranslationsError = '';
+		this.isAddTranslationModalOpen = true;
+	}
+
+	closeAddTranslationModal(force = false): void {
+		if (this.isSavingTranslations && !force) {
+			return;
+		}
+
+		this.isAddTranslationModalOpen = false;
+		this.addTranslationsError = '';
+		this.translationDrafts = {};
+	}
+
+	onAddTranslationModalBackdropClick(event: MouseEvent): void {
+		if (event.target === event.currentTarget) {
+			this.closeAddTranslationModal();
+		}
+	}
+
+	onAddTranslationModalBackdropKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			this.closeAddTranslationModal();
+		}
+	}
+
+	onTranslationDraftChange(locale: string, value: string): void {
+		this.translationDrafts[locale] = value;
+	}
+
+	async addSelectedKeyToTranslationFiles(): Promise<void> {
+		if (!this.selectedFinding || !this.selectedMissingLocales.length) {
+			return;
+		}
+
+		this.isSavingTranslations = true;
+		this.addTranslationsError = '';
+
+		try {
+			const key = this.selectedFinding.key;
+			const resolvedLocaleCount = this.selectedMissingLocales.length;
+			for (const locale of this.selectedMissingLocales) {
+				await this.scanOrchestrationService.addTranslationKeyForLocale(
+					locale,
+					key,
+					this.translationDrafts[locale] ?? ''
+				);
+			}
+
+			this.reconcileResolvedMissingFindings(key);
+			this.ensureSelectedFinding();
+
+			this.addTranslationsSuccess = `Added key to ${resolvedLocaleCount} locale file(s).`;
+			this.closeAddTranslationModal(true);
+			setTimeout(() => {
+				this.addTranslationsSuccess = '';
+			}, 2500);
+		} catch (error) {
+			this.addTranslationsError =
+				error instanceof Error ? error.message : 'Unable to add key to translation files.';
+		} finally {
+			this.isSavingTranslations = false;
+		}
 	}
 
 	get findings(): Finding[] {
@@ -147,6 +236,111 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 	get selectedSnippet(): string {
 		return this.selectedFinding?.evidence[0]?.snippet ?? `{{ '${this.selectedFinding?.key ?? ''}' | translate }}`;
+	}
+
+	get matrixLocales(): string[] {
+		return this.scanResult?.translationMatrix?.locales ?? [];
+	}
+
+	get selectedMissingLocales(): string[] {
+		if (!this.selectedFinding) {
+			return [];
+		}
+
+		const locales = this.matrixLocales;
+		if (!locales.length) {
+			return [];
+		}
+
+		const row = this.scanResult?.translationMatrix?.rows.find((entry) => entry.key === this.selectedFinding?.key);
+		if (!row) {
+			return locales;
+		}
+
+		return locales.filter((locale) => !(row.values[locale] ?? ''));
+	}
+
+	get canShowAddToTranslationsAction(): boolean {
+		return (
+			this.selectedFinding?.status === 'missing-in-language' &&
+			!this.isSelectedFindingResolved &&
+			this.selectedMissingLocales.length > 0
+		);
+	}
+
+	get isSelectedFindingResolved(): boolean {
+		if (!this.selectedFinding) {
+			return false;
+		}
+
+		return this.resolvedFindingIds.has(this.selectedFinding.id);
+	}
+
+	isResolvedFinding(finding: Finding): boolean {
+		return this.resolvedFindingIds.has(finding.id);
+	}
+
+	private reconcileResolvedMissingFindings(key: string): void {
+		if (!this.scanResult) {
+			return;
+		}
+
+		const resolvedMissingFindings = this.scanResult.findings.filter(
+			(finding) => finding.status === 'missing-in-language' && finding.key === key
+		);
+		if (!resolvedMissingFindings.length) {
+			return;
+		}
+
+		for (const finding of resolvedMissingFindings) {
+			this.resolvedFindingIds.add(finding.id);
+		}
+
+		const existingTimer = this.resolvedRemovalTimers.get(key);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+		}
+
+		const timer = setTimeout(() => {
+			this.finalizeResolvedMissingFindings(key);
+		}, 1600);
+		this.resolvedRemovalTimers.set(key, timer);
+	}
+
+	private finalizeResolvedMissingFindings(key: string): void {
+		if (!this.scanResult) {
+			return;
+		}
+
+		const resolvedMissingFindings = this.scanResult.findings.filter(
+			(finding) => finding.status === 'missing-in-language' && finding.key === key
+		);
+		if (!resolvedMissingFindings.length) {
+			this.resolvedRemovalTimers.delete(key);
+			return;
+		}
+
+		const remainingFindings = this.scanResult.findings.filter(
+			(finding) => !(finding.status === 'missing-in-language' && finding.key === key)
+		);
+
+		const summary = this.scanResult.summary;
+		this.scanResult = {
+			...this.scanResult,
+			findings: remainingFindings,
+			summary: {
+				...summary,
+				missingInLanguage: Math.max(0, summary.missingInLanguage - resolvedMissingFindings.length),
+				totalFindings: Math.max(0, summary.totalFindings - resolvedMissingFindings.length)
+			}
+		};
+
+		for (const finding of resolvedMissingFindings) {
+			this.resolvedFindingIds.delete(finding.id);
+		}
+
+		this.resolvedRemovalTimers.delete(key);
+		this.ensureSelectedFinding();
 	}
 
 	statusLabel(status: Finding['status']): string {

@@ -13,29 +13,27 @@
 		</section>
 
 		<section class="card">
-			<div
+			<button
+				type="button"
 				class="drop-zone"
 				[class.drag-over]="isDragOver"
-				(click)="openFolderDialog()"
+				(click)="openFolderDialog(folderInput)"
 				(dragenter)="onDragEnter($event)"
 				(dragover)="onDragOver($event)"
 				(dragleave)="onDragLeave($event)"
 				(drop)="onDrop($event)"
-				role="button"
-				tabindex="0"
-				(keydown.enter)="openFolderDialog()"
-				(keydown.space)="openFolderDialog()"
 			>
-				<div class="drop-icon-wrap">
+				<span class="drop-icon-wrap">
 					<span class="material-symbols-outlined">folder_open</span>
-				</div>
-				<p class="drop-title">Select Project Folder</p>
-				<p class="drop-subtitle">Drag and drop your project here, or click to browse</p>
-				<input class="hidden-input" type="file" webkitdirectory directory multiple (change)="onFolderInputChange($event)" />
-			</div>
+				</span>
+				<span class="drop-title">Select Project Folder</span>
+				<span class="drop-subtitle">Drag and drop your project here, or click to browse</span>
+			</button>
+			<label class="sr-only" for="project-folder-input">Project folder input</label>
+			<input #folderInput id="project-folder-input" class="hidden-input" type="file" webkitdirectory directory multiple (change)="onFolderInputChange($event)" />
 
 			<div class="selection">
-				<label>Selected Path</label>
+				<p class="selection-label">Selected Path</p>
 				<div class="path-box">
 					<span class="material-symbols-outlined marker">location_on</span>
 					<code class="path" [class.placeholder]="!hasSelection" [class.selected]="hasSelection">
@@ -52,6 +50,43 @@
 					</button>
 				</div>
 			</div>
+
+			@if (hasRecentProjects) {
+				<section class="recent-projects" aria-label="Recently opened projects">
+					<div class="recent-header">
+						<h3>Recent Projects</h3>
+						<span>Last 5</span>
+					</div>
+					<ul class="recent-list">
+						@for (project of recentProjects; track project.path) {
+							<li>
+								<div class="recent-row" [class.missing]="!project.exists">
+									<button
+										type="button"
+										class="recent-item"
+										(click)="onSelectRecentProject(project)"
+										[disabled]="!project.exists"
+									>
+										<span class="recent-main">
+											<span class="recent-name">{{ project.name }}</span>
+											<span class="recent-path">{{ project.path }}</span>
+										</span>
+										<span class="recent-status">{{ project.exists ? 'Available' : 'Not available' }}</span>
+									</button>
+									<button
+										type="button"
+										class="remove-recent-btn"
+										(click)="onRemoveRecentProject(project, $event)"
+										aria-label="Remove recent project"
+									>
+										<span class="material-symbols-outlined">close</span>
+									</button>
+								</div>
+							</li>
+						}
+					</ul>
+				</section>
+			}
 
 			<button type="button" class="start-btn" [disabled]="!hasSelection" (click)="startAnalysis()">
 				<span>Start Analysis</span>

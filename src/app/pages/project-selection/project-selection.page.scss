@@ -89,6 +89,9 @@
 }
 
 .drop-zone {
+	appearance: none;
+	width: 100%;
+	text-align: center;
 	border: 2px dashed var(--outline-variant);
 	border-radius: 0.5rem;
 	padding: 2.5rem 1rem;
@@ -98,6 +101,7 @@
 	justify-content: center;
 	cursor: pointer;
 	transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+	color: inherit;
 
 	&:hover {
 		border-color: var(--primary);
@@ -149,7 +153,8 @@
 	flex-direction: column;
 	gap: 0.5rem;
 
-	label {
+	.selection-label {
+		margin: 0;
 		font-size: 11px;
 		font-weight: 700;
 		line-height: 16px;
@@ -157,6 +162,18 @@
 		text-transform: uppercase;
 		color: var(--outline);
 	}
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 
 .path-box {
@@ -213,6 +230,140 @@
 
 	&.hidden {
 		visibility: hidden;
+	}
+}
+
+.recent-projects {
+	display: flex;
+	flex-direction: column;
+	gap: 0.65rem;
+}
+
+.recent-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+
+	h3 {
+		margin: 0;
+		font-size: 11px;
+		font-weight: 700;
+		line-height: 16px;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--outline);
+	}
+
+	span {
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--on-surface-variant);
+	}
+}
+
+.recent-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+
+.recent-row {
+	display: flex;
+	align-items: stretch;
+	gap: 0.4rem;
+
+	&.missing {
+		opacity: 0.72;
+	}
+}
+
+.recent-item {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.55rem 0.65rem;
+	border: 1px solid var(--outline-variant);
+	border-radius: 0.45rem;
+	background: var(--surface);
+	text-align: left;
+	cursor: pointer;
+	transition: border-color 120ms ease, background-color 120ms ease;
+
+	&:hover:not(:disabled) {
+		border-color: var(--primary);
+		background: var(--surface-container-low);
+	}
+
+	&:disabled {
+		cursor: default;
+	}
+}
+
+.recent-main {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+}
+
+.recent-name {
+	font-size: 13px;
+	font-weight: 700;
+	line-height: 18px;
+	color: var(--on-surface);
+}
+
+.recent-path {
+	font-family: var(--mono);
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--on-surface-variant);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 300px;
+}
+
+.recent-status {
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 16px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #00714e;
+}
+
+.recent-row.missing .recent-status {
+	color: #93000a;
+}
+
+.remove-recent-btn {
+	width: 34px;
+	min-width: 34px;
+	border: 1px solid var(--outline-variant);
+	border-radius: 0.45rem;
+	background: var(--surface);
+	color: var(--on-surface-variant);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+
+	.material-symbols-outlined {
+		font-size: 17px;
+	}
+
+	&:hover {
+		color: var(--error);
+		border-color: #f5c2bc;
+		background: #fff7f6;
 	}
 }
 
