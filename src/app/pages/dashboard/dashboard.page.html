@@ -1,0 +1,127 @@
+<main class="dashboard-shell custom-scrollbar">
+	<section class="kpi-grid">
+		<article class="kpi-card total">
+			<p>Total Keys</p>
+			<strong>{{ totalKeys | number }}</strong>
+			<div class="underline"></div>
+		</article>
+		<article class="kpi-card used">
+			<p>Used</p>
+			<strong>{{ usedKeys | number }}</strong>
+			<div class="underline"></div>
+		</article>
+		<article class="kpi-card unused">
+			<p>Unused</p>
+			<strong>{{ unusedKeys | number }}</strong>
+			<div class="underline"></div>
+		</article>
+		<article class="kpi-card missing">
+			<p>Missing</p>
+			<strong>{{ missingKeys | number }}</strong>
+			<div class="underline"></div>
+		</article>
+		<article class="kpi-card dynamic">
+			<p>Dynamic</p>
+			<strong>{{ dynamicKeys | number }}</strong>
+			<div class="underline"></div>
+		</article>
+	</section>
+
+	<section class="insights-grid">
+		<article class="panel interpretation">
+			<header>
+				<span class="material-symbols-outlined">monitoring</span>
+				<h3>System Interpretation</h3>
+			</header>
+
+			<div class="callout critical">
+				<h4>{{ criticalTitle }}</h4>
+				<p>{{ criticalDescription }}</p>
+			</div>
+
+			<div class="callout optimize">
+				<h4>Optimization Opportunity</h4>
+				<p>{{ optimizationDescription }}</p>
+			</div>
+
+			<div class="actions-row">
+				<button type="button" class="btn primary" (click)="openMissingKeys()">View Missing Keys</button>
+				<button type="button" class="btn" (click)="openUnusedKeys()">Purge Unused</button>
+			</div>
+		</article>
+
+		<div class="right-stack">
+			<article class="panel project-context">
+				<header>
+					<span class="material-symbols-outlined">description</span>
+					<h3>Project Context</h3>
+				</header>
+				<ul>
+					<li><span>Framework</span><strong>{{ frameworkLabel }}</strong></li>
+					<li><span>Files Scanned</span><strong>{{ filesScanned }}</strong></li>
+					<li><span>Scan Duration</span><strong>{{ scanDurationLabel }}</strong></li>
+					<li><span>Locales</span><strong>{{ localeLabels.length }}</strong></li>
+				</ul>
+				<div class="locale-tags">
+					@for (locale of localeLabels; track locale) {
+						<span>{{ locale.toUpperCase() }}</span>
+					} @empty {
+						<span>N/A</span>
+					}
+				</div>
+			</article>
+
+			<article class="panel export-card">
+				<h3>Explore Translation Assets</h3>
+				<p>Jump directly into the translation matrix to inspect missing keys and empty values.</p>
+				<button type="button" class="btn primary full" (click)="openTranslationKeys()">Open Translation Keys</button>
+			</article>
+		</div>
+	</section>
+
+	<article class="panel trend-panel">
+		<header class="trend-header">
+			<div class="trend-header-left">
+				<h3>Scan Trend</h3>
+				<span class="trend-context">{{ trendViewLabel }}</span>
+			</div>
+			<div class="trend-header-right">
+				@if (isTrendDrilldown) {
+					<button type="button" class="trend-back-btn" (click)="closeTrendDrilldown()">
+						<span class="material-symbols-outlined">arrow_back</span>
+						Back to Last 5 Days
+					</button>
+				}
+				<p><span class="dot keys"></span>Keys <span class="dot issues"></span>Issues</p>
+			</div>
+		</header>
+
+		@if (trendBars.length === 0) {
+			<p class="trend-empty">No completed scans yet.</p>
+		} @else {
+			<div class="bars" [style.gridTemplateColumns]="trendGridTemplateColumns">
+				@for (bar of trendBars; track trackTrendBar($index, bar)) {
+					<div
+						class="bar-col"
+						[class.latest]="bar.isLatest"
+						[class.clickable]="!isTrendDrilldown"
+						(click)="onTrendBarClick(bar)"
+						(keydown.enter)="onTrendBarClick(bar)"
+						(keydown.space)="onTrendBarClick(bar); $event.preventDefault()"
+						[attr.tabindex]="!isTrendDrilldown ? 0 : null"
+					>
+						<div class="series" [attr.aria-label]="bar.label + ': ' + bar.keys + ' keys, ' + bar.issues + ' issues'">
+							<div class="bar keys" [style.height.%]="barHeightPercent(bar.keys)">
+								<span class="value">{{ bar.keys }}</span>
+							</div>
+							<div class="bar issues" [style.height.%]="barHeightPercent(bar.issues)">
+								<span class="value">{{ bar.issues }}</span>
+							</div>
+						</div>
+						<p>{{ bar.label }}{{ bar.isLatest ? ' (latest)' : '' }}</p>
+					</div>
+				}
+			</div>
+		}
+	</article>
+</main>

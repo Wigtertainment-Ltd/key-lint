@@ -35,6 +35,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private modalDragStartY = 0;
 	private readonly resolvedLocaleIds = new Set<string>();
 	private readonly resolvedLocaleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	private readonly resolvedRowKeys = new Set<string>();
+	private readonly resolvedRowTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -63,6 +65,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			clearTimeout(timer);
 		}
 		this.resolvedLocaleTimers.clear();
+		for (const timer of this.resolvedRowTimers.values()) {
+			clearTimeout(timer);
+		}
+		this.resolvedRowTimers.clear();
 	}
 
 	onSearchChange(value: string): void {
@@ -115,7 +121,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			if (
 				this.activeFilter === 'missing-key' &&
 				!this.isRowMissingKey(row) &&
-				!this.isKeyRecentlyResolved(row.key)
+				!this.isRowRecentlyResolved(row.key)
 			) {
 				return false;
 			}
@@ -358,6 +364,9 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.addTranslationError = '';
 		const locale = this.addTranslationLocale;
 		const key = this.selectedRow.key;
+		const missingLocalesBeforeAdd = [...this.selectedMissingLocales];
+		const resolvesMissingKey =
+			missingLocalesBeforeAdd.length === 1 && missingLocalesBeforeAdd[0] === locale;
 
 		try {
 			await this.scanOrchestrationService.addTranslationKeyForLocale(
@@ -367,6 +376,9 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 				'translation-keys'
 			);
 			this.markLocaleResolvedForAnimation(key, locale);
+			if (resolvesMissingKey) {
+				this.markRowResolvedForAnimation(key);
+			}
 			this.ensureSelectedRow();
 			this.addTranslationSuccess = `Key added for locale ${locale}.`;
 			this.closeAddTranslationModal(true);
@@ -390,6 +402,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	hasLocaleKey(row: TranslationMatrixRow, locale: string): boolean {
+		if (this.isLocaleRecentlyResolvedForKey(row.key, locale)) {
+			return true;
+		}
+
 		if (row.keyPresence && locale in row.keyPresence) {
 			return Boolean(row.keyPresence[locale]);
 		}
@@ -411,6 +427,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 
 	isRowEmptyValue(row: TranslationMatrixRow): boolean {
 		return this.locales.some((locale) => this.isLocaleEmptyValue(row, locale));
+	}
+
+	isResolvedRow(row: TranslationMatrixRow): boolean {
+		return this.isRowRecentlyResolved(row.key);
 	}
 
 	isLocaleRecentlyResolved(locale: string): boolean {
@@ -435,6 +455,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return false;
 	}
 
+	private isRowRecentlyResolved(key: string): boolean {
+		return this.resolvedRowKeys.has(key);
+	}
+
 	private markLocaleResolvedForAnimation(key: string, locale: string): void {
 		const id = this.buildLocaleResolutionId(key, locale);
 		this.resolvedLocaleIds.add(id);
@@ -449,6 +473,21 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			this.resolvedLocaleTimers.delete(id);
 		}, 1600);
 		this.resolvedLocaleTimers.set(id, timer);
+	}
+
+	private markRowResolvedForAnimation(key: string): void {
+		this.resolvedRowKeys.add(key);
+
+		const existingTimer = this.resolvedRowTimers.get(key);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+		}
+
+		const timer = setTimeout(() => {
+			this.resolvedRowKeys.delete(key);
+			this.resolvedRowTimers.delete(key);
+		}, 1600);
+		this.resolvedRowTimers.set(key, timer);
 	}
 
 	private buildLocaleResolutionId(key: string, locale: string): string {

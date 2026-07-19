@@ -15,7 +15,7 @@
 			<a
 				class="nav-item"
 				title="Dashboard"
-				routerLink="/scan-progress"
+				routerLink="/analysis/dashboard"
 				routerLinkActive="active"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
@@ -25,7 +25,7 @@
 			<a
 				class="nav-item"
 				title="Translation Keys"
-				routerLink="/scan-progress/translation-keys"
+				routerLink="/analysis/translation-keys"
 				routerLinkActive="active"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
@@ -35,7 +35,7 @@
 			<a
 				class="nav-item"
 				title="Analysis Results"
-				routerLink="/scan-progress/results"
+				routerLink="/analysis/results"
 				routerLinkActive="active"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
@@ -45,25 +45,23 @@
 			<a
 				class="nav-item"
 				title="History"
-				routerLink="/scan-progress/history"
+				routerLink="/analysis/history"
 				routerLinkActive="active"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
 				<span class="material-symbols-outlined">history</span>
 				<span class="label">History</span>
 			</a>
-			<a class="nav-item" title="Integrations">
-				<span class="material-symbols-outlined">extension</span>
-				<span class="label">Integrations</span>
-			</a>
-			<a class="nav-item" title="Settings">
-				<span class="material-symbols-outlined">settings</span>
-				<span class="label">Settings</span>
-			</a>
 		</nav>
 
 		<div class="side-bottom">
-			<a class="nav-item" title="Documentation">
+			<a
+				class="nav-item"
+				title="Documentation"
+				routerLink="/analysis/documentation"
+				routerLinkActive="active"
+				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+			>
 				<span class="material-symbols-outlined">menu_book</span>
 				<span class="label">Documentation</span>
 			</a>
@@ -93,13 +91,12 @@
 					<a
 						class="toolbar-icon-btn"
 						title="History"
-						routerLink="/scan-progress/history"
+						routerLink="/analysis/history"
 						routerLinkActive="active"
 						[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 					>
 						<span class="material-symbols-outlined">history</span>
 					</a>
-					<span class="material-symbols-outlined">account_circle</span>
 				</div>
 			</div>
 		</header>

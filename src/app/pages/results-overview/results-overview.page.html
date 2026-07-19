@@ -71,6 +71,9 @@
 					@for (finding of filteredFindings; track finding.id) {
 						<tr
 							(click)="onSelectFinding(finding)"
+							(keydown.enter)="onSelectFinding(finding)"
+							(keydown.space)="onSelectFinding(finding); $event.preventDefault()"
+							tabindex="0"
 							[class.selected]="selectedFinding?.id === finding.id"
 							[class.resolved-success]="isResolvedFinding(finding)"
 						>
@@ -111,6 +114,15 @@
 			</table>
 		</div>
 	</section>
+
+	@if (selectedFinding) {
+		<button
+			type="button"
+			class="details-backdrop"
+			(click)="closeDetailPanel()"
+			aria-label="Close finding details"
+		></button>
+	}
 
 	<aside class="details-pane" [class.hidden]="!selectedFinding">
 		@if (selectedFinding) {

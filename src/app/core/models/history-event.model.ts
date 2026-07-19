@@ -15,6 +15,11 @@ export interface ScanCompletedHistoryPayload {
 	totalFindings: number;
 	totalKeys: number;
 	localeCount: number;
+	missingCount?: number;
+	unusedCount?: number;
+	usedCount?: number;
+	dynamicCount?: number;
+	extraCount?: number;
 }
 
 export interface TranslationKeyAddedHistoryPayload {

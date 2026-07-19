@@ -61,6 +61,7 @@
 								(click)="onSelectRow(row)"
 								(keydown)="onRowKeydown($event, row)"
 								[class.selected]="selectedRow?.key === row.key"
+								[class.resolved-success]="isResolvedRow(row)"
 								tabindex="0"
 							>
 								<td><span class="key-cell">{{ row.key }}</span></td>
@@ -81,6 +82,15 @@
 			}
 		</div>
 	</section>
+
+	@if (selectedRow) {
+		<button
+			type="button"
+			class="details-backdrop"
+			(click)="closeDetailPanel()"
+			aria-label="Close translation key details"
+		></button>
+	}
 
 	<aside class="details-pane" [class.hidden]="!selectedRow">
 		@if (selectedRow) {

@@ -392,7 +392,12 @@ export class ScanOrchestrationService {
 					durationMs: result.durationMs,
 					totalFindings: result.summary.totalFindings,
 					totalKeys: result.summary.totalKeys,
-					localeCount: result.translationMatrix.locales.length
+					localeCount: result.translationMatrix.locales.length,
+					usedCount: result.summary.used,
+					missingCount: result.summary.missingInLanguage,
+					unusedCount: result.summary.unused,
+					dynamicCount: result.summary.dynamicOrUncertain,
+					extraCount: result.summary.extraInLanguage
 				}
 			});
 

@@ -5,6 +5,8 @@ import { AnalysisLayoutPage } from './pages/analysis-layout/analysis-layout.page
 import { HistoryPage } from './pages/history/history.page';
 import { ResultsOverviewPage } from './pages/results-overview/results-overview.page';
 import { TranslationKeysPage } from './pages/translation-keys/translation-keys.page';
+import { DocumentationPage } from './pages/documentation/documentation.page';
+import { DashboardPage } from './pages/dashboard/dashboard.page';
 
 export const routes: Routes = [
 	{
@@ -13,11 +15,20 @@ export const routes: Routes = [
 	},
 	{
 		path: 'scan-progress',
+		component: ScanProgressPage
+	},
+	{
+		path: 'analysis',
 		component: AnalysisLayoutPage,
 		children: [
 			{
 				path: '',
-				component: ScanProgressPage
+				redirectTo: 'dashboard',
+				pathMatch: 'full'
+			},
+			{
+				path: 'dashboard',
+				component: DashboardPage
 			},
 			{
 				path: 'translation-keys',
@@ -30,6 +41,10 @@ export const routes: Routes = [
 			{
 				path: 'history',
 				component: HistoryPage
+			},
+			{
+				path: 'documentation',
+				component: DocumentationPage
 			}
 		]
 	},

@@ -164,6 +164,27 @@ tbody tr {
 		background: #ede9ff;
 		border-left-color: var(--primary);
 	}
+
+	&.resolved-success {
+		background: #e8f7ee;
+		border-left-color: #52b37f;
+		animation: resolvedRowExit 1.6s ease forwards;
+	}
+}
+
+@keyframes resolvedRowExit {
+	0% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	55% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	100% {
+		opacity: 0.2;
+		transform: translateY(-3px);
+	}
 }
 
 .key-cell {
@@ -239,6 +260,10 @@ tbody tr.selected .key-cell {
 		pointer-events: none;
 		border-left-color: transparent;
 	}
+}
+
+.details-backdrop {
+	display: none;
 }
 
 .details-head {
@@ -591,7 +616,38 @@ tbody tr.selected .key-cell {
 	}
 
 	.details-pane {
-		display: none;
+		position: fixed;
+		top: 0;
+		right: 0;
+		height: 100dvh;
+		width: min(92vw, 430px);
+		max-width: 100%;
+		z-index: 60;
+		border-left: 1px solid var(--outline-variant);
+		box-shadow: -18px 0 32px rgba(16, 20, 30, 0.22);
+		transform: translateX(0);
+
+		&.hidden {
+			transform: translateX(100%);
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+		}
+	}
+
+	.details-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		border: 0;
+		padding: 0;
+		margin: 0;
+		background: rgba(16, 20, 30, 0.28);
+		display: block;
+	}
+
+	:host {
+		position: relative;
 	}
 }
 

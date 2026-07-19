@@ -99,7 +99,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	}
 
 	get selectedProjectShort(): string {
-		const normalized = this.projectPath.replace(/\\/g, '/');
+		const normalized = this.projectPath.replaceAll('\\', '/');
 		const parts = normalized.split('/').filter(Boolean);
 		if (parts.length <= 3) {
 			return this.projectPath;
@@ -114,7 +114,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 
 	get activeStepId(): number {
 		if (this.scanState === 'completed') {
-			return this.steps[this.steps.length - 1].id;
+			return this.steps.at(-1)?.id ?? 1;
 		}
 
 		if (!this.scanStage) {
@@ -160,7 +160,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		void this.router.navigate(['/scan-progress/results'], {
+		void this.router.navigate(['/analysis/dashboard'], {
 			queryParams: {
 				projectPath: this.projectPath
 			}
@@ -193,7 +193,8 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 
 			this.appendLog(this.fillerLogs[index % this.fillerLogs.length]);
 			index += 1;
-			this.fakeLogTimer = setTimeout(tick, Math.floor(Math.random() * 1200) + 550);
+			const delayMs = 700 + (index % 5) * 140;
+			this.fakeLogTimer = setTimeout(tick, delayMs);
 		};
 
 		this.fakeLogTimer = setTimeout(tick, 900);

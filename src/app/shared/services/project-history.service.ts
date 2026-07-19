@@ -31,6 +31,21 @@ function dedupeKey(path: string): string {
 }
 
 function compareByNewest(a: ProjectHistoryEvent, b: ProjectHistoryEvent): number {
+	const left = Date.parse(a.timestamp);
+	const right = Date.parse(b.timestamp);
+
+	if (!Number.isNaN(left) && !Number.isNaN(right)) {
+		return right - left;
+	}
+
+	if (!Number.isNaN(left)) {
+		return -1;
+	}
+
+	if (!Number.isNaN(right)) {
+		return 1;
+	}
+
 	return b.timestamp.localeCompare(a.timestamp);
 }
 
