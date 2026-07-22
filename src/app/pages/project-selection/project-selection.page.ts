@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
 import { RecentProjectItem, RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ThemeService } from '../../services/theme.service';
 
 type ElectronFile = File & { path?: string; webkitRelativePath?: string };
 interface RecentProjectViewModel extends RecentProjectItem {
@@ -28,8 +29,18 @@ export class ProjectSelectionPage implements OnInit {
 		private readonly router: Router
 	) {}
 
+	readonly themeService = inject(ThemeService);
+
+	get isDark(): boolean {
+		return this.themeService.getCurrent() === 'dark';
+	}
+
 	ngOnInit(): void {
 		this.loadRecentProjects();
+	}
+
+	toggleTheme(): void {
+		this.themeService.toggle();
 	}
 
 	get hasSelection(): boolean {

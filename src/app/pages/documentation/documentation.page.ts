@@ -78,7 +78,7 @@ import { Component } from '@angular/core';
 				display: block;
 				height: 100%;
 				font-family: var(--sans);
-				background: linear-gradient(180deg, #ffffff 0%, var(--surface-container-lowest) 100%);
+				background: linear-gradient(180deg, var(--surface) 0%, var(--surface-container-lowest) 100%);
 			}
 
 			.documentation-shell {
@@ -124,7 +124,7 @@ import { Component } from '@angular/core';
 			}
 
 			.doc-card {
-				background: #fff;
+				background: var(--surface-container-lowest);
 				border: 1px solid var(--outline-variant);
 				border-radius: 0.75rem;
 				padding: 1rem;

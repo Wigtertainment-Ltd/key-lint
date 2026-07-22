@@ -7,7 +7,7 @@ body {
 	margin: 0;
 	padding: 0;
 	overflow: hidden;
-	background: #ffffff;
+	background: var(--bg);
 }
 
 app-root {
@@ -48,6 +48,40 @@ app-root {
 	--app-scrollbar-track: transparent;
 	--app-scrollbar-thumb: #c7c4d7;
 	--app-scrollbar-thumb-hover: #b3b0c4;
+
+	/* Theme variables */
+	--bg: #ffffff;
+}
+
+:root[data-theme='dark'] {
+	--bg: #0d0b2e;
+	--surface: #16143a;
+	--surface-container-lowest: #0c092a;
+	--surface-container-low: #1c1948;
+	--surface-container: #211e52;
+	--surface-container-high: #282561;
+	--surface-container-highest: #2f2c6d;
+	--surface-variant: #2f2c6d;
+	--inverse-surface: #d0ccff;
+	--on-surface: #e3dff9;
+	--on-surface-variant: #b8b4de;
+	--on-background: #e3dff9;
+	--primary: #a79cff;
+	--on-primary: #2c1f9a;
+	--primary-container: #3d32cc;
+	--on-primary-container: #e3dfff;
+	--primary-fixed-dim: #6c5de8;
+	--secondary: #b8a4e8;
+	--secondary-container: #2f1f70;
+	--tertiary: #e8b8ff;
+	--tertiary-fixed: #7d3c99;
+	--error: #ffb4ab;
+	--error-container: #8c1d18;
+	--outline: #8a86b0;
+	--outline-variant: #46426e;
+
+	--app-scrollbar-thumb: #3a3670;
+	--app-scrollbar-thumb-hover: #524f90;
 }
 
 .custom-scrollbar {

@@ -68,7 +68,7 @@
 
 	&.active {
 		background: var(--primary);
-		color: #fff;
+		color: var(--on-primary);
 		border-color: var(--primary);
 	}
 }
@@ -109,7 +109,7 @@
 	color: var(--on-surface);
 
 	&:focus {
-		outline: 2px solid #a7a1ff;
+		outline: 2px solid var(--primary-container);
 		outline-offset: 1px;
 	}
 }
@@ -157,17 +157,17 @@ tbody tr {
 	transition: background 120ms ease, border-color 120ms ease;
 
 	&:hover {
-		background: #f3effb;
+		background: var(--surface-container-low);
 	}
 
 	&.selected {
-		background: #ede9ff;
+		background: var(--surface-container);
 		border-left-color: var(--primary);
 	}
 
 	&.resolved-success {
-		background: #e8f7ee;
-		border-left-color: #52b37f;
+		background: var(--secondary-container);
+		border-left-color: var(--secondary);
 		animation: resolvedRowExit 1.6s ease forwards;
 	}
 }
@@ -192,13 +192,13 @@ tbody tr {
 	font-size: 13px;
 	line-height: 20px;
 	font-weight: 600;
-	color: #211a5e;
+	color: var(--on-surface);
 	word-break: break-all;
 }
 
 tbody tr:hover .key-cell,
 tbody tr.selected .key-cell {
-	color: #160f4f;
+	color: var(--on-surface);
 }
 
 .path-cell {
@@ -223,12 +223,12 @@ tbody tr.selected .key-cell {
 
 	&.used {
 		background: var(--secondary-container);
-		color: #00714e;
+		color: var(--secondary);
 	}
 
 	&.missing {
 		background: var(--error-container);
-		color: #93000a;
+		color: var(--error);
 	}
 }
 
@@ -356,7 +356,7 @@ tbody tr.selected .key-cell {
 	margin: 0.75rem 0 0;
 	font-size: 13px;
 	font-weight: 600;
-	color: #00714e;
+	color: var(--secondary);
 }
 
 .missing-actions {
@@ -388,9 +388,9 @@ tbody tr.selected .key-cell {
 	}
 
 	&.resolved-success {
-		background: #e8f7ee;
-		border-color: #87cfaa;
-		color: #0b6b40;
+		background: var(--secondary-container);
+		border-color: var(--secondary);
+		color: var(--secondary);
 		animation: resolvedLocaleButtonFade 1.6s ease forwards;
 	}
 
@@ -447,8 +447,8 @@ tbody tr.selected .key-cell {
 	background: var(--surface);
 
 	&.is-missing {
-		background: #fff7f6;
-		border-color: #f5c2bc;
+		background: var(--error-container);
+		border-color: var(--error);
 	}
 }
 
@@ -574,7 +574,7 @@ tbody tr.selected .key-cell {
 	margin: 0;
 	font-size: 13px;
 	font-weight: 600;
-	color: #93000a;
+	color: var(--error);
 }
 
 .modal-actions {
@@ -606,7 +606,7 @@ tbody tr.selected .key-cell {
 
 .primary-button {
 	background: var(--primary);
-	color: #fff;
+	color: var(--on-primary);
 	border-color: var(--primary);
 }
 

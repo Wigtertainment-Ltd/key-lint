@@ -2,7 +2,7 @@
 	display: block;
 	height: 100%;
 	min-height: 0;
-	background: #ffffff;
+	background: var(--surface);
 	font-family: var(--sans);
 }
 
@@ -13,7 +13,7 @@
 	display: grid;
 	gap: 0.75rem;
 	align-content: start;
-	background: #ffffff;
+	background: var(--surface);
 }
 
 .kpi-grid {
@@ -26,7 +26,7 @@
 	border: 1px solid var(--outline-variant);
 	border-radius: 0.3rem;
 	padding: 0.7rem 0.8rem;
-	background: #fff;
+	background: var(--surface-container-lowest);
 }
 
 .kpi-card p {
@@ -82,7 +82,7 @@
 }
 
 .kpi-card.dynamic .underline {
-	background: #f1a760;
+	background: var(--tertiary);
 }
 
 .insights-grid {
@@ -94,7 +94,7 @@
 .panel {
 	border: 1px solid var(--outline-variant);
 	border-radius: 0.3rem;
-	background: #fff;
+	background: var(--surface-container-lowest);
 	padding: 0.75rem;
 }
 
@@ -114,7 +114,7 @@
 
 .panel > header .material-symbols-outlined {
 	font-size: 1.1rem;
-	color: #db1f2f;
+	color: var(--error);
 }
 
 .interpretation {
@@ -132,8 +132,8 @@
 	place-items: center;
 	font-size: 2rem;
 	font-weight: 700;
-	color: #8a1d24;
-	background: linear-gradient(180deg, #fff 0%, #fff6f6 100%);
+	color: var(--error);
+	background: linear-gradient(180deg, var(--surface-container-lowest) 0%, var(--error-container) 100%);
 	clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
@@ -157,11 +157,11 @@
 }
 
 .callout.critical {
-	border-left-color: #db1f2f;
+	border-left-color: var(--error);
 }
 
 .callout.critical h4 {
-	color: #db1f2f;
+	color: var(--error);
 }
 
 .actions-row {
@@ -172,7 +172,7 @@
 
 .btn {
 	border: 1px solid var(--outline-variant);
-	background: #fff;
+	background: var(--surface-container-lowest);
 	color: var(--on-surface-variant);
 	padding: 0.5rem 0.95rem;
 	border-radius: 0.25rem;
@@ -260,8 +260,8 @@
 .locale-tags span {
 	padding: 0.2rem 0.42rem;
 	border-radius: 999px;
-	background: #eceaf9;
-	color: #2a14b4;
+	background: var(--surface-container-high);
+	color: var(--primary);
 	font-size: 0.66rem;
 	font-weight: 700;
 	letter-spacing: 0.02em;
@@ -269,7 +269,7 @@
 
 .export-card {
 	background: linear-gradient(145deg, #2a14b4 0%, #4631cc 100%);
-	color: #fff;
+	color: var(--on-primary);
 }
 
 .export-card h3 {
@@ -285,14 +285,14 @@
 }
 
 .export-card .btn.primary {
-	background: #ffffff;
-	color: #2a14b4;
-	border-color: #d7d2ff;
+	background: var(--surface-container-lowest);
+	color: var(--primary);
+	border-color: var(--outline-variant);
 }
 
 .export-card .btn.primary:hover {
-	background: #eceafe;
-	border-color: #c9c2ff;
+	background: var(--surface-container-high);
+	border-color: var(--outline);
 }
 
 .trend-panel {
@@ -336,7 +336,7 @@
 	padding: 0.35rem 0.6rem;
 	border: 1px solid var(--outline-variant);
 	border-radius: 0.25rem;
-	background: #fff;
+	background: var(--surface-container-lowest);
 	color: var(--on-surface-variant);
 	font-size: 0.72rem;
 	font-weight: 600;
@@ -380,7 +380,7 @@
 }
 
 .dot.issues {
-	background: #db1f2f;
+	background: var(--error);
 }
 
 .bars {
@@ -439,18 +439,18 @@
 
 .bar {
 	position: relative;
-	background: #d9d7e8;
+	background: var(--surface-container-highest);
 	border-radius: 0.15rem;
 	min-height: 1.8rem;
 	transition: height 260ms ease;
 }
 
 .bar.keys {
-	background: #d9d7e8;
+	background: var(--surface-container-highest);
 }
 
 .bar.issues {
-	background: #f3c6cb;
+	background: var(--error-container);
 }
 
 .bar .value {
@@ -459,8 +459,8 @@
 	right: 0;
 	font-size: 0.62rem;
 	font-family: var(--mono);
-	background: #1b1b23;
-	color: #fff;
+	background: var(--inverse-surface);
+	color: var(--surface-container-lowest);
 	padding: 0.12rem 0.3rem;
 	border-radius: 0.15rem;
 	opacity: 0;
@@ -478,11 +478,26 @@
 }
 
 .bar-col.latest .bar.issues {
-	background: #db1f2f;
+	background: var(--error);
 }
 
 .bar-col.latest .bar .value {
 	opacity: 1;
+}
+
+:host-context([data-theme='dark']) {
+	.export-card {
+		background: linear-gradient(145deg, #3a2fbf 0%, #2a1f87 100%);
+	}
+
+	.kpi-card,
+	.panel {
+		box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+	}
+
+	.interpretation::after {
+		background: linear-gradient(180deg, #2a1f4a 0%, #4a2440 100%);
+	}
 }
 
 @media (max-width: 1200px) {

@@ -2,7 +2,7 @@
 	display: block;
 	height: 100%;
 	font-family: var(--sans);
-	background: linear-gradient(180deg, #ffffff 0%, var(--surface-container-lowest) 100%);
+	background: linear-gradient(180deg, var(--surface) 0%, var(--surface-container-lowest) 100%);
 }
 
 .history-shell {
@@ -58,7 +58,7 @@
 	padding: 0.45rem 0.75rem;
 	border: 1px solid var(--outline-variant);
 	border-radius: 999px;
-	background: #fff;
+	background: var(--surface-container-lowest);
 	color: var(--on-surface-variant);
 	font-weight: 600;
 	cursor: pointer;
@@ -81,7 +81,7 @@
 	border-radius: 0.75rem;
 	padding: 2rem 1.25rem;
 	text-align: center;
-	background: #fff;
+	background: var(--surface-container-lowest);
 
 	.material-symbols-outlined {
 		font-size: 2rem;
@@ -140,7 +140,7 @@
 	border-radius: 999px;
 	margin-top: 0.6rem;
 	background: var(--outline);
-	box-shadow: 0 0 0 4px rgba(39, 27, 93, 0.06);
+	box-shadow: 0 0 0 4px var(--surface-container-low);
 
 	&.scan {
 		background: var(--secondary);
@@ -155,7 +155,7 @@
 	border: 1px solid var(--outline-variant);
 	border-radius: 0.75rem;
 	padding: 0.8rem 0.9rem;
-	background: #fff;
+	background: var(--surface-container-lowest);
 
 	h4 {
 		margin: 0;

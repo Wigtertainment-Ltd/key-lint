@@ -6,6 +6,10 @@
 	background: radial-gradient(circle at 20% 0%, #f7f2ff 0%, var(--surface) 45%, #f4eefc 100%);
 }
 
+:host-context([data-theme='dark']) {
+	background: radial-gradient(circle at 22% -5%, #26206a 0%, #151238 38%, #0d0b2e 100%);
+}
+
 .page {
 	position: relative;
 	min-height: 100vh;
@@ -91,6 +95,7 @@
 .drop-zone {
 	appearance: none;
 	width: 100%;
+	background: var(--surface-container-lowest);
 	text-align: center;
 	border: 2px dashed var(--outline-variant);
 	border-radius: 0.5rem;
@@ -337,11 +342,11 @@
 	line-height: 16px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: #00714e;
+	color: var(--secondary);
 }
 
 .recent-row.missing .recent-status {
-	color: #93000a;
+	color: var(--error);
 }
 
 .remove-recent-btn {
@@ -362,8 +367,8 @@
 
 	&:hover {
 		color: var(--error);
-		border-color: #f5c2bc;
-		background: #fff7f6;
+		border-color: var(--error);
+		background: var(--error-container);
 	}
 }
 
@@ -406,6 +411,72 @@
 	letter-spacing: 0.05em;
 	color: var(--outline);
 	text-transform: uppercase;
+}
+
+.theme-toggle {
+	position: fixed;
+	top: 1rem;
+	right: 1rem;
+	z-index: 100;
+	width: 40px;
+	height: 40px;
+	border: 0;
+	border-radius: 50%;
+	background: var(--surface-container);
+	color: var(--on-surface);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
+
+	.material-symbols-outlined {
+		font-size: 22px;
+	}
+
+	&:hover {
+		background: var(--surface-container-high);
+		transform: scale(1.08);
+	}
+
+	&:active {
+		transform: scale(0.95);
+	}
+}
+
+:host-context([data-theme='dark']) {
+	.grid-bg {
+		opacity: 0.08;
+		color: #d8d4ff;
+	}
+
+	.card {
+		background: var(--surface-container-lowest);
+		box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+	}
+
+	.path-box,
+	.recent-item,
+	.remove-recent-btn {
+		background: var(--surface-container-low);
+	}
+
+	.remove-recent-btn:hover {
+		border-color: var(--outline);
+		background: var(--surface-container-high);
+	}
+
+	.recent-status {
+		color: #7ff3c3;
+	}
+
+	.recent-row.missing .recent-status {
+		color: #ffb4ab;
+	}
+
+	.theme-toggle {
+		background: var(--surface-container-high);
+	}
 }
 
 @media (max-width: 640px) {

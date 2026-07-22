@@ -166,7 +166,7 @@
 	position: relative;
 	min-height: 0;
 	overflow: hidden;
-	background: #ffffff;
+	background: var(--surface);
 }
 
 
@@ -207,7 +207,7 @@
 	height: 40px;
 	border: 1px solid var(--outline-variant);
 	border-radius: 0.5rem;
-	background: #ffffff;
+	background: var(--surface-container-lowest);
 	color: var(--on-surface-variant);
 	cursor: pointer;
 	transition: background-color 150ms ease, border-color 150ms ease;

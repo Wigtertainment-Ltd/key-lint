@@ -1,4 +1,12 @@
 <div class="page custom-scrollbar">
+	<button
+		type="button"
+		class="theme-toggle"
+		aria-label="Toggle theme"
+		(click)="toggleTheme()"
+	>
+		<span class="material-symbols-outlined">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+	</button>
 	<div class="grid-bg" aria-hidden="true"></div>
 
 	<main class="content">
