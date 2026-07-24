@@ -252,8 +252,13 @@
 .scan-grid {
 	display: grid;
 	grid-template-columns: 5fr 7fr;
-	gap: var(--gutter);
+	gap: 24px;
 	width: 100%;
+
+	@media (max-width: 768px) {
+		grid-template-columns: 1fr;
+		gap: 32px;
+	}
 }
 
 .steps-col {
@@ -362,8 +367,8 @@
 }
 
 .console {
-	background: var(--inverse-surface);
-	color: var(--surface);
+	background: var(--surface-container-high);
+	color: var(--on-surface);
 	min-height: 320px;
 	border-radius: 0.5rem;
 	display: flex;
@@ -427,7 +432,7 @@
 
 	p {
 		margin: 0;
-		color: var(--surface-variant);
+		color: #e6e1e5;
 	}
 }
 
