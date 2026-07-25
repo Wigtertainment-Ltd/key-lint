@@ -463,15 +463,22 @@
 	line-height: 24px;
 	font-weight: 600;
 	border-radius: 0.25rem;
-	transition: transform 100ms ease, background-color 120ms ease;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 	cursor: pointer;
 
 	&:hover:not(:disabled) {
 		background: var(--error-container);
+		border-color: var(--error);
+		color: var(--error);
 	}
 
 	&:active:not(:disabled) {
-		transform: scale(0.96);
+		transform: scale(0.98);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
 	}
 
 	&:disabled {
@@ -492,15 +499,22 @@
 	line-height: 24px;
 	font-weight: 600;
 	border-radius: 0.25rem;
-	transition: transform 100ms ease, background-color 120ms ease;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 	cursor: pointer;
 
 	&:hover {
 		background: var(--primary-container);
+		border-color: var(--primary-container);
+		color: var(--on-primary-container);
 	}
 
 	&:active {
-		transform: scale(0.96);
+		transform: scale(0.98);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
 	}
 }
 

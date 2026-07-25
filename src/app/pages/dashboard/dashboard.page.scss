@@ -207,6 +207,7 @@
 .btn.primary:hover {
 	background: var(--primary-container);
 	border-color: var(--primary-container);
+	color: var(--on-primary-container);
 }
 
 .btn.full {
@@ -275,6 +276,7 @@
 .export-card h3 {
 	margin: 0;
 	font-size: 1rem;
+	color: inherit;
 }
 
 .export-card p {
@@ -282,17 +284,19 @@
 	font-size: 0.82rem;
 	line-height: 1.35;
 	opacity: 0.9;
+	color: inherit;
 }
 
 .export-card .btn.primary {
-	background: var(--surface-container-lowest);
-	color: var(--primary);
-	border-color: var(--outline-variant);
+	background: var(--primary);
+	border-color: var(--primary);
+	color: var(--on-primary);
 }
 
 .export-card .btn.primary:hover {
-	background: var(--surface-container-high);
-	border-color: var(--outline);
+	background: var(--primary-container);
+	border-color: var(--primary-container);
+	color: var(--on-primary-container);
 }
 
 .trend-panel {
@@ -356,6 +360,10 @@
 	&:focus-visible {
 		outline: 2px solid var(--primary-container);
 		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
 	}
 }
 
@@ -488,6 +496,7 @@
 :host-context([data-theme='dark']) {
 	.export-card {
 		background: linear-gradient(145deg, #3a2fbf 0%, #2a1f87 100%);
+		color: #ffffff;
 	}
 
 	.kpi-card,

@@ -62,17 +62,33 @@
 	color: var(--on-surface-variant);
 	font-weight: 600;
 	cursor: pointer;
-	transition: all 120ms ease;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 
 	&:hover {
+		background: var(--surface-container-low);
 		border-color: var(--primary-container);
 		color: var(--on-surface);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
 	}
 
 	&.active {
 		background: var(--primary);
 		color: var(--on-primary);
 		border-color: var(--primary);
+	}
+
+	&.active:hover {
+		background: var(--primary-container);
+		border-color: var(--primary-container);
+		color: var(--on-primary-container);
 	}
 }
 

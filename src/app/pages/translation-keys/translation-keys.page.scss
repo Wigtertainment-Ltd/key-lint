@@ -64,12 +64,33 @@
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	cursor: pointer;
-	transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+	transition: transform 100ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+
+	&:hover {
+		background: var(--surface-container-low);
+		color: var(--on-surface);
+		border-color: var(--primary-container);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
 
 	&.active {
 		background: var(--primary);
 		color: var(--on-primary);
 		border-color: var(--primary);
+	}
+
+	&.active:hover {
+		background: var(--primary-container);
+		color: var(--on-primary-container);
+		border-color: var(--primary-container);
 	}
 }
 
@@ -350,6 +371,7 @@ tbody tr.selected .key-cell {
 	font-size: 14px;
 	line-height: 20px;
 	color: var(--on-surface-variant);
+	overflow-wrap: anywhere;
 }
 
 .success-message {
@@ -378,13 +400,16 @@ tbody tr.selected .key-cell {
 	background: var(--surface);
 	color: var(--on-surface);
 	cursor: pointer;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 
 	.material-symbols-outlined {
 		font-size: 15px;
 	}
 
 	&:hover {
-		background: var(--surface-container-high);
+		background: var(--surface-container-low);
+		border-color: var(--primary-container);
+		color: var(--on-surface);
 	}
 
 	&.resolved-success {
@@ -396,6 +421,15 @@ tbody tr.selected .key-cell {
 
 	&:disabled {
 		cursor: default;
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active:not(:disabled) {
+		transform: scale(0.98);
 	}
 }
 
@@ -432,6 +466,20 @@ tbody tr.selected .key-cell {
 	gap: 0.25rem;
 	font-size: 12px;
 	font-weight: 700;
+	transition: transform 100ms ease, color 120ms ease;
+
+	&:hover {
+		color: var(--on-primary-container);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
 }
 
 .translations-list {
@@ -591,6 +639,16 @@ tbody tr.selected .key-cell {
 	font-weight: 700;
 	cursor: pointer;
 	border: 1px solid transparent;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active:not(:disabled) {
+		transform: scale(0.98);
+	}
 
 	&:disabled {
 		opacity: 0.65;
@@ -602,12 +660,24 @@ tbody tr.selected .key-cell {
 	background: transparent;
 	color: var(--on-surface-variant);
 	border-color: var(--outline-variant);
+
+	&:hover:not(:disabled) {
+		background: var(--surface-container-low);
+		border-color: var(--surface-container-highest);
+		color: var(--on-surface);
+	}
 }
 
 .primary-button {
 	background: var(--primary);
 	color: var(--on-primary);
 	border-color: var(--primary);
+
+	&:hover:not(:disabled) {
+		background: var(--primary-container);
+		border-color: var(--primary-container);
+		color: var(--on-primary-container);
+	}
 }
 
 @media (max-width: 1120px) {

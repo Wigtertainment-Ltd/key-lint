@@ -64,12 +64,33 @@
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	cursor: pointer;
-	transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+	transition: transform 100ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+
+	&:hover {
+		background: var(--surface-container-low);
+		color: var(--on-surface);
+		border-color: var(--primary-container);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
 
 	&.active {
 		background: var(--primary);
 		color: var(--on-primary);
 		border-color: var(--primary);
+	}
+
+	&.active:hover {
+		background: var(--primary-container);
+		color: var(--on-primary-container);
+		border-color: var(--primary-container);
 	}
 }
 
@@ -315,6 +336,11 @@ tbody tr.selected .key-cell {
 	gap: 0.75rem;
 	color: var(--on-surface);
 
+	> div {
+		min-width: 0;
+		flex: 1;
+	}
+
 	.eyebrow {
 		margin: 0 0 0.3rem;
 		font-size: 11px;
@@ -330,6 +356,7 @@ tbody tr.selected .key-cell {
 		font-size: 18px;
 		line-height: 26px;
 		word-break: break-all;
+		overflow-wrap: anywhere;
 		color: var(--on-surface);
 	}
 }
@@ -391,6 +418,7 @@ tbody tr.selected .key-cell {
 	font-size: 14px;
 	line-height: 20px;
 	color: var(--on-surface-variant);
+	overflow-wrap: anywhere;
 }
 
 .info-block {
@@ -408,6 +436,8 @@ tbody tr.selected .key-cell {
 		font-size: 13px;
 		line-height: 19px;
 		color: var(--on-surface-variant);
+		overflow-wrap: anywhere;
+		min-width: 0;
 	}
 
 	.mono {
@@ -415,6 +445,8 @@ tbody tr.selected .key-cell {
 		font-size: 12px;
 		color: var(--on-surface);
 		margin-bottom: 0.25rem;
+		overflow-wrap: anywhere;
+		min-width: 0;
 	}
 }
 
@@ -435,6 +467,20 @@ tbody tr.selected .key-cell {
 	gap: 0.25rem;
 	font-size: 12px;
 	font-weight: 700;
+	transition: transform 100ms ease, color 120ms ease;
+
+	&:hover {
+		color: var(--on-primary-container);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
 }
 
 pre {
@@ -443,6 +489,7 @@ pre {
 	border-radius: 0.4rem;
 	background: var(--inverse-surface);
 	overflow: auto;
+	overflow-wrap: anywhere;
 
 	code {
 		font-family: var(--mono);
@@ -497,18 +544,40 @@ pre {
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
 }
 
 .primary-action {
 	border: 1px solid var(--primary);
 	background: var(--primary);
 	color: var(--on-primary);
+
+	&:hover {
+		background: var(--primary-container);
+		border-color: var(--primary-container);
+		color: var(--on-primary-container);
+	}
 }
 
 .secondary-action {
 	border: 1px solid var(--primary);
 	background: transparent;
 	color: var(--primary);
+
+	&:hover {
+		background: var(--surface-container-low);
+		border-color: var(--primary-container);
+		color: var(--on-surface);
+	}
 }
 
 .success-message {
@@ -647,6 +716,16 @@ pre {
 	font-weight: 700;
 	cursor: pointer;
 	border: 1px solid transparent;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
+
+	&:active:not(:disabled) {
+		transform: scale(0.98);
+	}
 
 	&:disabled {
 		opacity: 0.65;
@@ -658,12 +737,24 @@ pre {
 	background: transparent;
 	color: var(--on-surface-variant);
 	border-color: var(--outline-variant);
+
+	&:hover:not(:disabled) {
+		background: var(--surface-container-low);
+		border-color: var(--surface-container-highest);
+		color: var(--on-surface);
+	}
 }
 
 .primary-button {
 	background: var(--primary);
 	color: var(--on-primary);
 	border-color: var(--primary);
+
+	&:hover:not(:disabled) {
+		background: var(--primary-container);
+		border-color: var(--primary-container);
+		color: var(--on-primary-container);
+	}
 }
 
 @media (max-width: 1120px) {

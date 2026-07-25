@@ -6,10 +6,6 @@
 	background: radial-gradient(circle at 20% 0%, #f7f2ff 0%, var(--surface) 45%, #f4eefc 100%);
 }
 
-:host-context([data-theme='dark']) {
-	background: radial-gradient(circle at 22% -5%, #26206a 0%, #151238 38%, #0d0b2e 100%);
-}
-
 .page {
 	position: relative;
 	min-height: 100vh;
@@ -387,14 +383,20 @@
 	font-weight: 600;
 	line-height: 24px;
 	cursor: pointer;
-	transition: transform 120ms ease, background-color 160ms ease, opacity 160ms ease;
+	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 160ms ease;
 
 	&:hover:not(:disabled) {
 		background: var(--primary-container);
+		color: var(--on-primary-container);
 	}
 
 	&:active:not(:disabled) {
-		transform: scale(0.985);
+		transform: scale(0.98);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
 	}
 
 	&:disabled {
@@ -445,6 +447,8 @@
 }
 
 :host-context([data-theme='dark']) {
+	background: radial-gradient(circle at 22% -5%, #26206a 0%, #151238 38%, #0d0b2e 100%);
+
 	.grid-bg {
 		opacity: 0.08;
 		color: #d8d4ff;
