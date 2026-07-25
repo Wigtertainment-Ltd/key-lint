@@ -265,7 +265,35 @@
 .top-right {
 	display: flex;
 	align-items: center;
-	gap: 1.5rem;
+	gap: 0.75rem;
+}
+
+.theme-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border: 1px solid var(--outline-variant);
+	border-radius: 0.5rem;
+	background: var(--surface-container-lowest);
+	color: var(--on-surface-variant);
+	cursor: pointer;
+	transition: background-color 150ms ease, border-color 150ms ease;
+
+	.material-symbols-outlined {
+		font-size: 22px;
+	}
+
+	&:hover {
+		background: var(--surface-container-low);
+		border-color: var(--surface-container-highest);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary-container);
+		outline-offset: 2px;
+	}
 }
 
 .toolbar-icons {
