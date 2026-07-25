@@ -86,6 +86,16 @@
 			</div>
 
 			<div class="top-right">
+				<button
+					type="button"
+					class="theme-toggle"
+					aria-label="Toggle theme"
+					(click)="toggleTheme()"
+					title="Toggle theme"
+				>
+					<span class="material-symbols-outlined">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+				</button>
+
 				<div class="toolbar-icons">
 					<span class="material-symbols-outlined">notifications</span>
 					<a

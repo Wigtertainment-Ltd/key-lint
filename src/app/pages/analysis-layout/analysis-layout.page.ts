@@ -1,7 +1,8 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
 	selector: 'app-analysis-layout-page',
@@ -14,6 +15,13 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	projectPath = '';
 	lastScanText = 'Running now';
 	isSidebarCollapsed = false;
+
+	readonly themeService = inject(ThemeService);
+
+	get isDark(): boolean {
+		return this.themeService.getCurrent() === 'dark';
+	}
+
 	private stateSubscription?: Subscription;
 
 	constructor(
@@ -70,5 +78,9 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 
 	toggleSidebar(): void {
 		this.isSidebarCollapsed = !this.isSidebarCollapsed;
+	}
+
+	toggleTheme(): void {
+		this.themeService.toggle();
 	}
 }
