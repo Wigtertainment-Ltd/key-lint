@@ -141,11 +141,10 @@
 	min-width: 0;
 	overflow-x: auto;
 	overflow-y: auto;
-	scrollbar-gutter: stable both-edges;
 }
 
 table {
-	width: max-content;
+	width: 100%;
 	min-width: 100%;
 	min-width: 980px;
 	border-collapse: collapse;
@@ -154,7 +153,6 @@ table {
 th,
 td {
 	padding: 0.85rem 1rem;
-	border-bottom: 1px solid var(--outline-variant);
 	text-align: left;
 	color: var(--on-surface);
 }
@@ -176,6 +174,7 @@ tbody tr {
 	cursor: pointer;
 	border-left: 4px solid transparent;
 	transition: background 120ms ease, border-color 120ms ease;
+	border-bottom: 1px solid var(--outline-variant);
 
 	&:hover {
 		background: var(--surface-container-low);
@@ -230,6 +229,46 @@ tbody tr.selected .key-cell {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	color: var(--on-surface-variant);
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.path-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+}
+
+.copy-path-btn {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: none;
+	background: transparent;
+	color: var(--on-surface-variant);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 100ms ease, color 100ms ease;
+	padding: 0;
+
+	&:hover {
+		background: var(--surface-container-high);
+		color: var(--on-surface);
+	}
+
+	&:active {
+		transform: scale(0.95);
+	}
+}
+
+.material-symbols-outlined {
+	font-size: 18px;
+	line-height: 1;
 }
 
 .status-pill {
@@ -607,7 +646,7 @@ pre {
 	}
 
 	&::backdrop {
-		background: rgba(16, 20, 30, 0.24);
+		background: rgba(16, 20, 30, 0.5);
 	}
 }
 

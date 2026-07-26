@@ -250,8 +250,9 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
 
 				if (isDynamicArgument) {
+					const cleanedKey = argumentSource.replace(/^`|`$/g, '').trim();
 					matches.push({
-						key: argumentSource.trim(),
+						key: cleanedKey,
 						filePath,
 						line: lineCol.line,
 						column: lineCol.column,
@@ -289,9 +290,10 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 			}
 
 			if (rawKey) {
+				const cleanedKey = rawKey.replace(/^`|`$/g, '').trim();
 				const lineCol = getLineColumn(source, match.index);
 				matches.push({
-					key: rawKey,
+					key: cleanedKey,
 					filePath,
 					line: lineCol.line,
 					column: lineCol.column,

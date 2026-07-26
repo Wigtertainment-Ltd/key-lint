@@ -141,11 +141,10 @@
 	min-width: 0;
 	overflow-x: auto;
 	overflow-y: auto;
-	scrollbar-gutter: stable both-edges;
 }
 
 table {
-	width: max-content;
+	width: 100%;
 	min-width: 100%;
 	min-width: 980px;
 	border-collapse: collapse;
@@ -537,7 +536,7 @@ tbody tr.selected .key-cell {
 	}
 
 	&::backdrop {
-		background: rgba(16, 20, 30, 0.24);
+		background: rgba(16, 20, 30, 0.5);
 	}
 }
 

@@ -18,6 +18,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	selectedFindingId?: string;
 	isDetailOpen = false;
 	keyCopied = false;
+	copiedPath?: string;
 	isAddTranslationModalOpen = false;
 	isSavingTranslations = false;
 	addTranslationsError = '';
@@ -85,6 +86,20 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.keyCopied = true;
 		setTimeout(() => {
 			this.keyCopied = false;
+		}, 1500);
+	}
+
+	getFileName(filePath: string): string {
+		const parts = filePath.replaceAll('\\', '/').split('/');
+		return parts.at(-1) ?? filePath;
+	}
+
+	async onCopyPath(event: Event, fullPath: string): Promise<void> {
+		event.stopPropagation();
+		await navigator.clipboard.writeText(fullPath);
+		this.copiedPath = fullPath;
+		setTimeout(() => {
+			this.copiedPath = undefined;
 		}, 1500);
 	}
 

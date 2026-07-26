@@ -172,9 +172,10 @@
 			</div>
 		}
 	</aside>
+</main>
 
-	@if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
-		<dialog class="modal-backdrop" open (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
+@if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
+	<dialog class="modal-backdrop" open (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
 			<div #modalCard class="modal-card" [style.transform]="modalCardTransform" [class.dragging]="isModalDragging">
 				<header
 					class="modal-header modal-drag-handle"
@@ -217,4 +218,4 @@
 			</div>
 		</dialog>
 	}
-</main>
+

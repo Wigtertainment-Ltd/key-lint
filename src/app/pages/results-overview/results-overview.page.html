@@ -2,57 +2,24 @@
 	<section class="findings-pane">
 		<header class="table-toolbar">
 			<div class="chip-row">
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'all'"
-					(click)="onFilterChange('all')"
-				>
-					All ({{ allFilterCount }})
-				</button>
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'missing-in-language'"
-					(click)="onFilterChange('missing-in-language')"
-				>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="onFilterChange('all')">All ({{ allFilterCount }})</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-in-language'" (click)="onFilterChange('missing-in-language')">
 					Missing ({{ missingFilterCount }})
 				</button>
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'unused'"
-					(click)="onFilterChange('unused')"
-				>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'unused'" (click)="onFilterChange('unused')">
 					Unused ({{ unusedFilterCount }})
 				</button>
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'dynamic-uncertain'"
-					(click)="onFilterChange('dynamic-uncertain')"
-				>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
 					Dynamic ({{ dynamicFilterCount }})
 				</button>
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'used'"
-					(click)="onFilterChange('used')"
-				>
-					Used ({{ usedFilterCount }})
-				</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'used'" (click)="onFilterChange('used')">Used ({{ usedFilterCount }})</button>
 			</div>
 
 			<div class="toolbar-right">
 				<span class="result-count">{{ filteredFindings.length }} of {{ allFilterCount }} keys</span>
 				<label class="search-box">
 					<span class="material-symbols-outlined">search</span>
-					<input
-						type="text"
-						placeholder="Search key, message or file path"
-						(input)="onSearchChange(($any($event.target).value ?? '').toString())"
-					/>
+					<input type="text" placeholder="Search key, message or file path" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
 				</label>
 			</div>
 		</header>
@@ -66,7 +33,7 @@
 						<th>Last Used / File Path</th>
 						<th>Severity</th>
 					</tr>
-					</thead>
+				</thead>
 				<tbody>
 					@for (finding of filteredFindings; track finding.id) {
 						<tr
@@ -75,8 +42,7 @@
 							(keydown.space)="onSelectFinding(finding); $event.preventDefault()"
 							tabindex="0"
 							[class.selected]="selectedFinding?.id === finding.id"
-							[class.resolved-success]="isResolvedFinding(finding)"
-						>
+							[class.resolved-success]="isResolvedFinding(finding)">
 							<td>
 								<span class="key-cell">{{ finding.key }}</span>
 							</td>
@@ -87,12 +53,25 @@
 									[class.unused]="finding.status === 'unused'"
 									[class.dynamic]="finding.status === 'dynamic-uncertain'"
 									[class.missing]="finding.status === 'missing-in-language'"
-									[class.extra]="finding.status === 'extra-in-language'"
-								>
+									[class.extra]="finding.status === 'extra-in-language'">
 									{{ statusLabel(finding.status) }}
 								</span>
 							</td>
-							<td class="path-cell">{{ finding.evidence[0]?.filePath ?? 'No evidence path available' }}</td>
+							<td class="path-cell">
+								@if (finding.evidence[0]?.filePath) {
+									<span class="path-text" [title]="finding.evidence[0].filePath">{{ getFileName(finding.evidence[0].filePath) }}</span>
+									<button
+										type="button"
+										class="copy-path-btn"
+										(click)="onCopyPath($event, finding.evidence[0].filePath)"
+										[title]="copiedPath === finding.evidence[0].filePath ? 'Copied!' : 'Copy full path'"
+									>
+										<span class="material-symbols-outlined">{{ copiedPath === finding.evidence[0].filePath ? 'check' : 'content_copy' }}</span>
+									</button>
+								} @else {
+									<span class="path-text">No evidence path available</span>
+								}
+							</td>
 							<td>
 								<div class="severity-meter">
 									<div
@@ -100,8 +79,7 @@
 										[class.error]="finding.severity === 'error'"
 										[class.warning]="finding.severity === 'warning'"
 										[class.info]="finding.severity === 'info'"
-										[style.width.%]="severityPercent(finding.severity)"
-									></div>
+										[style.width.%]="severityPercent(finding.severity)"></div>
 								</div>
 							</td>
 						</tr>
@@ -116,12 +94,7 @@
 	</section>
 
 	@if (selectedFinding) {
-		<button
-			type="button"
-			class="details-backdrop"
-			(click)="closeDetailPanel()"
-			aria-label="Close finding details"
-		></button>
+		<button type="button" class="details-backdrop" (click)="closeDetailPanel()" aria-label="Close finding details"></button>
 	}
 
 	<aside class="details-pane" [class.hidden]="!selectedFinding">
@@ -145,8 +118,7 @@
 							[class.unused]="selectedFinding.status === 'unused'"
 							[class.dynamic]="selectedFinding.status === 'dynamic-uncertain'"
 							[class.missing]="selectedFinding.status === 'missing-in-language'"
-							[class.extra]="selectedFinding.status === 'extra-in-language'"
-						>
+							[class.extra]="selectedFinding.status === 'extra-in-language'">
 							{{ statusLabel(selectedFinding.status) }}
 						</span>
 						<span class="severity-label">{{ severityLabel(selectedFinding.severity) }} severity</span>
@@ -202,56 +174,52 @@
 			</div>
 		}
 	</aside>
-
-	@if (isAddTranslationModalOpen && selectedFinding) {
-		<dialog
-			class="modal-backdrop"
-			open
-			(click)="onAddTranslationModalBackdropClick($event)"
-			(keydown)="onAddTranslationModalBackdropKeydown($event)"
-			(cancel)="closeAddTranslationModal()"
-		>
-			<div class="modal-card">
-				<header class="modal-header">
-					<h4 id="add-translation-title">Add Missing Translations</h4>
-					<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">
-						<span class="material-symbols-outlined">close</span>
-					</button>
-				</header>
-				<p class="modal-context">
-					Key: <span>{{ selectedFinding.key }}</span>
-				</p>
-				<p class="modal-hint">
-					Fill translations per missing locale. You can leave fields empty to add the key with an empty string.
-				</p>
-
-				<div class="locale-input-list custom-scrollbar">
-					@for (locale of selectedMissingLocales; track locale) {
-						<div class="locale-input-item">
-							<label class="modal-label" [for]="'translation-locale-' + locale">{{ locale }}</label>
-							<textarea
-								[id]="'translation-locale-' + locale"
-								rows="3"
-								class="modal-textarea"
-								placeholder="Translation text"
-								[value]="translationDrafts[locale] ?? ''"
-								(input)="onTranslationDraftChange(locale, ($any($event.target).value ?? '').toString())"
-							></textarea>
-						</div>
-					}
-				</div>
-
-				@if (addTranslationsError) {
-					<p class="modal-error">{{ addTranslationsError }}</p>
-				}
-
-				<footer class="modal-actions">
-					<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">Cancel</button>
-					<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations">
-						{{ isSavingTranslations ? 'Saving...' : 'Add Key to Files' }}
-					</button>
-				</footer>
-			</div>
-		</dialog>
-	}
 </main>
+
+@if (isAddTranslationModalOpen && selectedFinding) {
+	<dialog
+		class="modal-backdrop"
+		open
+		(click)="onAddTranslationModalBackdropClick($event)"
+		(keydown)="onAddTranslationModalBackdropKeydown($event)"
+		(cancel)="closeAddTranslationModal()">
+		<div class="modal-card">
+			<header class="modal-header">
+				<h4 id="add-translation-title">Add Missing Translations</h4>
+				<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">
+					<span class="material-symbols-outlined">close</span>
+				</button>
+			</header>
+			<p class="modal-context">
+				Key: <span>{{ selectedFinding.key }}</span>
+			</p>
+			<p class="modal-hint">Fill translations per missing locale. You can leave fields empty to add the key with an empty string.</p>
+
+			<div class="locale-input-list custom-scrollbar">
+				@for (locale of selectedMissingLocales; track locale) {
+					<div class="locale-input-item">
+						<label class="modal-label" [for]="'translation-locale-' + locale">{{ locale }}</label>
+						<textarea
+							[id]="'translation-locale-' + locale"
+							rows="3"
+							class="modal-textarea"
+							placeholder="Translation text"
+							[value]="translationDrafts[locale] ?? ''"
+							(input)="onTranslationDraftChange(locale, ($any($event.target).value ?? '').toString())"></textarea>
+					</div>
+				}
+			</div>
+
+			@if (addTranslationsError) {
+				<p class="modal-error">{{ addTranslationsError }}</p>
+			}
+
+			<footer class="modal-actions">
+				<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">Cancel</button>
+				<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations">
+					{{ isSavingTranslations ? 'Saving...' : 'Add Key to Files' }}
+				</button>
+			</footer>
+		</div>
+	</dialog>
+}
