@@ -1,0 +1,56 @@
+appId: com.wigtertainment.check-i18n
+productName: Check i18n
+copyright: Copyright © 2026 Wigtertainment Ltd
+
+directories:
+  output: release
+  buildResources: build
+
+# node_modules of production dependencies are added automatically by electron-builder.
+files:
+  - app.js
+  - package.json
+  - dist/check-i18n/browser/**/*
+
+asar: true
+forceCodeSigning: true
+
+win:
+  # Placeholder artwork - replace build/icon.png with the real icon (>= 256x256).
+  # electron-builder converts the PNG to a multi-size .ico.
+  icon: build/icon.png
+  # Azure Trusted Signing (Microsoft) for signed installer/executables.
+  azureSignOptions:
+    publisherName: Wigtertainment Ltd
+    endpoint: ${env.AZURE_TRUSTED_SIGNING_ENDPOINT}
+    codeSigningAccountName: ${env.AZURE_CODE_SIGNING_ACCOUNT_NAME}
+    certificateProfileName: ${env.AZURE_CERTIFICATE_PROFILE_NAME}
+    timestampRfc3161: http://timestamp.acs.microsoft.com
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Check i18n
+  artifactName: Check-i18n-Setup-${version}.${ext}
+
+portable:
+  artifactName: Check-i18n-Portable-${version}.${ext}
+
+# Releases are published to a dedicated public repository so the main repo can stay private.
+# Uploaded as draft: assets only become reachable for electron-updater once the draft is published.
+publish:
+  provider: github
+  owner: Wigtertainment-Ltd
+  repo: Check-i18n-releases
+  releaseType: draft
+  channel: latest

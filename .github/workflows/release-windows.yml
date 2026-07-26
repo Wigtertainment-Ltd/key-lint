@@ -1,0 +1,111 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      signingProfile:
+        description: 'Trusted Signing profile to use for manual runs'
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}".TrimStart('v')
+          $pkgVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($tagVersion -ne $pkgVersion) {
+            Write-Error "Tag version '$tagVersion' does not match package.json version '$pkgVersion'."
+            exit 1
+          }
+
+      - name: Test
+        run: npm test -- --watch=false --browsers=ChromeHeadless
+
+      - name: Validate Trusted Signing environment
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME_TEST: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME_TEST }}
+        run: |
+          $selectedProfile = 'prod'
+          if ("${{ github.event_name }}" -eq 'workflow_dispatch') {
+            $selectedProfile = "${{ github.event.inputs.signingProfile }}"
+          }
+
+          $profileName = $env:AZURE_CERTIFICATE_PROFILE_NAME
+          if ($selectedProfile -eq 'test') {
+            $profileName = $env:AZURE_CERTIFICATE_PROFILE_NAME_TEST
+          }
+
+          $required = @(
+            'AZURE_TENANT_ID',
+            'AZURE_CLIENT_ID',
+            'AZURE_CLIENT_SECRET',
+            'AZURE_TRUSTED_SIGNING_ENDPOINT',
+            'AZURE_CODE_SIGNING_ACCOUNT_NAME'
+          )
+
+          $missing = $required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
+          if ([string]::IsNullOrWhiteSpace($profileName)) {
+            $missing += if ($selectedProfile -eq 'test') { 'AZURE_CERTIFICATE_PROFILE_NAME_TEST' } else { 'AZURE_CERTIFICATE_PROFILE_NAME' }
+          }
+
+          if ($missing.Count -gt 0) {
+            Write-Error ("Missing GitHub Action secrets for Trusted Signing: " + ($missing -join ', '))
+            exit 1
+          }
+
+          "AZURE_CERTIFICATE_PROFILE_NAME_SELECTED=$profileName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SELECTED_SIGNING_PROFILE=$selectedProfile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Show selected signing profile
+        shell: pwsh
+        run: |
+          Write-Host "Using Trusted Signing profile selector: $env:SELECTED_SIGNING_PROFILE"
+
+      - name: Build and publish Windows artifacts
+        run: npm run publish:win
+        env:
+          # Fine-grained PAT limited to Wigtertainment-Ltd/Check-i18n-releases with
+          # "Contents: Read and write". The built-in GITHUB_TOKEN only covers this repository.
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          # Azure Trusted Signing (Microsoft) credentials.
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ env.AZURE_CERTIFICATE_PROFILE_NAME_SELECTED }}
