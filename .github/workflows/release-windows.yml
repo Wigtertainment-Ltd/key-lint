@@ -56,6 +56,7 @@ jobs:
         run: npm test -- --watch=false --browsers=ChromeHeadless
 
       - name: Validate Trusted Signing environment
+        id: trusted_signing
         shell: pwsh
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -111,18 +112,18 @@ jobs:
             exit 1
           }
 
-          "AZURE_TRUSTED_SIGNING_ENDPOINT_SELECTED=$endpoint" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "AZURE_CODE_SIGNING_ACCOUNT_NAME_SELECTED=$accountName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "AZURE_CERTIFICATE_PROFILE_NAME_SELECTED=$profileName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "SELECTED_SIGNING_PROFILE=$selectedProfile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "endpoint=$endpoint" >> $env:GITHUB_OUTPUT
+          "account_name=$accountName" >> $env:GITHUB_OUTPUT
+          "profile_name=$profileName" >> $env:GITHUB_OUTPUT
+          "selected_profile=$selectedProfile" >> $env:GITHUB_OUTPUT
 
       - name: Show selected signing configuration
         shell: pwsh
         run: |
-          Write-Host "Using Trusted Signing profile selector: $env:SELECTED_SIGNING_PROFILE"
-          Write-Host "Trusted Signing endpoint: $env:AZURE_TRUSTED_SIGNING_ENDPOINT_SELECTED"
-          Write-Host "Trusted Signing account: $env:AZURE_CODE_SIGNING_ACCOUNT_NAME_SELECTED"
-          Write-Host "Trusted Signing profile: $env:AZURE_CERTIFICATE_PROFILE_NAME_SELECTED"
+          Write-Host "Using Trusted Signing profile selector: ${{ steps.trusted_signing.outputs.selected_profile }}"
+          Write-Host "Trusted Signing endpoint: ${{ steps.trusted_signing.outputs.endpoint }}"
+          Write-Host "Trusted Signing account: ${{ steps.trusted_signing.outputs.account_name }}"
+          Write-Host "Trusted Signing profile: ${{ steps.trusted_signing.outputs.profile_name }}"
 
       - name: Build and publish Windows artifacts
         run: npm run publish:win
@@ -134,6 +135,6 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ env.AZURE_TRUSTED_SIGNING_ENDPOINT_SELECTED }}
-          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ env.AZURE_CODE_SIGNING_ACCOUNT_NAME_SELECTED }}
-          AZURE_CERTIFICATE_PROFILE_NAME: ${{ env.AZURE_CERTIFICATE_PROFILE_NAME_SELECTED }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ steps.trusted_signing.outputs.endpoint }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ steps.trusted_signing.outputs.account_name }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ steps.trusted_signing.outputs.profile_name }}
