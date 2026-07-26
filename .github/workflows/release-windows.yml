@@ -14,6 +14,11 @@ on:
         options:
           - test
           - prod
+      runTests:
+        description: 'Run unit tests before build on manual runs'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -47,6 +52,7 @@ jobs:
           }
 
       - name: Test
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.runTests == 'true'
         run: npm test -- --watch=false --browsers=ChromeHeadless
 
       - name: Validate Trusted Signing environment

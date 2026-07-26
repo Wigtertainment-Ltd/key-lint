@@ -387,12 +387,13 @@
 	border-bottom: 1px solid var(--outline);
 
 	span {
+		color: var(--surface);
 		font-size: 11px;
 		line-height: 16px;
 		letter-spacing: 0.05em;
 		font-weight: 700;
 		text-transform: uppercase;
-		opacity: 0.6;
+		opacity: 0.85;
 	}
 }
 
@@ -432,8 +433,14 @@
 
 	p {
 		margin: 0;
-		color: #e6e1e5;
+		color: var(--on-surface);
+		opacity: 0.92;
 	}
+}
+
+:host-context([data-theme='dark']) .console-body p {
+	color: #e6e1e5;
+	opacity: 1;
 }
 
 .cursor {

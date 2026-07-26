@@ -58,6 +58,13 @@ Trusted Signing account/profile in Azure.
 When you run the workflow manually, you can choose `signingProfile = test|prod`.
 Tag-based releases (`v*`) always use the production profile (`AZURE_CERTIFICATE_PROFILE_NAME`).
 
+Manual runs also expose `runTests`:
+
+- `false`: skip unit tests (useful for a pure signing/publishing smoke test)
+- `true`: run unit tests before build
+
+Tag-based releases always run tests.
+
 ### Auto-update
 
 `electron-updater` checks for updates on startup, but only when the app is packaged and installed.

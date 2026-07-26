@@ -316,6 +316,42 @@ describe('angularScanAdapter', () => {
 		).toBeFalse();
 	});
 
+	it('keeps full dynamic translate expressions with nested method calls', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"metadata":{"selectCategory":{"news":{"local":{"label":"Local News"}}}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"this.languageService.translate('metadata.selectCategory.' + category.fullPath.replace(/\\//g, '.') + '.label');"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(
+			usedKeys.some(
+				(item) =>
+					item.isDynamic &&
+					item.matchType === 'ts-dynamic-translate-call' &&
+					item.key.includes("category.fullPath.replace(/\\//g, '.')") &&
+					item.key.endsWith("+ '.label'")
+			)
+		).toBeTrue();
+
+		expect(
+			findings.some(
+				(item) =>
+					item.status === 'dynamic-uncertain' &&
+					item.key === 'metadata.selectCategory.news.local.label'
+			)
+		).toBeTrue();
+	});
+
 	it('does not treat Cypress get calls as translation usage', async () => {
 		const fs = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',

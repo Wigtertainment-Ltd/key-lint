@@ -45,15 +45,14 @@ const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
 const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 	{
 		matchType: 'ts-translate-method',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
+		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
 		dynamic: false,
 		keyCaptureIndex: 1
 	},
 	{
 		matchType: 'ts-translate-call',
-		regex: /\.\s*translate\s*\(([^)]*)\)/g,
+		regex: /\.\s*translate\s*\(/g,
 		dynamic: false,
-		keyCaptureIndex: 1,
 		literalKeyExtraction: true
 	}
 ];
@@ -61,13 +60,13 @@ const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 const DYNAMIC_PATTERNS: PatternDescriptor[] = [
 	{
 		matchType: 'ts-dynamic-template-literal',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
+		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
 	{
 		matchType: 'ts-dynamic-concat',
-		regex: /\b(?:this\.)?[A-Za-z_$][\w$]*(?:translate|i18n|transloco)[\w$]*\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
+		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
@@ -85,9 +84,9 @@ const DYNAMIC_PATTERNS: PatternDescriptor[] = [
 	},
 	{
 		matchType: 'html-dynamic-pipe-concat-binding',
-		regex: /=\s*['"]\s*([^'"\n]*\+[^'"\n]*?)\s*\|\s*translate\b[^'"\n]*['"]/g,
+		regex: /=\s*(['"])\s*([^\n]*\+[^\n]*?)\s*\|\s*translate\b[^\n]*?\1/g,
 		dynamic: true,
-		keyCaptureIndex: 1
+		keyCaptureIndex: 2
 	},
 	{
 		matchType: 'html-dynamic-pipe-template-literal',
@@ -223,6 +222,42 @@ function firstCallArgument(argumentList: string): string {
 	return argumentList;
 }
 
+function extractCallArgumentList(source: string, openParenIndex: number): string | null {
+	let depth = 0;
+	let stringDelimiter: string | null = null;
+
+	for (let i = openParenIndex + 1; i < source.length; i += 1) {
+		const char = source[i];
+
+		if (stringDelimiter) {
+			if (char === stringDelimiter && source[i - 1] !== '\\') {
+				stringDelimiter = null;
+			}
+			continue;
+		}
+
+		if (char === '\'' || char === '"' || char === '`') {
+			stringDelimiter = char;
+			continue;
+		}
+
+		if (char === '(') {
+			depth += 1;
+			continue;
+		}
+
+		if (char === ')') {
+			if (depth === 0) {
+				return source.slice(openParenIndex + 1, i);
+			}
+
+			depth -= 1;
+		}
+	}
+
+	return null;
+}
+
 function leadingLiteralPrefix(expression: string): string | null {
 	const match = /['"`]([A-Za-z0-9_.-]*)['"`]/.exec(expression);
 	if (!match) {
@@ -245,7 +280,10 @@ function extractMatches(source: string, filePath: string, descriptors: PatternDe
 			const snippet = extractSnippet(source, match.index);
 
 			if (descriptor.literalKeyExtraction) {
-				const argumentSource = firstCallArgument(match[keyIndex] ?? '');
+				const openParenIndex = source.indexOf('(', match.index);
+				const argumentList =
+					openParenIndex === -1 ? '' : extractCallArgumentList(source, openParenIndex) ?? '';
+				const argumentSource = firstCallArgument(argumentList);
 				const lineCol = getLineColumn(source, match.index);
 				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
 
