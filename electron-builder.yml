@@ -19,13 +19,16 @@ win:
   # Placeholder artwork - replace build/icon.png with the real icon (>= 256x256).
   # electron-builder converts the PNG to a multi-size .ico.
   icon: build/icon.png
-  # Azure Trusted Signing (Microsoft) for signed installer/executables.
-  azureSignOptions:
-    publisherName: Wigtertainment Ltd
-    endpoint: ${env.AZURE_TRUSTED_SIGNING_ENDPOINT}
-    codeSigningAccountName: ${env.AZURE_CODE_SIGNING_ACCOUNT_NAME}
-    certificateProfileName: ${env.AZURE_CERTIFICATE_PROFILE_NAME}
-    timestampRfc3161: http://timestamp.acs.microsoft.com
+  # electron-builder 25 passes file paths unquoted to Invoke-TrustedSigning, so the executable
+  # name must not contain spaces ("Check i18n.exe" breaks Azure Trusted Signing).
+  executableName: check-i18n
+  # Written to latest.yml/app-update.yml and verified by electron-updater before installing an
+  # update. Must match the subject of the code signing certificate.
+  publisherName: Wigtertainment Ltd
+  # Azure Trusted Signing (Microsoft) is configured by .github/workflows/release-windows.yml via
+  # `-c.win.azureSignOptions.*`. The values come from GitHub secrets and cannot live here:
+  # electron-builder does not expand `${env.*}` inside azureSignOptions, it forwards the literal
+  # string to Invoke-TrustedSigning.
   target:
     - target: nsis
       arch:

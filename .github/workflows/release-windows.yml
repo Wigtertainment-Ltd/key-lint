@@ -112,29 +112,34 @@ jobs:
             exit 1
           }
 
-          "endpoint=$endpoint" >> $env:GITHUB_OUTPUT
-          "account_name=$accountName" >> $env:GITHUB_OUTPUT
-          "profile_name=$profileName" >> $env:GITHUB_OUTPUT
+          # Only the (non-secret) profile selector is exported. The signing values themselves stay
+          # in secrets and are read directly from the environment in the build step.
           "selected_profile=$selectedProfile" >> $env:GITHUB_OUTPUT
 
       - name: Show selected signing configuration
         shell: pwsh
         run: |
           Write-Host "Using Trusted Signing profile selector: ${{ steps.trusted_signing.outputs.selected_profile }}"
-          Write-Host "Trusted Signing endpoint: ${{ steps.trusted_signing.outputs.endpoint }}"
-          Write-Host "Trusted Signing account: ${{ steps.trusted_signing.outputs.account_name }}"
-          Write-Host "Trusted Signing profile: ${{ steps.trusted_signing.outputs.profile_name }}"
 
       - name: Build and publish Windows artifacts
-        run: npm run publish:win
+        shell: pwsh
         env:
           # Fine-grained PAT limited to Wigtertainment-Ltd/Check-i18n-releases with
           # "Contents: Read and write". The built-in GITHUB_TOKEN only covers this repository.
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          # Azure Trusted Signing (Microsoft) credentials.
+          # Azure Trusted Signing (Microsoft) credentials, read by electron-builder itself.
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ steps.trusted_signing.outputs.endpoint }}
-          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ steps.trusted_signing.outputs.account_name }}
-          AZURE_CERTIFICATE_PROFILE_NAME: ${{ steps.trusted_signing.outputs.profile_name }}
+          # Signing target, injected into the electron-builder config below.
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ steps.trusted_signing.outputs.selected_profile == 'test' && secrets.AZURE_CERTIFICATE_PROFILE_NAME_TEST || secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+        # electron-builder does not expand `${env.*}` inside `win.azureSignOptions`, so the values
+        # are passed as CLI overrides, which are deep-merged into electron-builder.yml.
+        run: |
+          npm run publish:win -- `
+            "-c.win.azureSignOptions.endpoint=$env:AZURE_TRUSTED_SIGNING_ENDPOINT" `
+            "-c.win.azureSignOptions.codeSigningAccountName=$env:AZURE_CODE_SIGNING_ACCOUNT_NAME" `
+            "-c.win.azureSignOptions.certificateProfileName=$env:AZURE_CERTIFICATE_PROFILE_NAME" `
+            "-c.win.azureSignOptions.timestampRfc3161=http://timestamp.acs.microsoft.com"
