@@ -10,15 +10,15 @@ directories:
 files:
   - app.js
   - package.json
+  - build/icon.png
   - dist/check-i18n/browser/**/*
 
 asar: true
 forceCodeSigning: true
 
 win:
-  # Placeholder artwork - replace build/icon.png with the real icon (>= 256x256).
-  # electron-builder converts the PNG to a multi-size .ico.
-  icon: build/icon.png
+  # Multi-size icon (16-256px) generated from build/logo.png by build/generate-icons.ps1.
+  icon: build/icon.ico
   # electron-builder 25 passes file paths unquoted to Invoke-TrustedSigning, so the executable
   # name must not contain spaces ("Check i18n.exe" breaks Azure Trusted Signing).
   executableName: check-i18n
@@ -44,6 +44,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Check i18n
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
   artifactName: Check-i18n-Setup-${version}.${ext}
 
 portable:

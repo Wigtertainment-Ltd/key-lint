@@ -22,7 +22,8 @@
 		"test": "npm run build:core && ng test",
 		"test:packages": "npm run build:core && npm run test --workspaces --if-present",
 		"lint": "ng lint",
-		"e2e": "ng e2e"
+		"e2e": "ng e2e",
+		"icons": "powershell -NoProfile -ExecutionPolicy Bypass -File build/generate-icons.ps1"
 	},
 	"private": true,
 	"dependencies": {

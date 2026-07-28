@@ -28,7 +28,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 		private readonly route: ActivatedRoute,
 		private readonly router: Router,
 		private readonly scanOrchestrationService: ScanOrchestrationService
-	) {}
+	) { }
 
 	ngOnInit(): void {
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '/root/apps/web-client';

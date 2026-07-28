@@ -1,9 +1,11 @@
 <div class="scan-layout" [class.sidebar-collapsed]="isSidebarCollapsed">
 	<aside class="side-nav" [class.collapsed]="isSidebarCollapsed">
 		<div class="brand">
-			<h1 class="brand-full">i18n Analyzer</h1>
-			<h1 class="brand-compact" title="i18n Analyzer">iA</h1>
-			<p>v2.4.0-stable</p>
+			<img class="brand-logo" src="logo.png" alt="Check i18n" width="40" height="40" />
+			<div class="brand-text">
+				<h1>KeyLint</h1>
+				<p>v1.0.0</p>
+			</div>
 		</div>
 
 		<button class="new-analysis-btn" type="button" (click)="startNewAnalysis()" title="New Analysis">

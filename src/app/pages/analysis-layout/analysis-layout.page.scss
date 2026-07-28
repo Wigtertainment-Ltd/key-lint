@@ -28,23 +28,29 @@
 .brand {
 	margin-bottom: 2rem;
 	padding: 0 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
 	transition: margin-bottom 180ms ease, padding 180ms ease;
+
+	.brand-logo {
+		width: 40px;
+		height: 40px;
+		flex-shrink: 0;
+		object-fit: contain;
+	}
+
+	.brand-text {
+		min-width: 0;
+	}
 
 	h1 {
 		margin: 0;
-		font-size: 32px;
-		line-height: 40px;
+		font-size: 24px;
+		line-height: 32px;
 		font-weight: 700;
 		color: var(--primary);
 		white-space: nowrap;
-	}
-
-	.brand-full {
-		display: block;
-	}
-
-	.brand-compact {
-		display: none;
 	}
 
 	p {
@@ -357,20 +363,15 @@
 
 	.brand {
 		padding: 0;
-		text-align: center;
+		justify-content: center;
 		margin-bottom: 1.25rem;
 
-		.brand-full {
-			display: none;
+		.brand-logo {
+			width: 44px;
+			height: 44px;
 		}
 
-		.brand-compact {
-			display: block;
-			font-size: 24px;
-			line-height: 32px;
-		}
-
-		p {
+		.brand-text {
 			display: none;
 		}
 	}

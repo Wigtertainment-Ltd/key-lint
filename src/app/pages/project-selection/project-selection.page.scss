@@ -61,20 +61,8 @@
 	width: 80px;
 	height: 80px;
 	margin: 0 auto 1rem;
-	border-radius: 0.75rem;
-	background: var(--primary);
-	color: var(--on-primary);
-	display: grid;
-	place-items: center;
-	box-shadow: 0 6px 20px rgba(42, 20, 180, 0.22);
-
-	.material-symbols-outlined {
-		font-size: 48px;
-	}
-
-	.filled {
-		font-variation-settings: 'FILL' 1;
-	}
+	display: block;
+	object-fit: contain;
 }
 
 .card {
