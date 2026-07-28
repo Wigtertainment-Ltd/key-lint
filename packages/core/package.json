@@ -1,0 +1,35 @@
+{
+	"name": "@check-i18n/core",
+	"version": "1.0.0",
+	"description": "Framework-agnostic i18n scan engine used by the Check-i18n desktop app and CLI.",
+	"author": "Wigtertainment Ltd",
+	"license": "UNLICENSED",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./node": {
+			"types": "./dist/node.d.ts",
+			"default": "./dist/node.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.0",
+		"typescript": "~5.5.2",
+		"vitest": "^2.1.8"
+	}
+}

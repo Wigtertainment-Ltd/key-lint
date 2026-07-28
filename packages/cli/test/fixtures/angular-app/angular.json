@@ -1,0 +1,9 @@
+{
+	"version": 1,
+	"projects": {
+		"fixture-angular-app": {
+			"root": "",
+			"sourceRoot": "src"
+		}
+	}
+}

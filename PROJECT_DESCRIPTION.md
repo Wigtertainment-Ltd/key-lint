@@ -3,6 +3,8 @@
 ## Overview
 Check-i18n is a desktop utility built with Angular and Electron. It lets a user select an existing local project folder, automatically detects the project framework, scans source files and translation resources, and reports i18n inconsistencies.
 
+The scan engine lives in the standalone package `@check-i18n/core` and is shared by two front ends: the Electron desktop app and the headless CLI `@check-i18n/cli` for CI/CD pipelines.
+
 The scan pipeline, the adapter architecture, the multi-page analysis UI, and the persisted project history are implemented. Angular (ngx-translate style usage) is currently the only shipped scan adapter, and JSON is the only supported translation format.
 
 ## Goals
@@ -37,15 +39,20 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Routing: `src/app/app.routes.ts`
 
 ### Layering
-- `src/app/core/` — framework-agnostic contracts
+- `packages/core/` — `@check-i18n/core`, the framework-agnostic scan engine
   - `models/finding.model.ts`, `models/scan-result.model.ts`, `models/history-event.model.ts`
-  - `adapters/scan-adapter.interface.ts`, `adapters/adapter-registry.ts`
-  - `config/scanner-defaults.ts`
-- `src/app/adapters/` — concrete scan adapters
-  - `angular/angular-scan.adapter.ts` and `default-adapter-registry.ts`
-- `src/app/shared/services/` — runtime services
+  - `adapters/scan-adapter.interface.ts`, `adapters/adapter-registry.ts`, `adapters/default-adapter-registry.ts`
+  - `adapters/angular/angular-scan.adapter.ts`
+  - `config/scanner-defaults.ts`, `config/scanner-config.ts` (merge + validation), `config/load-config.ts` (Node only)
+  - `scan/run-scan.ts` (the pipeline itself)
+  - `fs/node-file-system.adapter.ts` (Node only, exported via `@check-i18n/core/node`)
+  - `util/` (path, glob and translation JSON helpers)
+- `packages/cli/` — `@check-i18n/cli`, argument parsing, reporters (text/json/markdown), exit codes
+- `packages/action/` — GitHub Action wrapping the CLI
+- `src/app/shared/services/` — desktop runtime services
   - `electron.service.ts` (Electron/Node bridge)
-  - `scan-orchestration.service.ts` (pipeline, filesystem adapter, glob matching, translation writes)
+  - `electron-file-system.adapter.ts` (FileSystemAdapter for the renderer)
+  - `scan-orchestration.service.ts` (thin wrapper around `runScan`, state stream, translation writes)
   - `project-history.service.ts`, `recent-projects.service.ts`
 - `src/app/pages/` — routed pages
 - `src/app/services/theme.service.ts` — theme handling
@@ -80,7 +87,17 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Translation globs: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`, `i18n/**/*.json`, `locales/**/*.json`, plus `apps|libs|packages/**/src/assets/i18n/**/*.json`
 - Source globs: `**/*.html`, `**/*.ts`
 - Excludes: `node_modules`, `dist`, `coverage`, `.git`, `.nx`, `tmp`, `out`
-- Guardrails: max. 25.000 files, max. 2 MB per file
+- Ignored keys: none by default (`ignoreKeys`, glob matched against translation keys)
+- Guardrails: max. 25.000 files, max. 2 MB per file (enforced by the Node filesystem adapter)
+
+## CLI / CI-CD Usage
+- Command: `npx @check-i18n/cli scan <path> [options]`
+- Reporters: `text` (stdout), `json` (machine readable, without the translation matrix), `markdown` (job summary / PR comment)
+- Thresholds: `--max-errors` (default 0), `--max-warnings` (default unlimited)
+- Exit codes: `0` thresholds respected, `1` thresholds exceeded, `2` usage/config/runtime error
+- Configuration: `check-i18n.config.json` or a `check-i18n` key in `package.json`; precedence defaults < package.json < config file < CLI flags
+- Distribution: npm packages, GitHub Action (`packages/action`), Docker image (`docker/Dockerfile`)
+- Details and pipeline templates: `docs/ci/`
 
 ## Startup Flow
 1. `npm start` runs `ng serve --hmr` and launches Electron against `http://localhost:4200` once the port is ready.
@@ -100,11 +117,14 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Jasmine + Karma (unit testing setup)
 
 ## Build, Run, and Test
-- Install dependencies: `npm install`
+- Install dependencies: `npm install` (npm workspace, links `@check-i18n/core`)
 - Start desktop app (dev, HMR): `npm start`
 - Start desktop app from build output: `npm run start:dist`
-- Build frontend only: `npm run build`
-- Run unit tests: `npm test`
+- Build engine only: `npm run build:core`
+- Build CLI: `npm run build:cli`
+- Build frontend: `npm run build`
+- Run desktop unit tests: `npm test`
+- Run engine and CLI tests (Vitest): `npm run test:packages`
 - Lint: `npm run lint`
 
 ## Project Structure (Key Files)
@@ -113,10 +133,12 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `src/app/app.config.ts`: Provider and translation module setup
 - `src/app/app.routes.ts`: Router configuration for selection, scan and analysis pages
 - `src/app/app.component.ts`: Router outlet shell and theme initialization
-- `src/app/core/adapters/scan-adapter.interface.ts`: Contract every scan adapter implements
-- `src/app/core/config/scanner-defaults.ts`: Default globs, excludes and guardrails
-- `src/app/adapters/angular/angular-scan.adapter.ts`: Angular/ngx-translate scan adapter
-- `src/app/shared/services/scan-orchestration.service.ts`: Scan pipeline and translation writes
+- `packages/core/src/adapters/scan-adapter.interface.ts`: Contract every scan adapter implements
+- `packages/core/src/config/scanner-defaults.ts`: Default globs, excludes and guardrails
+- `packages/core/src/adapters/angular/angular-scan.adapter.ts`: Angular/ngx-translate scan adapter
+- `packages/core/src/scan/run-scan.ts`: The scan pipeline shared by desktop app and CLI
+- `packages/cli/src/cli.ts`: CLI entry logic, reporter selection and exit codes
+- `src/app/shared/services/scan-orchestration.service.ts`: Desktop state wrapper and translation writes
 - `src/app/shared/services/project-history.service.ts`: Persisted project history events
 - `src/app/shared/services/electron.service.ts`: Access to Electron and Node APIs from Angular
 - `src/assets/i18n/en.json`: Base English translation resource for the app UI

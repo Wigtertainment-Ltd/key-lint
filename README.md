@@ -2,6 +2,21 @@
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.1.4.
 
+## Workspace layout
+
+The repository is an npm workspace:
+
+| Path | Package | Purpose |
+| --- | --- | --- |
+| `/` | `check-i18n` | Angular + Electron desktop app |
+| `packages/core` | `@check-i18n/core` | Framework-agnostic scan engine (adapters, rules, config) |
+| `packages/cli` | `@check-i18n/cli` | Headless CLI for CI/CD pipelines |
+| `packages/action` | - | GitHub Action wrapping the CLI |
+
+The desktop app and the CLI run the exact same engine. `npm run build:core` has to
+run before the Angular build; the `build`, `start` and `test` scripts do that
+automatically.
+
 ## Development server
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
@@ -94,7 +109,21 @@ Linux and macOS builds are not configured yet.
 
 ## Running unit tests
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+Run `ng test` to execute the desktop unit tests via [Karma](https://karma-runner.github.io).
+Run `npm run test:packages` to execute the engine and CLI tests via Vitest.
+
+## CI/CD
+
+The scan can run headless in a pipeline:
+
+```bash
+npx @check-i18n/cli scan . --max-errors 0 --output markdown=check-i18n.md
+```
+
+Exit code `0` means the thresholds were respected, `1` that they were exceeded and
+`2` that the run itself failed. See [docs/ci/README.md](docs/ci/README.md) for the
+full option reference, the `check-i18n.config.json` schema and ready-to-use
+pipeline snippets for GitHub Actions, GitLab CI, Azure DevOps and Jenkins.
 
 ## Running end-to-end tests
 

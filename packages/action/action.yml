@@ -1,0 +1,126 @@
+name: Check-i18n
+description: Audit i18n translation keys of an Angular project and fail the build on missing keys.
+author: Wigtertainment Ltd
+
+branding:
+  icon: globe
+  color: blue
+
+inputs:
+  path:
+    description: Project directory to scan, relative to the workspace.
+    required: false
+    default: .
+  config:
+    description: Path to a check-i18n.config.json file.
+    required: false
+    default: ''
+  version:
+    description: Version of the @check-i18n/cli npm package to run.
+    required: false
+    default: latest
+  max-errors:
+    description: Number of error findings tolerated before the job fails.
+    required: false
+    default: '0'
+  max-warnings:
+    description: Number of warning findings tolerated before the job fails. Empty means unlimited.
+    required: false
+    default: ''
+  ignore:
+    description: Newline separated translation key globs to ignore.
+    required: false
+    default: ''
+  report-directory:
+    description: Directory the JSON and Markdown reports are written to.
+    required: false
+    default: check-i18n-report
+  job-summary:
+    description: Append the Markdown report to the GitHub job summary.
+    required: false
+    default: 'true'
+
+outputs:
+  exit-code:
+    description: Exit code of the CLI (0 = ok, 1 = thresholds exceeded, 2 = error).
+    value: ${{ steps.scan.outputs.exit-code }}
+  total-findings:
+    description: Total number of findings.
+    value: ${{ steps.scan.outputs.total-findings }}
+  error-count:
+    description: Number of findings with severity "error".
+    value: ${{ steps.scan.outputs.error-count }}
+  warning-count:
+    description: Number of findings with severity "warning".
+    value: ${{ steps.scan.outputs.warning-count }}
+  json-report:
+    description: Path of the generated JSON report.
+    value: ${{ steps.scan.outputs.json-report }}
+  markdown-report:
+    description: Path of the generated Markdown report.
+    value: ${{ steps.scan.outputs.markdown-report }}
+
+runs:
+  using: composite
+  steps:
+    - id: scan
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_MAX_ERRORS: ${{ inputs.max-errors }}
+        INPUT_MAX_WARNINGS: ${{ inputs.max-warnings }}
+        INPUT_IGNORE: ${{ inputs.ignore }}
+        INPUT_REPORT_DIRECTORY: ${{ inputs.report-directory }}
+        INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
+      run: |
+        set -euo pipefail
+
+        report_dir="${INPUT_REPORT_DIRECTORY}"
+        mkdir -p "${report_dir}"
+        json_report="${report_dir}/check-i18n.json"
+        markdown_report="${report_dir}/check-i18n.md"
+
+        args=(scan "${INPUT_PATH}" --no-color)
+        args+=(--output "json=${json_report}")
+        args+=(--output "markdown=${markdown_report}")
+        args+=(--max-errors "${INPUT_MAX_ERRORS}")
+
+        if [ -n "${INPUT_CONFIG}" ]; then
+          args+=(--config "${INPUT_CONFIG}")
+        fi
+
+        if [ -n "${INPUT_MAX_WARNINGS}" ]; then
+          args+=(--max-warnings "${INPUT_MAX_WARNINGS}")
+        fi
+
+        while IFS= read -r pattern; do
+          [ -n "${pattern}" ] && args+=(--ignore "${pattern}")
+        done <<< "${INPUT_IGNORE}"
+
+        set +e
+        npx --yes "@check-i18n/cli@${INPUT_VERSION}" "${args[@]}"
+        exit_code=$?
+        set -e
+
+        echo "exit-code=${exit_code}" >> "$GITHUB_OUTPUT"
+        echo "json-report=${json_report}" >> "$GITHUB_OUTPUT"
+        echo "markdown-report=${markdown_report}" >> "$GITHUB_OUTPUT"
+
+        if [ -f "${json_report}" ]; then
+          node -e '
+            const fs = require("fs");
+            const report = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const out = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(out, `total-findings=${report.findings.length}\n`);
+            fs.appendFileSync(out, `error-count=${report.severityCounts.error}\n`);
+            fs.appendFileSync(out, `warning-count=${report.severityCounts.warning}\n`);
+          ' "${json_report}"
+        fi
+
+        if [ "${INPUT_JOB_SUMMARY}" = "true" ] && [ -f "${markdown_report}" ]; then
+          cat "${markdown_report}" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        exit "${exit_code}"

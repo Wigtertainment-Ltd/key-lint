@@ -1,8 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { Finding } from '../../core/models/finding.model';
-import { ProjectScanResult } from '../../core/models/scan-result.model';
+import { Finding, ProjectScanResult } from '@check-i18n/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 
 @Component({

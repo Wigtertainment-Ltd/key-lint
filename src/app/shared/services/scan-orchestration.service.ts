@@ -1,11 +1,17 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { defaultAdapterRegistry } from '../../adapters/default-adapter-registry';
-import { FileSystemAdapter, ProjectContext } from '../../core/adapters/scan-adapter.interface';
-import { DEFAULT_SCANNER_CONFIG } from '../../core/config/scanner-defaults';
-import { buildSummary, ProjectScanResult } from '../../core/models/scan-result.model';
+import {
+	DEFAULT_SCANNER_CONFIG,
+	FileSystemAdapter,
+	inferLocaleFromTranslationFile,
+	normalizePath,
+	ProjectScanResult,
+	runScan,
+	setNestedTranslationKey,
+	TranslationEventSource
+} from '@check-i18n/core';
 import { ElectronService } from './electron.service';
-import { TranslationEventSource } from '../../core/models/history-event.model';
+import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import { ProjectHistoryService } from './project-history.service';
 
 export type ScanExecutionState = 'idle' | 'running' | 'completed' | 'failed';
@@ -15,142 +21,6 @@ export interface ScanExecutionSnapshot {
 	stage?: string;
 	error?: string;
 	result?: ProjectScanResult;
-}
-
-function normalizePath(value: string): string {
-	return value.replace(/\\/g, '/').replace(/\/+/g, '/');
-}
-
-function escapeRegex(text: string): string {
-	return text.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-}
-
-function globToRegex(glob: string): RegExp {
-	const normalized = normalizePath(glob);
-	const escaped = escapeRegex(normalized)
-		.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
-		.replace(/\*\*/g, '__DOUBLE_STAR__')
-		.replace(/\*/g, '[^/]*')
-		.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
-		.replace(/__DOUBLE_STAR__/g, '.*');
-
-	return new RegExp(`^${escaped}$`);
-}
-
-function matchesAny(path: string, patterns: string[]): boolean {
-	if (patterns.length === 0) {
-		return false;
-	}
-
-	return patterns.some((pattern) => globToRegex(pattern).test(path));
-}
-
-function inferLocaleFromTranslationFile(filePath: string): string {
-	const normalized = normalizePath(filePath);
-	const fileName = normalized.split('/').at(-1) ?? normalized;
-	const withoutExtension = fileName.replace(/\.[^.]+$/, '');
-	const dottedParts = withoutExtension.split('.').filter(Boolean);
-
-	if (dottedParts.length > 1) {
-		return dottedParts.at(-1) ?? withoutExtension;
-	}
-
-	return withoutExtension;
-}
-
-function setNestedTranslationKey(target: Record<string, unknown>, key: string, value: string): void {
-	const segments = key.split('.').map((segment) => segment.trim()).filter(Boolean);
-	if (!segments.length) {
-		return;
-	}
-
-	let cursor: Record<string, unknown> = target;
-	for (let i = 0; i < segments.length - 1; i += 1) {
-		const segment = segments[i];
-		const current = cursor[segment];
-		if (current === null || typeof current !== 'object' || Array.isArray(current)) {
-			cursor[segment] = {};
-		}
-
-		cursor = cursor[segment] as Record<string, unknown>;
-	}
-
-	cursor[segments.at(-1) as string] = value;
-}
-
-class ElectronFileSystemAdapter implements FileSystemAdapter {
-	constructor(private readonly electronService: ElectronService) { }
-
-	async fileExists(filePath: string): Promise<boolean> {
-		if (!this.electronService.isElectron) {
-			return false;
-		}
-
-		return this.electronService.fs.existsSync(filePath);
-	}
-
-	async readFile(filePath: string): Promise<string> {
-		if (!this.electronService.isElectron) {
-			throw new Error('Electron runtime is required for filesystem access.');
-		}
-
-		return this.electronService.fs.readFileSync(filePath, 'utf8');
-	}
-
-	async listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
-		if (!this.electronService.isElectron) {
-			return [];
-		}
-
-		const rootForFs = projectRoot;
-		const normalizedRoot = normalizePath(projectRoot);
-		const results: string[] = [];
-		const stack: string[] = [rootForFs];
-
-		while (stack.length > 0) {
-			const current = stack.pop();
-			if (!current) {
-				continue;
-			}
-
-			const entries = this.electronService.fs.readdirSync(current, { withFileTypes: true }) as Array<{
-				isDirectory(): boolean;
-				isFile(): boolean;
-				name: string;
-			}>;
-
-			for (const entry of entries) {
-				const fullPath = `${current.replace(/[\\/]$/, '')}/${entry.name}`;
-				const normalizedFullPath = normalizePath(fullPath);
-
-				if (entry.isDirectory()) {
-					const relativeDir = normalizedFullPath.replace(`${normalizedRoot}/`, '');
-					if (matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativeDir, excludeGlobs)) {
-						continue;
-					}
-
-					stack.push(fullPath);
-					continue;
-				}
-
-				if (!entry.isFile()) {
-					continue;
-				}
-
-				const relativeFile = normalizedFullPath.replace(`${normalizedRoot}/`, '');
-				const included =
-					matchesAny(normalizedFullPath, includeGlobs) || matchesAny(relativeFile, includeGlobs);
-				const excluded =
-					matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativeFile, excludeGlobs);
-
-				if (included && !excluded) {
-					results.push(normalizedFullPath);
-				}
-			}
-		}
-
-		return results;
-	}
 }
 
 @Injectable({
@@ -302,7 +172,6 @@ export class ScanOrchestrationService {
 	}
 
 	async scanProject(projectRoot: string): Promise<ProjectScanResult> {
-		const startedAt = new Date();
 		const normalizedProjectRoot = normalizePath(projectRoot);
 		this.projectHistoryService.addEvent({
 			projectPath: normalizedProjectRoot,
@@ -318,66 +187,18 @@ export class ScanOrchestrationService {
 		});
 
 		try {
-			const adapterMatch = await defaultAdapterRegistry.detectBestAdapter(normalizedProjectRoot, this.fsAdapter);
-			if (!adapterMatch) {
-				throw new Error('No supported project adapter found for the selected directory.');
-			}
+			const result = await runScan({
+				projectRoot: normalizedProjectRoot,
+				fs: this.fsAdapter,
+				config: DEFAULT_SCANNER_CONFIG,
+				onProgress: (progress) => {
+					if (progress.stage === 'completed') {
+						return;
+					}
 
-			const resolvedProjectRoot = normalizePath(
-				adapterMatch.detection.resolvedProjectRoot ?? normalizedProjectRoot
-			);
-			const adapter = adapterMatch.adapter;
-
-			const context: ProjectContext = {
-				projectRoot: resolvedProjectRoot,
-				config: DEFAULT_SCANNER_CONFIG
-			};
-
-			this.stateSubject.next({ state: 'running', stage: 'Collecting translation files...' });
-			const translationFiles = await adapter.collectTranslationFiles(context, this.fsAdapter);
-
-			this.stateSubject.next({ state: 'running', stage: 'Extracting translation keys...' });
-			const definedKeys = await adapter.extractDefinedKeys(translationFiles, this.fsAdapter);
-
-			this.stateSubject.next({ state: 'running', stage: 'Building translation matrix...' });
-			const translationMatrix = adapter.buildTranslationMatrix
-				? await adapter.buildTranslationMatrix(translationFiles, this.fsAdapter)
-				: {
-					locales: [],
-					rows: [],
-					totalKeys: 0
-				};
-
-			this.stateSubject.next({ state: 'running', stage: 'Scanning source key usage...' });
-			const usedKeys = await adapter.extractUsedKeys(context, this.fsAdapter);
-
-			this.stateSubject.next({ state: 'running', stage: 'Evaluating scan rules...' });
-			const findings = await adapter.runRules({
-				definedKeys,
-				usedKeys,
-				context
-			});
-
-			const finishedAt = new Date();
-			const result: ProjectScanResult = {
-				projectRoot: resolvedProjectRoot,
-				adapterId: adapter.id,
-				startedAt: startedAt.toISOString(),
-				finishedAt: finishedAt.toISOString(),
-				durationMs: finishedAt.getTime() - startedAt.getTime(),
-				summary: buildSummary(findings, definedKeys.length),
-				findings,
-				errors: [],
-				translationMatrix,
-				metadata: {
-					selectedProjectRoot: normalizedProjectRoot,
-					adapterDetectionReason: adapterMatch.detection.reason,
-					adapterDetectionConfidence: adapterMatch.detection.confidence,
-					translationFileCount: translationFiles.length,
-					usedKeyEvidenceCount: usedKeys.length,
-					translationLocaleCount: translationMatrix.locales.length
+					this.stateSubject.next({ state: 'running', stage: progress.message });
 				}
-			};
+			});
 
 			this.stateSubject.next({
 				state: 'completed',
@@ -385,14 +206,14 @@ export class ScanOrchestrationService {
 				result
 			});
 			this.projectHistoryService.addEvent({
-				projectPath: resolvedProjectRoot,
+				projectPath: result.projectRoot,
 				type: 'scan-completed',
 				payload: {
-					adapterId: adapter.id,
+					adapterId: result.adapterId,
 					durationMs: result.durationMs,
 					totalFindings: result.summary.totalFindings,
 					totalKeys: result.summary.totalKeys,
-					localeCount: result.translationMatrix.locales.length,
+					localeCount: result.translationMatrix?.locales.length ?? 0,
 					usedCount: result.summary.used,
 					missingCount: result.summary.missingInLanguage,
 					unusedCount: result.summary.unused,

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map, Observable } from 'rxjs';
-import { ProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '../../core/models/history-event.model';
+import { ProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '@check-i18n/core';
 
 interface StoredProjectHistoryV1 {
 	version: 1;

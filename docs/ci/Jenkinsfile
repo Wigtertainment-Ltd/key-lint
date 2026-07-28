@@ -1,0 +1,24 @@
+pipeline {
+    agent {
+        docker { image 'node:20-alpine' }
+    }
+
+    stages {
+        stage('Check i18n keys') {
+            steps {
+                sh '''
+                    npx --yes @check-i18n/cli scan . --no-color --quiet \
+                        --max-errors 0 \
+                        --output json=check-i18n-report/check-i18n.json \
+                        --output markdown=check-i18n-report/check-i18n.md
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'check-i18n-report/**', allowEmptyArchive: true
+        }
+    }
+}

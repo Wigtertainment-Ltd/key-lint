@@ -1,0 +1,30 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+
+  - script: |
+      npx --yes @check-i18n/cli scan . --no-color --quiet \
+        --max-errors 0 \
+        --output json=$(Build.ArtifactStagingDirectory)/check-i18n.json \
+        --output markdown=$(Build.ArtifactStagingDirectory)/check-i18n.md
+    displayName: Check i18n keys
+
+  - script: |
+      echo "##vso[task.uploadsummary]$(Build.ArtifactStagingDirectory)/check-i18n.md"
+    condition: always()
+    displayName: Publish i18n summary
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      PathtoPublish: $(Build.ArtifactStagingDirectory)
+      ArtifactName: check-i18n-report

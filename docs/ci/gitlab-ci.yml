@@ -1,0 +1,19 @@
+check-i18n:
+  stage: test
+  image: node:20-alpine
+  script:
+    - npx --yes @check-i18n/cli scan . --no-color --quiet
+      --max-errors 0
+      --output json=check-i18n-report/check-i18n.json
+      --output markdown=check-i18n-report/check-i18n.md
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - check-i18n-report/
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
