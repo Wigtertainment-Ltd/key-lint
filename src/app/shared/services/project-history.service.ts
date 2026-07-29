@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map, Observable } from 'rxjs';
-import { ProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '@check-i18n/core';
+import { ProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '@key-lint/core';
 
 interface StoredProjectHistoryV1 {
 	version: 1;
@@ -14,7 +14,7 @@ export interface CreateProjectHistoryEventInput<TPayload extends ProjectHistoryP
 	timestamp?: string;
 }
 
-const PROJECT_HISTORY_STORAGE_KEY = 'check-i18n.project-history.v1';
+const PROJECT_HISTORY_STORAGE_KEY = 'key-lint.project-history.v1';
 const MAX_EVENTS_PER_PROJECT = 500;
 
 function normalizePath(path: string): string {

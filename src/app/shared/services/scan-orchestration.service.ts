@@ -9,7 +9,7 @@ import {
 	runScan,
 	setNestedTranslationKey,
 	TranslationEventSource
-} from '@check-i18n/core';
+} from '@key-lint/core';
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import { ProjectHistoryService } from './project-history.service';

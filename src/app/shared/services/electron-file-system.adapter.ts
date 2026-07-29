@@ -1,9 +1,9 @@
-import { FileSystemAdapter, matchesAny, normalizePath } from '@check-i18n/core';
+import { FileSystemAdapter, matchesAny, normalizePath } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
 /**
  * Filesystem adapter backed by the Node `fs` module exposed through the Electron renderer.
- * The CLI uses its own Node based adapter from `@check-i18n/core`.
+ * The CLI uses its own Node based adapter from `@key-lint/core`.
  */
 export class ElectronFileSystemAdapter implements FileSystemAdapter {
 	constructor(private readonly electronService: ElectronService) { }

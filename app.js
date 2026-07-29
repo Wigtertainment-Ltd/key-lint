@@ -26,7 +26,7 @@ function createWindow() {
 	} else {
 		mainWindow.loadURL(
 			url.format({
-				pathname: path.join(__dirname, `/dist/check-i18n/browser/index.html`),
+				pathname: path.join(__dirname, `/dist/key-lint/browser/index.html`),
 				protocol: "file:",
 				slashes: true
 			})

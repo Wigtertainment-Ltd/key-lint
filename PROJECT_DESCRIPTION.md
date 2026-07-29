@@ -1,9 +1,9 @@
-# Check-i18n - Project Description
+# KeyLint - Project Description
 
 ## Overview
-Check-i18n is a desktop utility built with Angular and Electron. It lets a user select an existing local project folder, automatically detects the project framework, scans source files and translation resources, and reports i18n inconsistencies.
+KeyLint is a desktop utility built with Angular and Electron. It lets a user select an existing local project folder, automatically detects the project framework, scans source files and translation resources, and reports i18n inconsistencies.
 
-The scan engine lives in the standalone package `@check-i18n/core` and is shared by two front ends: the Electron desktop app and the headless CLI `@check-i18n/cli` for CI/CD pipelines.
+The scan engine lives in the standalone package `@key-lint/core` and is shared by two front ends: the Electron desktop app and the headless CLI `@key-lint/cli` for CI/CD pipelines.
 
 The scan pipeline, the adapter architecture, the multi-page analysis UI, and the persisted project history are implemented. Angular (ngx-translate style usage) is currently the only shipped scan adapter, and JSON is the only supported translation format.
 
@@ -39,15 +39,15 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Routing: `src/app/app.routes.ts`
 
 ### Layering
-- `packages/core/` — `@check-i18n/core`, the framework-agnostic scan engine
+- `packages/core/` — `@key-lint/core`, the framework-agnostic scan engine
   - `models/finding.model.ts`, `models/scan-result.model.ts`, `models/history-event.model.ts`
   - `adapters/scan-adapter.interface.ts`, `adapters/adapter-registry.ts`, `adapters/default-adapter-registry.ts`
   - `adapters/angular/angular-scan.adapter.ts`
   - `config/scanner-defaults.ts`, `config/scanner-config.ts` (merge + validation), `config/load-config.ts` (Node only)
   - `scan/run-scan.ts` (the pipeline itself)
-  - `fs/node-file-system.adapter.ts` (Node only, exported via `@check-i18n/core/node`)
+  - `fs/node-file-system.adapter.ts` (Node only, exported via `@key-lint/core/node`)
   - `util/` (path, glob and translation JSON helpers)
-- `packages/cli/` — `@check-i18n/cli`, argument parsing, reporters (text/json/markdown), exit codes
+- `packages/cli/` — `@key-lint/cli`, argument parsing, reporters (text/json/markdown), exit codes
 - `packages/action/` — GitHub Action wrapping the CLI
 - `src/app/shared/services/` — desktop runtime services
   - `electron.service.ts` (Electron/Node bridge)
@@ -91,17 +91,17 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Guardrails: max. 25.000 files, max. 2 MB per file (enforced by the Node filesystem adapter)
 
 ## CLI / CI-CD Usage
-- Command: `npx @check-i18n/cli scan <path> [options]`
+- Command: `npx @key-lint/cli scan <path> [options]`
 - Reporters: `text` (stdout), `json` (machine readable, without the translation matrix), `markdown` (job summary / PR comment)
 - Thresholds: `--max-errors` (default 0), `--max-warnings` (default unlimited)
 - Exit codes: `0` thresholds respected, `1` thresholds exceeded, `2` usage/config/runtime error
-- Configuration: `check-i18n.config.json` or a `check-i18n` key in `package.json`; precedence defaults < package.json < config file < CLI flags
+- Configuration: `keylint.config.json` or a `keylint` key in `package.json`; precedence defaults < package.json < config file < CLI flags
 - Distribution: npm packages, GitHub Action (`packages/action`), Docker image (`docker/Dockerfile`)
 - Details and pipeline templates: `docs/ci/`
 
 ## Startup Flow
 1. `npm start` runs `ng serve --hmr` and launches Electron against `http://localhost:4200` once the port is ready.
-2. `npm run start:dist` builds the Angular app and loads `dist/check-i18n/browser/index.html` in Electron.
+2. `npm run start:dist` builds the Angular app and loads `dist/key-lint/browser/index.html` in Electron.
 3. The app opens on the project selection page (native folder dialog + recent projects).
 4. The scan runs with live stage feedback and navigates into the analysis area.
 5. Results are explored via dashboard, results overview, translation keys and history.
@@ -117,7 +117,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Jasmine + Karma (unit testing setup)
 
 ## Build, Run, and Test
-- Install dependencies: `npm install` (npm workspace, links `@check-i18n/core`)
+- Install dependencies: `npm install` (npm workspace, links `@key-lint/core`)
 - Start desktop app (dev, HMR): `npm start`
 - Start desktop app from build output: `npm run start:dist`
 - Build engine only: `npm run build:core`

@@ -5,7 +5,7 @@ import {
 	ProjectScanResult,
 	TranslationMatrix,
 	TranslationMatrixRow
-} from '@check-i18n/core';
+} from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 
 @Component({

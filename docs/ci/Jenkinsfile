@@ -4,13 +4,13 @@ pipeline {
     }
 
     stages {
-        stage('Check i18n keys') {
+        stage('KeyLint scan') {
             steps {
                 sh '''
-                    npx --yes @check-i18n/cli scan . --no-color --quiet \
+                    npx --yes @key-lint/cli scan . --no-color --quiet \
                         --max-errors 0 \
-                        --output json=check-i18n-report/check-i18n.json \
-                        --output markdown=check-i18n-report/check-i18n.md
+                        --output json=keylint-report/keylint.json \
+                        --output markdown=keylint-report/keylint.md
                 '''
             }
         }
@@ -18,7 +18,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'check-i18n-report/**', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'keylint-report/**', allowEmptyArchive: true
         }
     }
 }

@@ -1,4 +1,4 @@
-import { Finding, FindingSeverity, ProjectScanResult } from '@check-i18n/core';
+import { Finding, FindingSeverity, ProjectScanResult } from '@key-lint/core';
 
 export interface ReporterContext {
 	/** Effective config file that was applied, if any. */

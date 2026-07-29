@@ -6,7 +6,7 @@ export interface RecentProjectItem {
 	exists: boolean;
 }
 
-const RECENT_PROJECTS_STORAGE_KEY = 'check-i18n.recent-projects';
+const RECENT_PROJECTS_STORAGE_KEY = 'key-lint.recent-projects';
 const MAX_RECENT_PROJECTS = 5;
 
 function normalizePath(path: string): string {

@@ -5,7 +5,7 @@ import {
 	ProjectHistoryEvent,
 	ScanCompletedHistoryPayload,
 	TranslationKeyAddedHistoryPayload
-} from '@check-i18n/core';
+} from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 

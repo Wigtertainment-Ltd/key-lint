@@ -24,13 +24,13 @@ export class CliUsageError extends Error {
 	}
 }
 
-export const USAGE = `check-i18n - i18n key audit for CI/CD pipelines
+export const USAGE = `keylint - i18n key audit for CI/CD pipelines
 
 Usage:
-  check-i18n scan [path] [options]
+  keylint scan [path] [options]
 
 Options:
-  --config <file>          Path to a check-i18n.config.json file
+  --config <file>          Path to a keylint.config.json file
   --reporter <name>        Reporter to run, repeatable (${REPORTER_NAMES.join(', ')}; default: text)
   --output <name>=<file>   Write the given reporter to a file instead of stdout, repeatable
   --max-errors <n>         Allowed error findings before failing (default: 0)

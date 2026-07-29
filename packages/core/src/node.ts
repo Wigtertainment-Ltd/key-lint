@@ -1,5 +1,5 @@
 /**
- * Node-only entry point (`@check-i18n/core/node`).
+ * Node-only entry point (`@key-lint/core/node`).
  * Kept separate from the main entry so browser/Electron renderer bundles never
  * pull in `node:fs`.
  */

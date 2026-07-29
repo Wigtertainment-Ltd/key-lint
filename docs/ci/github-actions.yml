@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  check-i18n:
+  keylint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
 
       # Option A: the packaged composite action
       - id: i18n
-        uses: Wigtertainment-Ltd/Check-i18n/packages/action@v1
+        uses: Wigtertainment-Ltd/key-lint/packages/action@v1
         with:
           path: .
           max-errors: '0'
@@ -26,12 +26,12 @@ jobs:
             LEGACY.**
 
       # Option B: call the CLI directly
-      # - run: npx --yes @check-i18n/cli scan . --no-color --max-errors 0
-      #     --output json=check-i18n-report/check-i18n.json
-      #     --output markdown=check-i18n-report/check-i18n.md
+      # - run: npx --yes @key-lint/cli scan . --no-color --max-errors 0
+      #     --output json=keylint-report/keylint.json
+      #     --output markdown=keylint-report/keylint.md
 
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: check-i18n-report
-          path: check-i18n-report/
+          name: keylint-report
+          path: keylint-report/

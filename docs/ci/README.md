@@ -1,22 +1,22 @@
-# Check-i18n in CI/CD
+# KeyLint in CI/CD
 
 The scan engine that powers the desktop app is published as a headless CLI
-(`@check-i18n/cli`). It reads the same adapters, globs and rules, so a pipeline
+(`@key-lint/cli`). It reads the same adapters, globs and rules, so a pipeline
 run produces the same findings as the desktop UI.
 
 ## Command
 
 ```bash
-npx @check-i18n/cli scan . \
+npx @key-lint/cli scan . \
   --reporter text \
-  --output json=check-i18n-report/check-i18n.json \
-  --output markdown=check-i18n-report/check-i18n.md \
+  --output json=keylint-report/keylint.json \
+  --output markdown=keylint-report/keylint.md \
   --max-errors 0
 ```
 
 | Option | Description |
 | --- | --- |
-| `--config <file>` | Path to a `check-i18n.config.json`. Missing file is an error. |
+| `--config <file>` | Path to a `keylint.config.json`. Missing file is an error. |
 | `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
 | `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
@@ -46,7 +46,7 @@ piped safely.
 
 ## Configuration file
 
-`check-i18n.config.json` in the project root (or a `check-i18n` key in
+`keylint.config.json` in the project root (or a `keylint` key in
 `package.json`). Only JSON is supported - a config file must never execute code.
 
 ```json
@@ -75,6 +75,6 @@ Arrays are replaced, never merged. Unknown keys fail the run.
 ## Docker
 
 ```bash
-docker build -f docker/Dockerfile -t check-i18n .
-docker run --rm -v "$PWD:/work" check-i18n scan . --max-errors 0
+docker build -f docker/Dockerfile -t keylint .
+docker run --rm -v "$PWD:/work" keylint scan . --max-errors 0
 ```

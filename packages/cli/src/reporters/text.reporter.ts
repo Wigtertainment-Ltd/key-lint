@@ -1,4 +1,4 @@
-import { Finding, ProjectScanResult } from '@check-i18n/core';
+import { Finding, ProjectScanResult } from '@key-lint/core';
 
 import { Reporter, ReporterContext, severityRank } from './reporter.js';
 
@@ -32,7 +32,7 @@ export const textReporter: Reporter = {
 		const { color } = context;
 		const lines: string[] = [];
 
-		lines.push(paint(`Check-i18n scan: ${result.projectRoot}`, ANSI.bold, color));
+		lines.push(paint(`KeyLint scan: ${result.projectRoot}`, ANSI.bold, color));
 		lines.push(
 			paint(
 				`adapter=${result.adapterId}  duration=${result.durationMs}ms  keys=${result.summary.totalKeys}`,

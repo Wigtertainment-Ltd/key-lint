@@ -1,12 +1,12 @@
 {
-	"name": "@check-i18n/cli",
+	"name": "@key-lint/cli",
 	"version": "1.0.0",
-	"description": "Command line interface for running Check-i18n scans in CI/CD pipelines.",
+	"description": "Command line interface for running KeyLint scans in CI/CD pipelines.",
 	"author": "Wigtertainment Ltd",
 	"license": "UNLICENSED",
 	"type": "module",
 	"bin": {
-		"check-i18n": "./dist/bin.js"
+		"keylint": "./dist/bin.js"
 	},
 	"main": "./dist/cli.js",
 	"types": "./dist/cli.d.ts",
@@ -21,7 +21,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@check-i18n/core": "^1.0.0"
+		"@key-lint/core": "^1.0.0"
 	},
 	"devDependencies": {
 		"@types/node": "^20.14.0",

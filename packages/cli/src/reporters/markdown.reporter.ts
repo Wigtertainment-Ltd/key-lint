@@ -1,4 +1,4 @@
-import { Finding, ProjectScanResult } from '@check-i18n/core';
+import { Finding, ProjectScanResult } from '@key-lint/core';
 
 import { Reporter, ReporterContext } from './reporter.js';
 
@@ -23,7 +23,7 @@ export const markdownReporter: Reporter = {
 		const lines: string[] = [];
 		const status = context.counts.error > context.thresholds.maxErrors ? 'failed' : 'passed';
 
-		lines.push('## Check-i18n');
+		lines.push('## KeyLint');
 		lines.push('');
 		lines.push(`**Result:** ${status} - adapter \`${result.adapterId}\` - ${result.durationMs} ms`);
 		lines.push('');

@@ -28,13 +28,13 @@ jobs:
       - run: npm run build:cli
       - run: npm run test:packages
 
-      - name: Publish @check-i18n/core
-        run: npm publish --workspace @check-i18n/core --access public
+      - name: Publish @key-lint/core
+        run: npm publish --workspace @key-lint/core --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @check-i18n/cli
-        run: npm publish --workspace @check-i18n/cli --access public
+      - name: Publish @key-lint/cli
+        run: npm publish --workspace @key-lint/cli --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -56,5 +56,5 @@ jobs:
           file: docker/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/check-i18n:latest
-            ghcr.io/${{ github.repository_owner }}/check-i18n:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/key-lint:latest
+            ghcr.io/${{ github.repository_owner }}/key-lint:${{ github.ref_name }}

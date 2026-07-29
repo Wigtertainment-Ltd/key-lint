@@ -1,4 +1,4 @@
-import { ProjectScanResult } from '@check-i18n/core';
+import { ProjectScanResult } from '@key-lint/core';
 
 import { Reporter, ReporterContext } from './reporter.js';
 

@@ -1,7 +1,7 @@
 {
-	"name": "@check-i18n/core",
+	"name": "@key-lint/core",
 	"version": "1.0.0",
-	"description": "Framework-agnostic i18n scan engine used by the Check-i18n desktop app and CLI.",
+	"description": "Framework-agnostic i18n scan engine used by the KeyLint desktop app and CLI.",
 	"author": "Wigtertainment Ltd",
 	"license": "UNLICENSED",
 	"type": "module",

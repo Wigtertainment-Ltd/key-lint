@@ -124,7 +124,7 @@ jobs:
       - name: Build and publish Windows artifacts
         shell: pwsh
         env:
-          # Fine-grained PAT limited to Wigtertainment-Ltd/Check-i18n-releases with
+          # Fine-grained PAT limited to Wigtertainment-Ltd/key-lint-releases with
           # "Contents: Read and write". The built-in GITHUB_TOKEN only covers this repository.
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           # Azure Trusted Signing (Microsoft) credentials, read by electron-builder itself.

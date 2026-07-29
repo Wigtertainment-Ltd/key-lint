@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { ScanCompletedHistoryPayload, ProjectScanResult } from '@check-i18n/core';
+import { ScanCompletedHistoryPayload, ProjectScanResult } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 

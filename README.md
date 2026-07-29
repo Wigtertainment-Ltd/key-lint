@@ -8,9 +8,9 @@ The repository is an npm workspace:
 
 | Path | Package | Purpose |
 | --- | --- | --- |
-| `/` | `check-i18n` | Angular + Electron desktop app |
-| `packages/core` | `@check-i18n/core` | Framework-agnostic scan engine (adapters, rules, config) |
-| `packages/cli` | `@check-i18n/cli` | Headless CLI for CI/CD pipelines |
+| `/` | `key-lint` | Angular + Electron desktop app |
+| `packages/core` | `@key-lint/core` | Framework-agnostic scan engine (adapters, rules, config) |
+| `packages/cli` | `@key-lint/cli` | Headless CLI for CI/CD pipelines |
 | `packages/action` | - | GitHub Action wrapping the CLI |
 
 The desktop app and the CLI run the exact same engine. `npm run build:core` has to
@@ -45,16 +45,16 @@ Packaging is configured in `electron-builder.yml`.
 1. Bump `version` in `package.json`.
 2. Push a matching tag, e.g. `v1.0.1`. This triggers `.github/workflows/release-windows.yml`.
 3. The workflow builds on `windows-latest` and uploads the artifacts as a **draft** release to the
-   public repository `Wigtertainment-Ltd/Check-i18n-releases`.
+   public repository `Wigtertainment-Ltd/KeyLint-releases`.
 4. Review the draft and publish it. Only then do the assets become downloadable and does auto-update
    start serving the new version.
 
 The workflow needs a repository secret `RELEASES_TOKEN`: a fine-grained PAT scoped to
-`Wigtertainment-Ltd/Check-i18n-releases` with `Contents: Read and write`. The built-in `GITHUB_TOKEN`
+`Wigtertainment-Ltd/KeyLint-releases` with `Contents: Read and write`. The built-in `GITHUB_TOKEN`
 is not sufficient because it only covers this repository.
 
 For Windows code signing, the workflow is configured for **Microsoft Trusted Signing**. Add these
-repository secrets in `Wigtertainment-Ltd/Check-i18n`:
+repository secrets in `Wigtertainment-Ltd/key-lint`:
 
 - `AZURE_TENANT_ID`
 - `AZURE_CLIENT_ID`
@@ -117,12 +117,12 @@ Run `npm run test:packages` to execute the engine and CLI tests via Vitest.
 The scan can run headless in a pipeline:
 
 ```bash
-npx @check-i18n/cli scan . --max-errors 0 --output markdown=check-i18n.md
+npx @key-lint/cli scan . --max-errors 0 --output markdown=keylint.md
 ```
 
 Exit code `0` means the thresholds were respected, `1` that they were exceeded and
 `2` that the run itself failed. See [docs/ci/README.md](docs/ci/README.md) for the
-full option reference, the `check-i18n.config.json` schema and ready-to-use
+full option reference, the `keylint.config.json` schema and ready-to-use
 pipeline snippets for GitHub Actions, GitLab CI, Azure DevOps and Jenkins.
 
 ## Running end-to-end tests

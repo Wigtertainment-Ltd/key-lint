@@ -1,16 +1,16 @@
-check-i18n:
+keylint:
   stage: test
   image: node:20-alpine
   script:
-    - npx --yes @check-i18n/cli scan . --no-color --quiet
+    - npx --yes @key-lint/cli scan . --no-color --quiet
       --max-errors 0
-      --output json=check-i18n-report/check-i18n.json
-      --output markdown=check-i18n-report/check-i18n.md
+      --output json=keylint-report/keylint.json
+      --output markdown=keylint-report/keylint.md
   artifacts:
     when: always
     expire_in: 1 week
     paths:
-      - check-i18n-report/
+      - keylint-report/
   cache:
     key:
       files:

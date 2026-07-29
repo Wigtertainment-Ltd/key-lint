@@ -1,4 +1,4 @@
-name: Check-i18n
+name: KeyLint
 description: Audit i18n translation keys of an Angular project and fail the build on missing keys.
 author: Wigtertainment Ltd
 
@@ -12,11 +12,11 @@ inputs:
     required: false
     default: .
   config:
-    description: Path to a check-i18n.config.json file.
+    description: Path to a keylint.config.json file.
     required: false
     default: ''
   version:
-    description: Version of the @check-i18n/cli npm package to run.
+    description: Version of the @key-lint/cli npm package to run.
     required: false
     default: latest
   max-errors:
@@ -34,7 +34,7 @@ inputs:
   report-directory:
     description: Directory the JSON and Markdown reports are written to.
     required: false
-    default: check-i18n-report
+    default: keylint-report
   job-summary:
     description: Append the Markdown report to the GitHub job summary.
     required: false
@@ -79,8 +79,8 @@ runs:
 
         report_dir="${INPUT_REPORT_DIRECTORY}"
         mkdir -p "${report_dir}"
-        json_report="${report_dir}/check-i18n.json"
-        markdown_report="${report_dir}/check-i18n.md"
+        json_report="${report_dir}/keylint.json"
+        markdown_report="${report_dir}/keylint.md"
 
         args=(scan "${INPUT_PATH}" --no-color)
         args+=(--output "json=${json_report}")
@@ -100,7 +100,7 @@ runs:
         done <<< "${INPUT_IGNORE}"
 
         set +e
-        npx --yes "@check-i18n/cli@${INPUT_VERSION}" "${args[@]}"
+        npx --yes "@key-lint/cli@${INPUT_VERSION}" "${args[@]}"
         exit_code=$?
         set -e
 

@@ -10,8 +10,8 @@ import {
 import { DEFAULT_SCANNER_CONFIG, ScannerConfig } from './scanner-defaults.js';
 import { normalizePath } from '../util/path.util.js';
 
-export const CONFIG_FILE_NAME = 'check-i18n.config.json';
-export const PACKAGE_JSON_CONFIG_KEY = 'check-i18n';
+export const CONFIG_FILE_NAME = 'keylint.config.json';
+export const PACKAGE_JSON_CONFIG_KEY = 'keylint';
 
 export interface LoadScannerConfigOptions {
 	/** Directory the implicit config lookup starts from. */
@@ -47,7 +47,7 @@ async function readJsonFile(filePath: string): Promise<unknown> {
 
 /**
  * Resolves the effective scanner configuration.
- * Precedence: defaults < package.json["check-i18n"] < config file < overrides.
+ * Precedence: defaults < package.json["keylint"] < config file < overrides.
  * Only JSON is supported on purpose - a config file must never execute code.
  */
 export async function loadScannerConfig(options: LoadScannerConfigOptions): Promise<LoadedScannerConfig> {

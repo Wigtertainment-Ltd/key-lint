@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
-import { ProjectScanResult } from '@check-i18n/core';
+import { ProjectScanResult } from '@key-lint/core';
 
 interface StepItem {
 	id: number;

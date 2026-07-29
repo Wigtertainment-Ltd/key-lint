@@ -1,8 +1,8 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { normalizePath, ProjectScanResult, runScan, ScannerConfigError } from '@check-i18n/core';
-import { loadScannerConfig, NodeFileSystemAdapter } from '@check-i18n/core/node';
+import { normalizePath, ProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
+import { loadScannerConfig, NodeFileSystemAdapter } from '@key-lint/core/node';
 
 import { CliOptions, CliUsageError, parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';

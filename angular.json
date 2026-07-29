@@ -3,7 +3,7 @@
 	"version": 1,
 	"newProjectRoot": "projects",
 	"projects": {
-		"check-i18n": {
+		"key-lint": {
 			"projectType": "application",
 			"schematics": {
 				"@schematics/angular:component": {
@@ -17,7 +17,7 @@
 				"build": {
 					"builder": "@angular-devkit/build-angular:application",
 					"options": {
-						"outputPath": "dist/check-i18n",
+						"outputPath": "dist/key-lint",
 						"index": "src/index.html",
 						"browser": "src/main.ts",
 						"polyfills": [
@@ -72,10 +72,10 @@
 					"builder": "@angular-devkit/build-angular:dev-server",
 					"configurations": {
 						"production": {
-							"buildTarget": "check-i18n:build:production"
+							"buildTarget": "key-lint:build:production"
 						},
 						"development": {
-							"buildTarget": "check-i18n:build:development"
+							"buildTarget": "key-lint:build:development"
 						}
 					},
 					"defaultConfiguration": "development"
