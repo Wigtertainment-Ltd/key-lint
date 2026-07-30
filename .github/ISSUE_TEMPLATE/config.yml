@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Wigtertainment-Ltd/key-lint/security/advisories/new
+    about: Report security issues privately, never as a public issue.
+  - name: Questions and ideas
+    url: https://github.com/Wigtertainment-Ltd/key-lint/discussions
+    about: Usage questions and open-ended discussion.

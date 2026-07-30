@@ -1,6 +1,6 @@
-# CheckL18n
+# KeyLint
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.1.4.
+Desktop tool, CLI and GitHub Action for auditing i18n translation keys in Angular projects.
 
 ## Workspace layout
 
@@ -132,3 +132,13 @@ Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To u
 ## Further help
 
 To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Contributing
+
+Bug reports and pull requests are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). Security issues must be reported privately, see
+[SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © Wigtertainment Ltd

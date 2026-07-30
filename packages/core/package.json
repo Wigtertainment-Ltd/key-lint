@@ -3,7 +3,30 @@
 	"version": "1.0.0",
 	"description": "Framework-agnostic i18n scan engine used by the KeyLint desktop app and CLI.",
 	"author": "Wigtertainment Ltd",
-	"license": "UNLICENSED",
+	"license": "MIT",
+	"homepage": "https://github.com/Wigtertainment-Ltd/key-lint/tree/main/packages/core",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Wigtertainment-Ltd/key-lint.git",
+		"directory": "packages/core"
+	},
+	"bugs": {
+		"url": "https://github.com/Wigtertainment-Ltd/key-lint/issues",
+		"email": "opensource@wigtertainment.com"
+	},
+	"keywords": [
+		"i18n",
+		"internationalization",
+		"translation",
+		"localization",
+		"key-audit",
+		"lint",
+		"angular",
+		"ngx-translate"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -18,7 +41,8 @@
 		}
 	},
 	"files": [
-		"dist"
+		"dist",
+		"README.md"
 	],
 	"engines": {
 		"node": ">=20"

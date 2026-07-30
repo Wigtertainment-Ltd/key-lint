@@ -1,0 +1,71 @@
+name: Bug report
+description: Report something that does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report security vulnerabilities here – see [SECURITY.md](https://github.com/Wigtertainment-Ltd/key-lint/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Desktop app (key-lint)
+        - CLI (@key-lint/cli)
+        - Engine (@key-lint/core)
+        - GitHub Action
+        - Documentation
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App version, npm package version or action ref.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behaviour and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Commands, config and – if possible – a minimal project structure.
+      placeholder: |
+        1. npx @key-lint/cli scan ./my-app --max-errors 0
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: keylint.config.json
+      description: Your configuration, if you use one.
+      render: json
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output / logs
+      description: Relevant console output. Redact anything confidential.
+      render: shell
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Windows 11, Node 20.11, npm 10.5"
+    validations:
+      required: true

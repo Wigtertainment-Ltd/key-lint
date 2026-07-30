@@ -3,7 +3,32 @@
 	"version": "1.0.0",
 	"description": "Command line interface for running KeyLint scans in CI/CD pipelines.",
 	"author": "Wigtertainment Ltd",
-	"license": "UNLICENSED",
+	"license": "MIT",
+	"homepage": "https://github.com/Wigtertainment-Ltd/key-lint/tree/main/packages/cli",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Wigtertainment-Ltd/key-lint.git",
+		"directory": "packages/cli"
+	},
+	"bugs": {
+		"url": "https://github.com/Wigtertainment-Ltd/key-lint/issues",
+		"email": "opensource@wigtertainment.com"
+	},
+	"keywords": [
+		"i18n",
+		"internationalization",
+		"translation",
+		"localization",
+		"key-audit",
+		"lint",
+		"cli",
+		"ci-cd",
+		"angular",
+		"ngx-translate"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"type": "module",
 	"bin": {
 		"keylint": "./dist/bin.js"
@@ -11,7 +36,8 @@
 	"main": "./dist/cli.js",
 	"types": "./dist/cli.d.ts",
 	"files": [
-		"dist"
+		"dist",
+		"README.md"
 	],
 	"engines": {
 		"node": ">=20"

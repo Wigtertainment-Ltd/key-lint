@@ -154,7 +154,7 @@ describe('angularScanAdapter', () => {
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"deactivate":{"error":"Failed"}}}}',
 			'workspace/project/src/app/sample.component.ts':
-				"DecoratorService.getService<CosmosSnackbarService>(AppDecoratorServiceKeys.snackbarService).error(DecoratorService.getService<LanguageService>(AppDecoratorServiceKeys.languageService).translate('administration.groups.deactivate.error'));"
+				"DecoratorService.getService<SnackbarService>(AppDecoratorServiceKeys.snackbarService).error(DecoratorService.getService<LanguageService>(AppDecoratorServiceKeys.languageService).translate('administration.groups.deactivate.error'));"
 		});
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
@@ -216,7 +216,7 @@ describe('angularScanAdapter', () => {
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"archived":"Archived"}}}',
 			'workspace/project/src/app/sample.component.ts':
-				"@Component({ template: `<cosmos-tab heading=\"{{ 'administration.groups.archived' | translate }}\" (onSelected)=\"tabActiveSelected(true)\" #tabArchived></cosmos-tab>` }) export class SampleComponent {}"
+				"@Component({ template: `<wig-tab heading=\"{{ 'administration.groups.archived' | translate }}\" (onSelected)=\"tabActiveSelected(true)\" #tabArchived></wig-tab>` }) export class SampleComponent {}"
 		});
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
@@ -357,12 +357,12 @@ describe('angularScanAdapter', () => {
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"GENERIC":{"HELLO":"Hello"}}',
 			'workspace/project/cypress/e2e/setup-sender.cy.ts':
-				"describe('Feature: Setup sender', () => { cy.get('cosmos-button').contains('Ok'); cy.get('div').contains('Sender successfully created.'); });"
+				"describe('Feature: Setup sender', () => { cy.get('wig-button').contains('Ok'); cy.get('div').contains('Sender successfully created.'); });"
 		});
 
 		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 
-		expect(usedKeys.some((item) => item.key === 'cosmos-button')).toBeFalse();
+		expect(usedKeys.some((item) => item.key === 'wig-button')).toBeFalse();
 		expect(usedKeys.some((item) => item.key === 'div')).toBeFalse();
 	});
 
