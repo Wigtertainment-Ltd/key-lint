@@ -51,11 +51,11 @@ nsis:
 portable:
   artifactName: KeyLint-Portable-${version}.${ext}
 
-# Releases are published to a dedicated public repository so the main repo can stay private.
-# Uploaded as draft: assets only become reachable for electron-updater once the draft is published.
+# Releases are published to this repository as drafts.
+# Assets become reachable for electron-updater once the draft is published.
 publish:
   provider: github
   owner: Wigtertainment-Ltd
-  repo: KeyLint-releases
+  repo: key-lint
   releaseType: draft
   channel: latest

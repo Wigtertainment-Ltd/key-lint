@@ -21,7 +21,7 @@ on:
         type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -124,9 +124,8 @@ jobs:
       - name: Build and publish Windows artifacts
         shell: pwsh
         env:
-          # Fine-grained PAT limited to Wigtertainment-Ltd/key-lint-releases with
-          # "Contents: Read and write". The built-in GITHUB_TOKEN only covers this repository.
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          # Publish to releases in this repository using the built-in token.
+          GH_TOKEN: ${{ github.token }}
           # Azure Trusted Signing (Microsoft) credentials, read by electron-builder itself.
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}

@@ -44,8 +44,8 @@ Packaging is configured in `electron-builder.yml`.
 
 1. Bump `version` in `package.json`.
 2. Push a matching tag, e.g. `v1.0.1`. This triggers `.github/workflows/release-windows.yml`.
-3. The workflow builds on `windows-latest` and uploads the artifacts as a **draft** release to the
-  public repository `Wigtertainment-Ltd/key-lint-releases`.
+3. The workflow builds on `windows-latest` and uploads the artifacts as a **draft** release in this
+  repository.
 4. Review the draft and publish it. Only then do the assets become downloadable and does auto-update
    start serving the new version.
 
