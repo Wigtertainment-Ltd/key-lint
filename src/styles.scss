@@ -1,13 +1,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 /* You can add global styles to this file, and also import other style files */
+html::-webkit-scrollbar {
+	width: var(--app-scrollbar-size);
+	height: var(--app-scrollbar-size);
+}
+
+html::-webkit-scrollbar-track {
+	background: var(--app-scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb {
+	background: var(--app-scrollbar-thumb);
+	border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+	background: var(--app-scrollbar-thumb-hover);
+}
+
 html,
 body {
 	height: 100%;
 	margin: 0;
 	padding: 0;
-	overflow: hidden;
+	overflow: auto;
 	background: var(--bg);
+	scrollbar-width: thin;
+	scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
 }
 
 app-root {

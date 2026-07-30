@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
+import { AppVersionService } from '../../shared/services/app-version.service';
 import { RecentProjectItem, RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ThemeService } from '../../services/theme.service';
@@ -30,6 +31,7 @@ export class ProjectSelectionPage implements OnInit {
 	) {}
 
 	readonly themeService = inject(ThemeService);
+	readonly appVersionService = inject(AppVersionService);
 
 	get isDark(): boolean {
 		return this.themeService.getCurrent() === 'dark';
@@ -53,6 +55,10 @@ export class ProjectSelectionPage implements OnInit {
 
 	get hasRecentProjects(): boolean {
 		return this.recentProjects.length > 0;
+	}
+
+	get appVersion(): string {
+		return this.appVersionService.version;
 	}
 
 	async openFolderDialog(folderInput?: HTMLInputElement): Promise<void> {

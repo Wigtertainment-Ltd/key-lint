@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { AppVersionService } from '../../shared/services/app-version.service';
 import { ThemeService } from '../../services/theme.service';
 
 @Component({
@@ -17,6 +18,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	isSidebarCollapsed = false;
 
 	readonly themeService = inject(ThemeService);
+	readonly appVersionService = inject(AppVersionService);
 
 	get isDark(): boolean {
 		return this.themeService.getCurrent() === 'dark';
