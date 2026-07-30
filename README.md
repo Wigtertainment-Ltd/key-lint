@@ -45,40 +45,12 @@ Packaging is configured in `electron-builder.yml`.
 1. Bump `version` in `package.json`.
 2. Push a matching tag, e.g. `v1.0.1`. This triggers `.github/workflows/release-windows.yml`.
 3. The workflow builds on `windows-latest` and uploads the artifacts as a **draft** release to the
-   public repository `Wigtertainment-Ltd/KeyLint-releases`.
+  public repository `Wigtertainment-Ltd/key-lint-releases`.
 4. Review the draft and publish it. Only then do the assets become downloadable and does auto-update
    start serving the new version.
 
-The workflow needs a repository secret `RELEASES_TOKEN`: a fine-grained PAT scoped to
-`Wigtertainment-Ltd/KeyLint-releases` with `Contents: Read and write`. The built-in `GITHUB_TOKEN`
-is not sufficient because it only covers this repository.
-
-For Windows code signing, the workflow is configured for **Microsoft Trusted Signing**. Add these
-repository secrets in `Wigtertainment-Ltd/key-lint`:
-
-- `AZURE_TENANT_ID`
-- `AZURE_CLIENT_ID`
-- `AZURE_CLIENT_SECRET`
-- `AZURE_TRUSTED_SIGNING_ENDPOINT` (for example `https://weu.codesigning.azure.net`)
-- `AZURE_CODE_SIGNING_ACCOUNT_NAME`
-- `AZURE_CERTIFICATE_PROFILE_NAME`
-
-Optional for manual test-signing runs:
-
-- `AZURE_CERTIFICATE_PROFILE_NAME_TEST`
-
-The service principal behind these credentials needs permission to sign with the selected
-Trusted Signing account/profile in Azure.
-
-When you run the workflow manually, you can choose `signingProfile = test|prod`.
-Tag-based releases (`v*`) always use the production profile (`AZURE_CERTIFICATE_PROFILE_NAME`).
-
-Manual runs also expose `runTests`:
-
-- `false`: skip unit tests (useful for a pure signing/publishing smoke test)
-- `true`: run unit tests before build
-
-Tag-based releases always run tests.
+Release publishing and signing are handled by maintainers via repository secrets and the release
+workflow configuration. Contributor pull requests do not need access to publishing credentials.
 
 ### Auto-update
 
@@ -94,16 +66,7 @@ repository is public.
 - **Placeholder icon.** `build/icon.png` is a generated stand-in. Replace it with the real artwork
   (256x256 or larger); electron-builder converts it to a multi-size `.ico`.
 - **Local build on Windows may fail while extracting `winCodeSign`** with
-  `Cannot create symbolic link`. The archive contains macOS symlinks that require elevated rights.
-  Enable Windows Developer Mode, or pre-populate the cache once:
-
-  ```powershell
-  $target = Join-Path $env:LOCALAPPDATA 'electron-builder\Cache\winCodeSign\winCodeSign-2.6.0'
-  $tmp = Join-Path $env:TEMP 'winCodeSign-2.6.0.7z'
-  Invoke-WebRequest -Uri 'https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z' -OutFile $tmp
-  New-Item -ItemType Directory -Force -Path $target | Out-Null
-  & .\node_modules\7zip-bin\win\x64\7za.exe x -bd -y "-o$target" $tmp '-x!darwin'
-  ```
+  `Cannot create symbolic link`. Enabling Windows Developer Mode typically resolves this.
 
 Linux and macOS builds are not configured yet.
 

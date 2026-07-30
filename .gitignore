@@ -10,6 +10,9 @@ packages/*/dist
 
 # Node
 /node_modules
+**/node_modules/
+**/.vite/
+**/.vitest/
 npm-debug.log
 yarn-error.log
 
@@ -43,4 +46,10 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# AI / agent tooling
+/.agent.md
+/.agents/
+/.continue/
+
 .continue/*
+**/.vite/vitest/results.json

@@ -98,7 +98,7 @@ A pre-built image is available on GHCR:
 
 ```bash
 docker pull ghcr.io/wigtertainment/key-lint:latest
-docker run --rm -v $(pwd):/work -w /work ghcr.io/wigterainment/key-lint scan .
+docker run --rm -v $(pwd):/work -w /work ghcr.io/wigtertainment/key-lint scan .
 ```
 
 ## License

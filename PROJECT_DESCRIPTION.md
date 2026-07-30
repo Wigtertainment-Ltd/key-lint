@@ -146,17 +146,17 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 ## Current Status and Limitations
 - Only the Angular adapter is implemented; `TranslationFormat` already declares `yaml`, `xliff` and `po`, but only `json` is supported.
 - Persistence for recent projects and history relies on `localStorage`, not on files on disk.
-- No report export (JSON/Markdown/CSV) and no CI integration yet.
+- The desktop UI has no dedicated report export flow yet; JSON/Markdown reporting is available via `@key-lint/cli` and the GitHub Action in `packages/action`.
 - Scanning requires the Electron runtime; in a plain browser context the filesystem adapter returns no files.
-- Test coverage is limited to `src/app/app.component.spec.ts` and `src/app/adapters/angular/angular-scan.adapter.spec.ts`.
+- Test coverage is concentrated in `src/app/app.component.spec.ts`, `packages/core/src/adapters/angular/angular-scan.adapter.spec.ts`, and `packages/cli/src/cli.spec.ts`.
 - `strict: true` is not enabled in the TypeScript configuration.
 
 ## Suggested Next Milestones
 1. Add further framework adapters (React/i18next, Vue/vue-i18n).
 2. Support additional translation formats (YAML, XLIFF, PO).
-3. Add report export (JSON/Markdown/CSV) for CI and documentation workflows.
-4. Add CI thresholds so builds can fail on missing keys.
+3. Add a desktop in-app report export flow (e.g. JSON/Markdown/CSV).
+4. Expand CI guidance and automation examples beyond the current GitHub Action + CLI baseline.
 5. Expand test coverage across orchestration, history and page logic, then enable stricter TypeScript settings.
 
 ## Notes
-The project has moved from a prototype shell to a working i18n auditing tool with a clear separation between core contracts, framework adapters and UI. The main remaining value lies in broadening framework/format support and adding export plus CI integration.
+The project has moved from a prototype shell to a working i18n auditing tool with a clear separation between core contracts, framework adapters and UI. The main remaining value lies in broadening framework/format support and improving desktop export ergonomics plus broader automation coverage.
