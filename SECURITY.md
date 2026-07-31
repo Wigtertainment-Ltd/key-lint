@@ -16,7 +16,7 @@ Please **do not** open a public issue for security problems.
 
 Report vulnerabilities privately via
 [GitHub Security Advisories](https://github.com/Wigtertainment-Ltd/key-lint/security/advisories/new)
-or by email to <opensource@wigtertainment.com>.
+or by email to <security@wigtertainment.ltd>.
 
 Include if possible:
 
