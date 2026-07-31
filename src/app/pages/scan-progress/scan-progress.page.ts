@@ -1,8 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ProjectScanResult } from '@key-lint/core';
+import { LoggerService } from '../../shared/services/logging/logger.service';
 
 interface StepItem {
 	id: number;
@@ -25,6 +26,10 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	progressPercent = 0;
 	isCancelling = false;
 
+	private readonly loggerService: LoggerService = inject(LoggerService);
+	private readonly route: ActivatedRoute = inject(ActivatedRoute);
+	private readonly router: Router = inject(Router);
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	readonly steps: StepItem[] = [
 		{ id: 1, title: 'Detecting framework', trigger: 'Detecting project adapter' },
 		{ id: 2, title: 'Discovering translation files', trigger: 'Collecting translation files' },
@@ -52,12 +57,6 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		'Found potentially unused key: "ADMIN_DASHBOARD_V2_UNREAD_MESSAGES"',
 		'Analyzing language selector component template...'
 	];
-
-	constructor(
-		private readonly route: ActivatedRoute,
-		private readonly router: Router,
-		private readonly scanOrchestrationService: ScanOrchestrationService
-	) {}
 
 	ngOnInit(): void {
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
@@ -168,6 +167,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	}
 
 	private async runScan(): Promise<void> {
+		this.loggerService.info('ScanProgressPage', 'Starting scan for project path:', this.projectPath);
 		try {
 			await this.scanOrchestrationService.scanProject(this.projectPath);
 		} catch {

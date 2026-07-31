@@ -5,6 +5,7 @@ import { AppVersionService } from '../../shared/services/app-version.service';
 import { RecentProjectItem, RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ThemeService } from '../../services/theme.service';
+import { LoggerService } from '../../shared/services/logging/logger.service';
 
 type ElectronFile = File & { path?: string; webkitRelativePath?: string };
 interface RecentProjectViewModel extends RecentProjectItem {
@@ -23,12 +24,11 @@ export class ProjectSelectionPage implements OnInit {
 	isDragOver = false;
 	recentProjects: RecentProjectViewModel[] = [];
 
-	constructor(
-		private readonly electronService: ElectronService,
-		private readonly recentProjectsService: RecentProjectsService,
-		private readonly scanOrchestrationService: ScanOrchestrationService,
-		private readonly router: Router
-	) {}
+	private readonly electronService: ElectronService = inject(ElectronService);
+	private readonly recentProjectsService: RecentProjectsService = inject(RecentProjectsService);
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly router: Router = inject(Router);
+	private readonly loggerService: LoggerService = inject(LoggerService);
 
 	readonly themeService = inject(ThemeService);
 	readonly appVersionService = inject(AppVersionService);
@@ -170,6 +170,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	private setSelectedPath(path: string): void {
+		this.loggerService.info('ProjectSelectionPage', 'Selected project path:', path);
 		this.projectPath = path;
 		this.projectName = this.getProjectName(path);
 		this.recentProjectsService.addRecentProject(path);
@@ -178,6 +179,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	private loadRecentProjects(): void {
+		this.loggerService.debug('ProjectSelectionPage', 'Loading recent projects...');
 		this.recentProjects = this.recentProjectsService.getRecentProjects().map((project) => ({
 			...project,
 			name: this.getProjectName(project.path)
