@@ -29,14 +29,10 @@ jobs:
       - run: npm run test:packages
 
       - name: Publish @key-lint/core
-        run: npm publish --workspace @key-lint/core --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --workspace @key-lint/core --access public --provenance
 
       - name: Publish @key-lint/cli
-        run: npm publish --workspace @key-lint/cli --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --workspace @key-lint/cli --access public --provenance
 
   docker:
     runs-on: ubuntu-latest

@@ -44,7 +44,8 @@
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
-		"test": "vitest run"
+		"test": "vitest run",
+		"publish:pkg": "npm run build && npm publish"
 	},
 	"dependencies": {
 		"@key-lint/core": "^1.0.0"
