@@ -134,14 +134,14 @@ jobs:
           AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
           AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
           AZURE_CERTIFICATE_PROFILE_NAME: ${{ steps.trusted_signing.outputs.selected_profile == 'test' && secrets.AZURE_CERTIFICATE_PROFILE_NAME_TEST || secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
-        # electron-builder does not expand `${env.*}` inside `win.azureSignOptions`, so the values
-        # are passed as CLI overrides, which are deep-merged into electron-builder.yml.
-        # timestampDigest is required: electron-builder 25 does not default it, and signtool
-        # rejects /tr without /td ("No file timestamp algorithm specified").
+        # electron-builder v26 uses the `win.sign` schema. The values are passed as CLI overrides,
+        # which are deep-merged into electron-builder.yml.
         run: |
           npm run publish:win -- `
-            "-c.win.azureSignOptions.endpoint=$env:AZURE_TRUSTED_SIGNING_ENDPOINT" `
-            "-c.win.azureSignOptions.codeSigningAccountName=$env:AZURE_CODE_SIGNING_ACCOUNT_NAME" `
-            "-c.win.azureSignOptions.certificateProfileName=$env:AZURE_CERTIFICATE_PROFILE_NAME" `
-            "-c.win.azureSignOptions.timestampRfc3161=http://timestamp.acs.microsoft.com" `
-            "-c.win.azureSignOptions.timestampDigest=SHA256"
+            "-c.win.sign.type=azure" `
+            "-c.win.sign.publisherName=Wigtertainment Ltd" `
+            "-c.win.sign.endpoint=$env:AZURE_TRUSTED_SIGNING_ENDPOINT" `
+            "-c.win.sign.codeSigningAccountName=$env:AZURE_CODE_SIGNING_ACCOUNT_NAME" `
+            "-c.win.sign.certificateProfileName=$env:AZURE_CERTIFICATE_PROFILE_NAME" `
+            "-c.win.sign.timestampRfc3161=http://timestamp.acs.microsoft.com" `
+            "-c.win.sign.timestampDigest=SHA256"

@@ -22,13 +22,8 @@ win:
   # electron-builder 25 passes file paths unquoted to Invoke-TrustedSigning, so the executable
   # name must not contain spaces ("Check i18n.exe" breaks Azure Trusted Signing).
   executableName: key-lint
-  # Written to latest.yml/app-update.yml and verified by electron-updater before installing an
-  # update. Must match the subject of the code signing certificate.
-  publisherName: Wigtertainment Ltd
   # Azure Trusted Signing (Microsoft) is configured by .github/workflows/release-windows.yml via
-  # `-c.win.azureSignOptions.*`. The values come from GitHub secrets and cannot live here:
-  # electron-builder does not expand `${env.*}` inside azureSignOptions, it forwards the literal
-  # string to Invoke-TrustedSigning.
+  # `-c.win.sign.*`. The values come from GitHub secrets and cannot live here.
   target:
     - target: nsis
       arch:
