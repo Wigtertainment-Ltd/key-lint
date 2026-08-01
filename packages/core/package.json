@@ -1,6 +1,6 @@
 {
 	"name": "@key-lint/core",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Framework-agnostic i18n scan engine used by the KeyLint desktop app and CLI.",
 	"author": "Wigtertainment Ltd",
 	"license": "MIT",
