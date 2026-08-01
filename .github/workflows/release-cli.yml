@@ -41,6 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize GHCR owner
+        id: ghcr
+        shell: bash
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -53,5 +58,5 @@ jobs:
           file: docker/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/key-lint:latest
-            ghcr.io/${{ github.repository_owner }}/key-lint:${{ github.ref_name }}
+            ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:latest
+            ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:${{ github.ref_name }}
