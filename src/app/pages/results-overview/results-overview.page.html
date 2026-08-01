@@ -12,6 +12,9 @@
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
 					Dynamic ({{ dynamicFilterCount }})
 				</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'indirect-uncertain'" (click)="onFilterChange('indirect-uncertain')">
+					Indirect ({{ indirectFilterCount }})
+				</button>
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'used'" (click)="onFilterChange('used')">Used ({{ usedFilterCount }})</button>
 			</div>
 
@@ -51,7 +54,7 @@
 									class="status-pill"
 									[class.used]="finding.status === 'used'"
 									[class.unused]="finding.status === 'unused'"
-									[class.dynamic]="finding.status === 'dynamic-uncertain'"
+									[class.dynamic]="isUncertainStatus(finding.status)"
 									[class.missing]="finding.status === 'missing-in-language'"
 									[class.extra]="finding.status === 'extra-in-language'">
 									{{ statusLabel(finding.status) }}
@@ -116,7 +119,7 @@
 							class="status-pill"
 							[class.used]="selectedFinding.status === 'used'"
 							[class.unused]="selectedFinding.status === 'unused'"
-							[class.dynamic]="selectedFinding.status === 'dynamic-uncertain'"
+							[class.dynamic]="isUncertainStatus(selectedFinding.status)"
 							[class.missing]="selectedFinding.status === 'missing-in-language'"
 							[class.extra]="selectedFinding.status === 'extra-in-language'">
 							{{ statusLabel(selectedFinding.status) }}
@@ -165,9 +168,6 @@
 					}
 					@if (canShowAddToTranslationsAction) {
 						<button type="button" class="primary-action" (click)="openAddTranslationModal()">Add to Translation Files</button>
-					}
-					@if (addTranslationsSuccess) {
-						<p class="success-message">{{ addTranslationsSuccess }}</p>
 					}
 					<button type="button" class="secondary-action">Ignore Key</button>
 				</section>

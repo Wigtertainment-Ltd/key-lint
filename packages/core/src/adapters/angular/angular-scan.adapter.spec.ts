@@ -109,7 +109,7 @@ describe('angularScanAdapter', () => {
 			context
 		});
 
-		expect(translationFiles.length).toBe(1);
+		expect(translationFiles).toHaveLength(1);
 		expect(definedKeys).toContain('GENERIC.HELLO');
 		expect(definedKeys).toContain('GENERIC.BYE');
 		expect(usedKeys.some((item) => item.key === 'GENERIC.HELLO')).toBeTrue();
@@ -282,6 +282,39 @@ describe('angularScanAdapter', () => {
 			)
 		).toBeFalse();
 		expect(findings.some((item) => item.status === 'missing-in-language')).toBeFalse();
+	});
+
+	it('classifies indirect key literals in TypeScript object configs as indirect-uncertain', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json':
+				'{"editor":{"traits":{"subTemplateSelector":{"buttonLink":{"optionLabel":"Option","buttonLabel":"Button","multiLinkLabel":"Multi Link"}}}}}',
+			'workspace/project/src/app/sample.component.ts':
+				"const config = { optionLabel: 'editor.traits.subTemplateSelector.buttonLink.optionLabel', options: [{ label: 'editor.traits.subTemplateSelector.buttonLink.buttonLabel' }, { label: 'editor.traits.subTemplateSelector.buttonLink.multiLinkLabel' }] };"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.matchType === 'ts-indirect-key-literal')).toBeTrue();
+		expect(
+			findings.some(
+				(item) =>
+					item.status === 'indirect-uncertain' &&
+					item.key === 'editor.traits.subTemplateSelector.buttonLink.buttonLabel'
+			)
+		).toBeTrue();
+		expect(
+			findings.some(
+				(item) => item.status === 'unused' && item.key === 'editor.traits.subTemplateSelector.buttonLink.buttonLabel'
+			)
+		).toBeFalse();
 	});
 
 	it('classifies dynamic key expressions in pipe bindings as uncertain', async () => {

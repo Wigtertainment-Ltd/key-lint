@@ -1,6 +1,6 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
 import {
 	ProjectHistoryEvent,
 	ScanCompletedHistoryPayload,
@@ -25,61 +25,67 @@ function normalizePath(path: string): string {
 
 @Component({
 	selector: 'app-history-page',
-	standalone: true,
 	templateUrl: './history.page.html',
 	styleUrl: './history.page.scss'
 })
-export class HistoryPage implements OnInit, OnDestroy {
-	projectPath = '';
+export class HistoryPage implements OnInit {
+	private readonly route: ActivatedRoute = inject(ActivatedRoute);
+	private readonly historyService: ProjectHistoryService = inject(ProjectHistoryService);
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly injector: Injector = inject(Injector);
+	private readonly projectPathSignal = signal('');
 	activeFilter: 'all' | 'scan' | 'translation' = 'all';
-	private historySubscription?: Subscription;
-	private stateSubscription?: Subscription;
+	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+		initialValue: this.scanOrchestrationService.snapshot
+	});
+	private readonly events = signal<ProjectHistoryEvent[]>([]);
 	private currentWatchedProjectPath = '';
-	private events: ProjectHistoryEvent[] = [];
-
-	constructor(
-		private readonly route: ActivatedRoute,
-		private readonly historyService: ProjectHistoryService,
-		private readonly scanOrchestrationService: ScanOrchestrationService
-	) {}
 
 	ngOnInit(): void {
 		const routeProjectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
 		const scanProjectPath = this.scanOrchestrationService.snapshot.result?.projectRoot ?? '';
 		const initialProjectPath = normalizePath(scanProjectPath || routeProjectPath);
 		if (initialProjectPath) {
-			this.watchProject(initialProjectPath);
+			this.projectPathSignal.set(initialProjectPath);
 		}
 
-		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
-			const livePath = normalizePath(snapshot.result?.projectRoot ?? '');
+		effect((onCleanup) => {
+			const snapshotPath = normalizePath(this.scanSnapshot().result?.projectRoot ?? '');
+			const livePath = snapshotPath || this.projectPathSignal();
 			if (!livePath || livePath === this.currentWatchedProjectPath) {
 				return;
 			}
 
-			this.watchProject(livePath);
-		});
-	}
+			this.currentWatchedProjectPath = livePath;
+			this.projectPathSignal.set(livePath);
 
-	ngOnDestroy(): void {
-		this.historySubscription?.unsubscribe();
-		this.stateSubscription?.unsubscribe();
+			const subscription = this.historyService.watchEventsForProject(livePath).subscribe((events) => {
+				this.events.set(events);
+			});
+
+			onCleanup(() => subscription.unsubscribe());
+		}, { injector: this.injector });
 	}
 
 	setFilter(filter: 'all' | 'scan' | 'translation'): void {
 		this.activeFilter = filter;
 	}
 
+	get projectPath(): string {
+		return this.projectPathSignal();
+	}
+
 	get filteredEvents(): ProjectHistoryEvent[] {
+		const events = this.events();
 		if (this.activeFilter === 'all') {
-			return this.events;
+			return events;
 		}
 
 		if (this.activeFilter === 'scan') {
-			return this.events.filter((event) => event.type === 'scan-started' || event.type === 'scan-completed');
+			return events.filter((event) => event.type === 'scan-started' || event.type === 'scan-completed');
 		}
 
-		return this.events.filter((event) => event.type === 'translation-key-added');
+		return events.filter((event) => event.type === 'translation-key-added');
 	}
 
 	get groupedEvents(): HistoryDayGroup[] {
@@ -148,14 +154,4 @@ export class HistoryPage implements OnInit, OnDestroy {
 		return payload.filePath;
 	}
 
-	private watchProject(projectPath: string): void {
-		this.projectPath = projectPath;
-		this.currentWatchedProjectPath = projectPath;
-		this.historySubscription?.unsubscribe();
-		this.historySubscription = this.historyService
-			.watchEventsForProject(projectPath)
-			.subscribe((events) => {
-				this.events = events;
-			});
-	}
 }

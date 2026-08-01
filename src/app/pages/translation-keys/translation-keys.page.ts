@@ -1,21 +1,26 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs';
-import {
-	ProjectScanResult,
-	TranslationMatrix,
-	TranslationMatrixRow
-} from '@key-lint/core';
+import { ProjectScanResult, TranslationMatrix, TranslationMatrixRow } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ToastService } from '../../shared/services/toast.service';
 
 @Component({
 	selector: 'app-translation-keys-page',
-	standalone: true,
 	templateUrl: './translation-keys.page.html',
 	styleUrl: './translation-keys.page.scss'
 })
 export class TranslationKeysPage implements OnInit, OnDestroy {
-	scanResult?: ProjectScanResult;
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly router: Router = inject(Router);
+	private readonly toastService: ToastService = inject(ToastService);
+	private readonly injector: Injector = inject(Injector);
+	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+		initialValue: this.scanOrchestrationService.snapshot
+	});
+	private readonly localScanResult = signal<ProjectScanResult | undefined>(undefined);
+	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
+
 	activeFilter: 'all' | 'missing-key' | 'empty-value' = 'all';
 	searchTerm = '';
 	selectedKey?: string;
@@ -25,8 +30,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	addTranslationLocale?: string;
 	addTranslationValue = '';
 	isAddingTranslation = false;
-	addTranslationError = '';
-	addTranslationSuccess = '';
+	private readonly addTranslationErrorSignal = signal('');
 	modalOffsetX = 0;
 	modalOffsetY = 0;
 	isModalDragging = false;
@@ -37,22 +41,37 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private readonly resolvedLocaleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly resolvedRowKeys = new Set<string>();
 	private readonly resolvedRowTimers = new Map<string, ReturnType<typeof setTimeout>>();
-	private stateSubscription?: Subscription;
+	private readonly animationStateVersion = signal(0);
 
-	constructor(
-		private readonly scanOrchestrationService: ScanOrchestrationService,
-		private readonly router: Router
-	) {}
+	get addTranslationError(): string {
+		return this.addTranslationErrorSignal();
+	}
+
+	set addTranslationError(value: string) {
+		this.addTranslationErrorSignal.set(value);
+	}
+
+	private get scanResult(): ProjectScanResult | undefined {
+		return this.scanResultSignal();
+	}
+
+	private set scanResult(value: ProjectScanResult | undefined) {
+		this.localScanResult.set(value);
+	}
 
 	ngOnInit(): void {
 		this.scanResult = this.scanOrchestrationService.snapshot.result;
 		this.ensureSelectedRow();
-		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
-			if (snapshot.result) {
-				this.scanResult = snapshot.result;
-				this.ensureSelectedRow();
+
+		effect(() => {
+			const snapshotResult = this.scanSnapshot().result;
+			if (!snapshotResult) {
+				return;
 			}
-		});
+
+			this.localScanResult.set(snapshotResult);
+			this.ensureSelectedRow();
+		}, { injector: this.injector });
 
 		if (!this.scanResult) {
 			void this.router.navigate(['/scan-progress']);
@@ -60,7 +79,6 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	ngOnDestroy(): void {
-		this.stateSubscription?.unsubscribe();
 		for (const timer of this.resolvedLocaleTimers.values()) {
 			clearTimeout(timer);
 		}
@@ -84,7 +102,6 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	onSelectRow(row: TranslationMatrixRow): void {
 		this.selectedKey = row.key;
 		this.isDetailOpen = true;
-		this.addTranslationSuccess = '';
 	}
 
 	onRowKeydown(event: KeyboardEvent, row: TranslationMatrixRow): void {
@@ -380,11 +397,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 				this.markRowResolvedForAnimation(key);
 			}
 			this.ensureSelectedRow();
-			this.addTranslationSuccess = `Key added for locale ${locale}.`;
+			this.toastService.success(`Key added for locale ${locale}.`);
 			this.closeAddTranslationModal(true);
-			setTimeout(() => {
-				this.addTranslationSuccess = '';
-			}, 2500);
 		} catch (error) {
 			this.addTranslationError =
 				error instanceof Error ? error.message : 'Unable to add key to translation file.';
@@ -442,6 +456,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	private isLocaleRecentlyResolvedForKey(key: string, locale: string): boolean {
+		// Track animation-state mutations so OnPush views refresh when timers mutate sets.
+		this.animationStateVersion();
 		return this.resolvedLocaleIds.has(this.buildLocaleResolutionId(key, locale));
 	}
 
@@ -456,12 +472,14 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	private isRowRecentlyResolved(key: string): boolean {
+		this.animationStateVersion();
 		return this.resolvedRowKeys.has(key);
 	}
 
 	private markLocaleResolvedForAnimation(key: string, locale: string): void {
 		const id = this.buildLocaleResolutionId(key, locale);
 		this.resolvedLocaleIds.add(id);
+		this.bumpAnimationStateVersion();
 
 		const existingTimer = this.resolvedLocaleTimers.get(id);
 		if (existingTimer) {
@@ -471,12 +489,14 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		const timer = setTimeout(() => {
 			this.resolvedLocaleIds.delete(id);
 			this.resolvedLocaleTimers.delete(id);
+			this.bumpAnimationStateVersion();
 		}, 1600);
 		this.resolvedLocaleTimers.set(id, timer);
 	}
 
 	private markRowResolvedForAnimation(key: string): void {
 		this.resolvedRowKeys.add(key);
+		this.bumpAnimationStateVersion();
 
 		const existingTimer = this.resolvedRowTimers.get(key);
 		if (existingTimer) {
@@ -486,8 +506,13 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		const timer = setTimeout(() => {
 			this.resolvedRowKeys.delete(key);
 			this.resolvedRowTimers.delete(key);
+			this.bumpAnimationStateVersion();
 		}, 1600);
 		this.resolvedRowTimers.set(key, timer);
+	}
+
+	private bumpAnimationStateVersion(): void {
+		this.animationStateVersion.update((value) => value + 1);
 	}
 
 	private buildLocaleResolutionId(key: string, locale: string): string {

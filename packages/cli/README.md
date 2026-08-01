@@ -30,7 +30,7 @@ keylint scan /path/to/project \
 | `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
 | `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
-| `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, extra). Default unlimited (`-1`). |
+| `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited (`-1`). |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Overrides config file `ignoreKeys`. |
 | `--quiet` | Suppress progress output on stderr. |
 | `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
@@ -50,7 +50,7 @@ Progress goes to **stderr**, reports go to **stdout** — so JSON output can be 
 | Finding status | Severity |
 | --- | --- |
 | `missing-in-language` | `error` |
-| `unused`, `dynamic-uncertain`, `extra-in-language` | `warning` |
+| `unused`, `dynamic-uncertain`, `indirect-uncertain`, `extra-in-language` | `warning` |
 | `used` | `info` (never counted against thresholds) |
 
 ## Configuration file

@@ -116,9 +116,6 @@
 						</span>
 						<span class="severity-label">{{ selectedMissingLocales.length + selectedEmptyValueLocales.length }} locale issue(s)</span>
 					</div>
-					@if (addTranslationSuccess) {
-						<p class="success-message">{{ addTranslationSuccess }}</p>
-					}
 					<p class="detail-message">
 						@if (selectedMissingLocales.length || selectedEmptyValueLocales.length) {
 							@if (selectedMissingLocales.length) {

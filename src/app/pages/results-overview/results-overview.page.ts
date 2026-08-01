@@ -1,18 +1,34 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { Finding, ProjectScanResult } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ToastService } from '../../shared/services/toast.service';
+import { LoggerService } from '../../shared/services/logging/logger.service';
 
 @Component({
 	selector: 'app-results-overview-page',
-	standalone: true,
 	templateUrl: './results-overview.page.html',
 	styleUrl: './results-overview.page.scss'
 })
 export class ResultsOverviewPage implements OnInit, OnDestroy {
-	scanResult?: ProjectScanResult;
-	activeFilter: 'all' | 'missing-in-language' | 'unused' | 'dynamic-uncertain' | 'used' = 'all';
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly router: Router = inject(Router);
+	private readonly toastService: ToastService = inject(ToastService);
+	private readonly injector: Injector = inject(Injector);
+	private readonly loggerService: LoggerService = inject(LoggerService);
+	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+		initialValue: this.scanOrchestrationService.snapshot
+	});
+	private readonly localScanResult = signal<ProjectScanResult | undefined>(undefined);
+	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
+	activeFilter:
+		| 'all'
+		| 'missing-in-language'
+		| 'unused'
+		| 'dynamic-uncertain'
+		| 'indirect-uncertain'
+		| 'used' = 'all';
 	searchTerm = '';
 	selectedFindingId?: string;
 	isDetailOpen = false;
@@ -20,27 +36,44 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	copiedPath?: string;
 	isAddTranslationModalOpen = false;
 	isSavingTranslations = false;
-	addTranslationsError = '';
-	addTranslationsSuccess = '';
+	private readonly addTranslationsErrorSignal = signal('');
 	translationDrafts: Record<string, string> = {};
 	private readonly resolvedFindingIds = new Set<string>();
+	private readonly hiddenResolvedMissingFindingIds = new Set<string>();
+	private readonly hiddenResolvedMissingKeys = new Set<string>();
 	private readonly resolvedRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
-	private stateSubscription?: Subscription;
+	private readonly animationStateVersion = signal(0);
 
-	constructor(
-		private readonly scanOrchestrationService: ScanOrchestrationService,
-		private readonly router: Router
-	) {}
+	get addTranslationsError(): string {
+		return this.addTranslationsErrorSignal();
+	}
+
+	set addTranslationsError(value: string) {
+		this.addTranslationsErrorSignal.set(value);
+	}
+
+	private get scanResult(): ProjectScanResult | undefined {
+		return this.scanResultSignal();
+	}
+
+	private set scanResult(value: ProjectScanResult | undefined) {
+		this.localScanResult.set(value);
+	}
 
 	ngOnInit(): void {
 		this.scanResult = this.scanOrchestrationService.snapshot.result;
+		this.loggerService.info('ResultsOverviewPage', 'initialized with scan result:', this.scanResult);
 		this.ensureSelectedFinding();
-		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
-			if (snapshot.result) {
-				this.scanResult = snapshot.result;
-				this.ensureSelectedFinding();
+
+		effect(() => {
+			const snapshotResult = this.scanSnapshot().result;
+			if (!snapshotResult) {
+				return;
 			}
-		});
+
+			this.localScanResult.set(snapshotResult);
+			this.ensureSelectedFinding();
+		}, { injector: this.injector });
 
 		if (!this.scanResult) {
 			void this.router.navigate(['/scan-progress']);
@@ -48,14 +81,21 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	ngOnDestroy(): void {
-		this.stateSubscription?.unsubscribe();
 		for (const timer of this.resolvedRemovalTimers.values()) {
 			clearTimeout(timer);
 		}
 		this.resolvedRemovalTimers.clear();
 	}
 
-	onFilterChange(filter: 'all' | 'missing-in-language' | 'unused' | 'dynamic-uncertain' | 'used'): void {
+	onFilterChange(
+		filter:
+			| 'all'
+			| 'missing-in-language'
+			| 'unused'
+			| 'dynamic-uncertain'
+			| 'indirect-uncertain'
+			| 'used'
+	): void {
 		this.activeFilter = filter;
 		this.ensureSelectedFinding();
 	}
@@ -68,7 +108,6 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	onSelectFinding(finding: Finding): void {
 		this.selectedFindingId = finding.id;
 		this.isDetailOpen = true;
-		this.addTranslationsSuccess = '';
 	}
 
 	closeDetailPanel(): void {
@@ -166,11 +205,8 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			this.reconcileResolvedMissingFindings(key);
 			this.ensureSelectedFinding();
 
-			this.addTranslationsSuccess = `Added key to ${resolvedLocaleCount} locale file(s).`;
+			this.toastService.success(`Added key to ${resolvedLocaleCount} locale file(s).`);
 			this.closeAddTranslationModal(true);
-			setTimeout(() => {
-				this.addTranslationsSuccess = '';
-			}, 2500);
 		} catch (error) {
 			this.addTranslationsError =
 				error instanceof Error ? error.message : 'Unable to add key to translation files.';
@@ -184,8 +220,21 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get filteredFindings(): Finding[] {
+		this.animationStateVersion();
 		const normalizedSearch = this.searchTerm.trim().toLowerCase();
 		return this.findings.filter((finding) => {
+			if (finding.status === 'missing-in-language' && this.hiddenResolvedMissingKeys.has(finding.key)) {
+				return false;
+			}
+
+			if (this.hiddenResolvedMissingFindingIds.has(finding.id)) {
+				return false;
+			}
+
+			if (this.activeFilter === 'missing-in-language' && this.resolvedFindingIds.has(finding.id)) {
+				return false;
+			}
+
 			if (this.activeFilter !== 'all' && finding.status !== this.activeFilter) {
 				return false;
 			}
@@ -229,6 +278,10 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 	get dynamicFilterCount(): number {
 		return this.findings.filter((finding) => finding.status === 'dynamic-uncertain').length;
+	}
+
+	get indirectFilterCount(): number {
+		return this.findings.filter((finding) => finding.status === 'indirect-uncertain').length;
 	}
 
 	get usedFilterCount(): number {
@@ -288,10 +341,13 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return false;
 		}
 
+		// Track animation-state mutations so OnPush views refresh when timers mutate sets.
+		this.animationStateVersion();
 		return this.resolvedFindingIds.has(this.selectedFinding.id);
 	}
 
 	isResolvedFinding(finding: Finding): boolean {
+		this.animationStateVersion();
 		return this.resolvedFindingIds.has(finding.id);
 	}
 
@@ -309,11 +365,20 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 		for (const finding of resolvedMissingFindings) {
 			this.resolvedFindingIds.add(finding.id);
+			this.hiddenResolvedMissingFindingIds.add(finding.id);
 		}
+		this.hiddenResolvedMissingKeys.add(key);
+		this.bumpAnimationStateVersion();
 
 		const existingTimer = this.resolvedRemovalTimers.get(key);
 		if (existingTimer) {
 			clearTimeout(existingTimer);
+		}
+
+		// In the Missing-only view users expect an immediate disappearance after adding translations.
+		if (this.activeFilter === 'missing-in-language') {
+			this.finalizeResolvedMissingFindings(key);
+			return;
 		}
 
 		const timer = setTimeout(() => {
@@ -353,9 +418,14 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		for (const finding of resolvedMissingFindings) {
 			this.resolvedFindingIds.delete(finding.id);
 		}
+		this.bumpAnimationStateVersion();
 
 		this.resolvedRemovalTimers.delete(key);
 		this.ensureSelectedFinding();
+	}
+
+	private bumpAnimationStateVersion(): void {
+		this.animationStateVersion.update((value) => value + 1);
 	}
 
 	statusLabel(status: Finding['status']): string {
@@ -367,11 +437,19 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return 'Dynamic';
 		}
 
+		if (status === 'indirect-uncertain') {
+			return 'Indirect';
+		}
+
 		if (status === 'extra-in-language') {
 			return 'Extra';
 		}
 
 		return status.charAt(0).toUpperCase() + status.slice(1);
+	}
+
+	isUncertainStatus(status: string): boolean {
+		return status === 'dynamic-uncertain' || status === 'indirect-uncertain';
 	}
 
 	severityLabel(severity: Finding['severity']): string {

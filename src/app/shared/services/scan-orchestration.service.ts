@@ -1,4 +1,4 @@
-import { inject, Injectable, NgZone } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
@@ -14,15 +14,6 @@ import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import { ProjectHistoryService } from './project-history.service';
 import { LoggerService } from './logging/logger.service';
-
-/**
- * Wraps BehaviorSubject.next() in NgZone.run() to ensure Angular's
- * change detection is triggered even when the call originates outside
- * of Zone.js (e.g. Electron sync fs calls after upgrade).
- */
-function emit<T>(subject: BehaviorSubject<T>, value: T): void {
-	inject(NgZone).run(() => subject.next(value));
-}
 
 export type ScanExecutionState = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -45,6 +36,27 @@ export class ScanOrchestrationService {
 	private readonly projectHistoryService: ProjectHistoryService = inject(ProjectHistoryService);
 	private readonly loggerService: LoggerService = inject(LoggerService);
 
+	private withNormalizedSummary(result: ProjectScanResult): ProjectScanResult {
+		const summaryWithOptionalIndirect = result.summary as ProjectScanResult['summary'] & {
+			indirectUncertain?: number;
+		};
+		if (typeof summaryWithOptionalIndirect.indirectUncertain === 'number') {
+			return result;
+		}
+
+		const indirectUncertain = result.findings.filter(
+			(finding) => finding.status === 'indirect-uncertain'
+		).length;
+
+		return {
+			...result,
+			summary: {
+				...result.summary,
+				indirectUncertain
+			}
+		};
+	}
+
 	constructor() {
 		this.fsAdapter = new ElectronFileSystemAdapter(this.electronService);
 	}
@@ -54,7 +66,7 @@ export class ScanOrchestrationService {
 	}
 
 	reset(): void {
-		emit(this.stateSubject, { state: 'idle' });
+		this.stateSubject.next({ state: 'idle' });
 	}
 
 	async addTranslationKeyForLocale(
@@ -168,7 +180,7 @@ export class ScanOrchestrationService {
 			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
 		}
 
-		emit(this.stateSubject, {
+		this.stateSubject.next({
 			...snapshot,
 			result: {
 				...existingResult,
@@ -192,10 +204,10 @@ export class ScanOrchestrationService {
 			}
 		});
 
-		emit(this.stateSubject, { state: 'running', stage: 'Detecting project adapter...' });
+		this.stateSubject.next({ state: 'running', stage: 'Detecting project adapter...' });
 
 		try {
-			const result = await runScan({
+			const rawResult = await runScan({
 				projectRoot: normalizedProjectRoot,
 				fs: this.fsAdapter,
 				config: DEFAULT_SCANNER_CONFIG,
@@ -204,11 +216,13 @@ export class ScanOrchestrationService {
 						return;
 					}
 
-			emit(this.stateSubject, { state: 'running', stage: progress.message });
+			this.stateSubject.next({ state: 'running', stage: progress.message });
 				}
 			});
 
-			emit(this.stateSubject, {
+			const result = this.withNormalizedSummary(rawResult);
+
+			this.stateSubject.next({
 				state: 'completed',
 				stage: 'Scan completed.',
 				result
@@ -234,7 +248,7 @@ export class ScanOrchestrationService {
 		} catch (error) {
 			this.loggerService.error('ScanOrchestrationService', 'Scan failed for project root:', normalizedProjectRoot, error);
 			const message = error instanceof Error ? error.message : 'Unknown scan error';
-			emit(this.stateSubject, {
+			this.stateSubject.next({
 				state: 'failed',
 				stage: 'Scan failed.',
 				error: message

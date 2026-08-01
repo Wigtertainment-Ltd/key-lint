@@ -2,6 +2,7 @@ export type FindingStatus =
 	| 'used'
 	| 'unused'
 	| 'dynamic-uncertain'
+	| 'indirect-uncertain'
 	| 'missing-in-language'
 	| 'extra-in-language';
 

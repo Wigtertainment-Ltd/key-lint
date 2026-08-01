@@ -73,7 +73,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 7. Emit `ScanExecutionSnapshot` (`idle` / `running` / `completed` / `failed`) and record history events
 
 ### Finding Model
-- `FindingStatus`: `used`, `unused`, `dynamic-uncertain`, `missing-in-language`, `extra-in-language`
+- `FindingStatus`: `used`, `unused`, `dynamic-uncertain`, `indirect-uncertain`, `missing-in-language`, `extra-in-language`
 - `FindingSeverity`: `info`, `warning`, `error`
 - Each finding carries evidence entries with file path, line, column, snippet and match type
 
@@ -82,6 +82,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Template patterns: `{{ 'key' | translate }}`, attribute bindings, `translate="key"`, `[translate]="'key'"`
 - TypeScript patterns: `translate.instant/get/stream/translate('key')` and similar service calls
 - Non-literal arguments are reported as `dynamic-uncertain` instead of being silently ignored
+- Key-like TypeScript string literals without direct translate evidence are reported as `indirect-uncertain`
 
 ### Scanner Defaults (`DEFAULT_SCANNER_CONFIG`)
 - Translation globs: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`, `i18n/**/*.json`, `locales/**/*.json`, plus `apps|libs|packages/**/src/assets/i18n/**/*.json`

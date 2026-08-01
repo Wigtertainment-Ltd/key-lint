@@ -17,6 +17,7 @@ export interface ScanSummary {
 	used: number;
 	unused: number;
 	dynamicOrUncertain: number;
+	indirectUncertain: number;
 	missingInLanguage: number;
 	extraInLanguage: number;
 	totalFindings: number;
@@ -47,6 +48,7 @@ export function createEmptyScanSummary(): ScanSummary {
 		used: 0,
 		unused: 0,
 		dynamicOrUncertain: 0,
+		indirectUncertain: 0,
 		missingInLanguage: 0,
 		extraInLanguage: 0,
 		totalFindings: 0
@@ -73,6 +75,12 @@ export function buildSummary(findings: Finding[], totalKeys: number): ScanSummar
 
 		if (status === 'dynamic-uncertain') {
 			summary.dynamicOrUncertain += 1;
+			continue;
+		}
+
+		if (status === 'indirect-uncertain') {
+			summary.dynamicOrUncertain += 1;
+			summary.indirectUncertain += 1;
 			continue;
 		}
 

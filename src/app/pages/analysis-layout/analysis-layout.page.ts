@@ -7,12 +7,14 @@ import { ThemeService } from '../../services/theme.service';
 
 @Component({
 	selector: 'app-analysis-layout-page',
-	standalone: true,
 	imports: [RouterOutlet, RouterLink, RouterLinkActive],
 	templateUrl: './analysis-layout.page.html',
 	styleUrl: './analysis-layout.page.scss'
 })
 export class AnalysisLayoutPage implements OnInit, OnDestroy {
+	private readonly route: ActivatedRoute = inject(ActivatedRoute);
+	private readonly router: Router = inject(Router);
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	projectPath = '';
 	lastScanText = 'Running now';
 	isSidebarCollapsed = false;
@@ -25,12 +27,6 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	}
 
 	private stateSubscription?: Subscription;
-
-	constructor(
-		private readonly route: ActivatedRoute,
-		private readonly router: Router,
-		private readonly scanOrchestrationService: ScanOrchestrationService
-	) { }
 
 	ngOnInit(): void {
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '/root/apps/web-client';

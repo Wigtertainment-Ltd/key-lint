@@ -54,6 +54,12 @@ const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 		regex: /\.\s*translate\s*\(/g,
 		dynamic: false,
 		literalKeyExtraction: true
+	},
+	{
+		matchType: 'ts-indirect-key-literal',
+		regex: /['"`]([A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+){2,})['"`]/g,
+		dynamic: true,
+		keyCaptureIndex: 1
 	}
 ];
 
@@ -716,9 +722,17 @@ export const angularScanAdapter: ScanAdapter = {
 		const staticUsage = new Set<string>();
 		const dynamicUsage = new Map<string, KeyUsage>();
 		const dynamicPrefixes = new Map<string, KeyUsage>();
+		const indirectLiteralUsage = new Map<string, KeyUsage>();
 		const allDefined = new Set(input.definedKeys);
 
 		for (const usage of input.usedKeys) {
+			if (usage.matchType === 'ts-indirect-key-literal') {
+				if (!indirectLiteralUsage.has(usage.key)) {
+					indirectLiteralUsage.set(usage.key, usage);
+				}
+				continue;
+			}
+
 			if (usage.isDynamic) {
 				if (!dynamicUsage.has(usage.key)) {
 					dynamicUsage.set(usage.key, usage);
@@ -762,6 +776,28 @@ export const angularScanAdapter: ScanAdapter = {
 							snippet: usage.snippet,
 							matchType: usage.matchType
 						}))
+				});
+				continue;
+			}
+
+			const indirectEvidence = indirectLiteralUsage.get(key);
+			if (indirectEvidence) {
+				findings.push({
+					id: `indirect-key:${key}`,
+					adapterId: this.id,
+					key,
+					status: 'indirect-uncertain',
+					severity: 'warning',
+					message: `Key "${key}" appears in TypeScript string literals but is not confirmed by direct translation usage patterns.`,
+					evidence: [
+						{
+							filePath: indirectEvidence.filePath,
+							line: indirectEvidence.line,
+							column: indirectEvidence.column,
+							snippet: indirectEvidence.snippet,
+							matchType: indirectEvidence.matchType
+						}
+					]
 				});
 				continue;
 			}

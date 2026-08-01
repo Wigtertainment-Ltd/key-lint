@@ -3,3 +3,5 @@ export * from './services/electron-file-system.adapter';
 export * from './services/project-history.service';
 export * from './services/recent-projects.service';
 export * from './services/scan-orchestration.service';
+export * from './services/toast.service';
+export * from './components/toast/toast.component';

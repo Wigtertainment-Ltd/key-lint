@@ -1,6 +1,6 @@
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ProjectScanResult } from '@key-lint/core';
 import { LoggerService } from '../../shared/services/logging/logger.service';
@@ -13,23 +13,26 @@ interface StepItem {
 
 @Component({
 	selector: 'app-scan-progress-page',
-	standalone: true,
 	templateUrl: './scan-progress.page.html',
 	styleUrl: './scan-progress.page.scss'
 })
 export class ScanProgressPage implements OnInit, OnDestroy {
 	projectPath = '';
-	scanState: ScanExecutionSnapshot['state'] = 'idle';
-	scanStage?: string;
-	scanError?: string;
-	scanResult?: ProjectScanResult;
-	progressPercent = 0;
+	readonly scanState = computed<ScanExecutionSnapshot['state']>(() => this.scanSnapshot().state);
+	readonly scanStage = computed(() => this.scanSnapshot().stage);
+	readonly scanError = computed(() => this.scanSnapshot().error);
+	readonly scanResult = computed<ProjectScanResult | undefined>(() => this.scanSnapshot().result);
+	readonly progressPercent = signal(0);
 	isCancelling = false;
 
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
+	private readonly injector: Injector = inject(Injector);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+		initialValue: this.scanOrchestrationService.snapshot
+	});
 	readonly steps: StepItem[] = [
 		{ id: 1, title: 'Detecting framework', trigger: 'Detecting project adapter' },
 		{ id: 2, title: 'Discovering translation files', trigger: 'Collecting translation files' },
@@ -39,13 +42,17 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		{ id: 6, title: 'Running rule evaluation', trigger: 'Evaluating scan rules' }
 	];
 
-	logLines: string[] = [
+	readonly logLines = signal<string[]>([
 		'Initializing analyzer engine...',
 		'Loading local configuration: scanner defaults'
-	];
+	]);
 
-	private stateSubscription?: Subscription;
 	private fakeLogTimer?: ReturnType<typeof setTimeout>;
+	private lastProgressPercent = 0;
+	private lastLoggedStage?: string;
+	private hasLoggedCompletionMessage = false;
+	private hasLoggedFailureMessage = false;
+	private readonly loggedStepIds = new Set<number>();
 	private readonly fillerLogs: string[] = [
 		'Scanning /src/app/core/interceptors/error.interceptor.ts...',
 		'Checking /src/app/shared/pipes/translation.pipe.ts...',
@@ -65,33 +72,42 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
-			this.scanState = snapshot.state;
-			this.scanStage = snapshot.stage;
-			this.scanError = snapshot.error;
-			this.scanResult = snapshot.result;
+		this.lastProgressPercent = 0;
+		this.lastLoggedStage = undefined;
+		this.hasLoggedCompletionMessage = false;
+		this.hasLoggedFailureMessage = false;
+		this.loggedStepIds.clear();
 
-			if (snapshot.stage) {
+		effect(() => {
+			const snapshot = this.scanSnapshot();
+
+			if (snapshot.stage && snapshot.stage !== this.lastLoggedStage) {
+				this.lastLoggedStage = snapshot.stage;
+				this.logStepFromStage(snapshot.stage);
 				this.appendLog(snapshot.stage);
 			}
 
-			this.progressPercent = this.calculateProgress(snapshot);
+			const nextProgress = this.calculateProgress(snapshot, this.lastProgressPercent);
+			this.lastProgressPercent = nextProgress;
+			this.progressPercent.set(nextProgress);
 
-			if (snapshot.state === 'completed') {
+			if (snapshot.state === 'completed' && !this.hasLoggedCompletionMessage) {
+				this.logRemainingStepsAsCompleted();
+				this.hasLoggedCompletionMessage = true;
 				this.appendLog(`Scan completed in ${snapshot.result?.durationMs ?? 0} ms.`);
 			}
 
-			if (snapshot.state === 'failed' && snapshot.error) {
+			if (snapshot.state === 'failed' && snapshot.error && !this.hasLoggedFailureMessage) {
+				this.hasLoggedFailureMessage = true;
 				this.appendLog(`ERROR: ${snapshot.error}`);
 			}
-		});
+		}, { injector: this.injector });
 
 		this.startFillerLogs();
 		void this.runScan();
 	}
 
 	ngOnDestroy(): void {
-		this.stateSubscription?.unsubscribe();
 		if (this.fakeLogTimer) {
 			clearTimeout(this.fakeLogTimer);
 		}
@@ -108,24 +124,25 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	}
 
 	get scanPercentLabel(): string {
-		return `${this.progressPercent}%`;
+		return `${this.progressPercent()}%`;
 	}
 
 	get activeStepId(): number {
-		if (this.scanState === 'completed') {
+		if (this.scanState() === 'completed') {
 			return this.steps.at(-1)?.id ?? 1;
 		}
 
-		if (!this.scanStage) {
+		const stage = this.scanStage();
+		if (!stage) {
 			return 1;
 		}
 
-		const idx = this.steps.findIndex((step) => this.scanStage?.includes(step.trigger));
+		const idx = this.steps.findIndex((step) => stage.includes(step.trigger));
 		return idx >= 0 ? this.steps[idx].id : 1;
 	}
 
 	isStepCompleted(step: StepItem): boolean {
-		if (this.scanState === 'completed') {
+		if (this.scanState() === 'completed') {
 			return true;
 		}
 
@@ -133,11 +150,11 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	}
 
 	isStepActive(step: StepItem): boolean {
-		if (this.scanState === 'completed') {
+		if (this.scanState() === 'completed') {
 			return false;
 		}
 
-		if (this.scanState === 'failed' && step.id === this.activeStepId) {
+		if (this.scanState() === 'failed' && step.id === this.activeStepId) {
 			return false;
 		}
 
@@ -155,7 +172,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	}
 
 	showResults(): void {
-		if (this.scanState !== 'completed') {
+		if (this.scanState() !== 'completed') {
 			return;
 		}
 
@@ -181,13 +198,13 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		}
 
 		const timestamp = new Date().toLocaleTimeString();
-		this.logLines = [...this.logLines, `[${timestamp}] ${message}`].slice(-80);
+		this.logLines.update((lines) => [...lines, `[${timestamp}] ${message}`].slice(-80));
 	}
 
 	private startFillerLogs(): void {
 		let index = 0;
 		const tick = () => {
-			if (this.scanState !== 'running') {
+			if (this.scanState() !== 'running') {
 				return;
 			}
 
@@ -197,16 +214,37 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 			this.fakeLogTimer = setTimeout(tick, delayMs);
 		};
 
-		this.fakeLogTimer = setTimeout(tick, 900);
+		this.fakeLogTimer = setTimeout(tick, 250);
 	}
 
-	private calculateProgress(snapshot: ScanExecutionSnapshot): number {
+	private logStepFromStage(stage: string): void {
+		const step = this.steps.find((item) => stage.includes(item.trigger));
+		if (!step || this.loggedStepIds.has(step.id)) {
+			return;
+		}
+
+		this.loggedStepIds.add(step.id);
+		this.appendLog(`Step ${step.id}/${this.steps.length}: ${step.title}`);
+	}
+
+	private logRemainingStepsAsCompleted(): void {
+		for (const step of this.steps) {
+			if (this.loggedStepIds.has(step.id)) {
+				continue;
+			}
+
+			this.loggedStepIds.add(step.id);
+			this.appendLog(`Step ${step.id}/${this.steps.length}: ${step.title} (completed)`);
+		}
+	}
+
+	private calculateProgress(snapshot: ScanExecutionSnapshot, currentProgress: number): number {
 		if (snapshot.state === 'completed') {
 			return 100;
 		}
 
 		if (snapshot.state === 'failed') {
-			return Math.max(10, this.progressPercent);
+			return Math.max(10, currentProgress);
 		}
 
 		if (snapshot.state !== 'running') {
@@ -219,10 +257,10 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 
 		const index = this.steps.findIndex((step) => snapshot.stage?.includes(step.trigger));
 		if (index < 0) {
-			return Math.max(15, this.progressPercent);
+			return Math.max(15, currentProgress);
 		}
 
 		const ratio = (index + 1) / this.steps.length;
-		return Math.min(95, Math.max(this.progressPercent, Math.round(ratio * 100)));
+		return Math.min(95, Math.max(currentProgress, Math.round(ratio * 100)));
 	}
 }

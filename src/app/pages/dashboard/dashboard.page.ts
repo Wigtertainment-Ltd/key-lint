@@ -1,7 +1,7 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { ScanCompletedHistoryPayload, ProjectScanResult } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
@@ -18,45 +18,83 @@ interface TrendBar {
 
 @Component({
 	selector: 'app-dashboard-page',
-	standalone: true,
 	imports: [DecimalPipe],
 	templateUrl: './dashboard.page.html',
 	styleUrl: './dashboard.page.scss'
 })
-export class DashboardPage implements OnInit, OnDestroy {
-	scanResult?: ProjectScanResult;
-	private stateSubscription?: Subscription;
-	private historySubscription?: Subscription;
+export class DashboardPage implements OnInit {
+	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly historyService: ProjectHistoryService = inject(ProjectHistoryService);
+	private readonly route: ActivatedRoute = inject(ActivatedRoute);
+	private readonly router: Router = inject(Router);
+	private readonly injector: Injector = inject(Injector);
+	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+		initialValue: this.scanOrchestrationService.snapshot
+	});
+	private readonly scanResultSignal = computed(() => this.scanSnapshot().result);
 	private watchedProjectPath = '';
-	private scanTrendEvents: TrendBar[] = [];
-	private selectedTrendDayKey?: string;
-
-	constructor(
-		private readonly scanOrchestrationService: ScanOrchestrationService,
-		private readonly historyService: ProjectHistoryService,
-		private readonly route: ActivatedRoute,
-		private readonly router: Router
-	) {}
+	private readonly scanTrendEvents = signal<TrendBar[]>([]);
+	private readonly selectedTrendDayKey = signal<string | undefined>(undefined);
 
 	ngOnInit(): void {
-		this.scanResult = this.scanOrchestrationService.snapshot.result;
-		this.syncProjectHistorySource();
-
-		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
-			if (snapshot.result) {
-				this.scanResult = snapshot.result;
-				this.syncProjectHistorySource();
+		effect((onCleanup) => {
+			const normalizedProjectRoot = this.resolveProjectRoot();
+			if (!normalizedProjectRoot || normalizedProjectRoot === this.watchedProjectPath) {
+				return;
 			}
-		});
 
-		if (!this.scanResult) {
+			this.watchedProjectPath = normalizedProjectRoot;
+			const subscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events) => {
+				const selected: TrendBar[] = [];
+				for (const event of events) {
+					if (event.type !== 'scan-completed') {
+						continue;
+					}
+
+					const eventTime = new Date(event.timestamp);
+					if (Number.isNaN(eventTime.getTime())) {
+						continue;
+					}
+
+					const dayKey = this.toDayKey(eventTime);
+					const payload = event.payload as ScanCompletedHistoryPayload;
+					const hasDetailedIssueCounts =
+						typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
+					const missingCount = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
+					const unusedCount = typeof payload.unusedCount === 'number' ? payload.unusedCount : 0;
+					const issues = hasDetailedIssueCounts
+						? Math.max(0, missingCount + unusedCount)
+						: Math.max(0, payload.totalFindings);
+
+					selected.push({
+						id: event.id,
+						label: this.formatTrendLabel(event.timestamp),
+						keys: payload.totalKeys,
+						issues,
+						dayKey,
+						timestamp: event.timestamp
+					});
+				}
+
+				selected.sort((left, right) => this.timestampToMillis(right.timestamp) - this.timestampToMillis(left.timestamp));
+				this.scanTrendEvents.set(selected);
+
+				const activeDay = this.selectedTrendDayKey();
+				if (activeDay && !selected.some((scan) => scan.dayKey === activeDay)) {
+					this.selectedTrendDayKey.set(undefined);
+				}
+			});
+
+			onCleanup(() => subscription.unsubscribe());
+		}, { injector: this.injector });
+
+		if (!this.scanResultSignal()) {
 			void this.router.navigate(['/scan-progress']);
 		}
 	}
 
-	ngOnDestroy(): void {
-		this.stateSubscription?.unsubscribe();
-		this.historySubscription?.unsubscribe();
+	private get scanResult(): ProjectScanResult | undefined {
+		return this.scanResultSignal();
 	}
 
 	openMissingKeys(): void {
@@ -161,11 +199,12 @@ export class DashboardPage implements OnInit, OnDestroy {
 	}
 
 	get isTrendDrilldown(): boolean {
-		return Boolean(this.selectedTrendDayKey);
+		return Boolean(this.selectedTrendDayKey());
 	}
 
 	get trendViewLabel(): string {
-		if (!this.selectedTrendDayKey) {
+		const selectedDayKey = this.selectedTrendDayKey();
+		if (!selectedDayKey) {
 			return 'Last 5 scan days';
 		}
 
@@ -208,11 +247,11 @@ export class DashboardPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		this.selectedTrendDayKey = bar.dayKey;
+		this.selectedTrendDayKey.set(bar.dayKey);
 	}
 
 	closeTrendDrilldown(): void {
-		this.selectedTrendDayKey = undefined;
+		this.selectedTrendDayKey.set(undefined);
 	}
 
 	private get unusedPercent(): number {
@@ -232,74 +271,25 @@ export class DashboardPage implements OnInit, OnDestroy {
 		return Math.max(maxValue, 1);
 	}
 
-	private syncProjectHistorySource(): void {
+	private resolveProjectRoot(): string {
 		const snapshotProjectRoot = this.scanResult?.projectRoot ?? '';
 		const queryProjectRoot = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
-		const normalizedProjectRoot = this.normalizePath(snapshotProjectRoot || queryProjectRoot);
-
-		if (!normalizedProjectRoot || normalizedProjectRoot === this.watchedProjectPath) {
-			return;
-		}
-
-		this.watchedProjectPath = normalizedProjectRoot;
-		this.historySubscription?.unsubscribe();
-		this.historySubscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events) => {
-			const selected: TrendBar[] = [];
-			for (const event of events) {
-				if (event.type !== 'scan-completed') {
-					continue;
-				}
-
-				const eventTime = new Date(event.timestamp);
-				if (Number.isNaN(eventTime.getTime())) {
-					continue;
-				}
-
-				const dayKey = this.toDayKey(eventTime);
-				const payload = event.payload as ScanCompletedHistoryPayload;
-				const hasDetailedIssueCounts =
-					typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
-				const missingCount = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
-				const unusedCount = typeof payload.unusedCount === 'number' ? payload.unusedCount : 0;
-				const issues = hasDetailedIssueCounts
-					? Math.max(0, missingCount + unusedCount)
-					: Math.max(0, payload.totalFindings);
-
-				selected.push({
-					id: event.id,
-					label: this.formatTrendLabel(event.timestamp),
-					keys: payload.totalKeys,
-					issues,
-					dayKey,
-					timestamp: event.timestamp
-				});
-			}
-
-			selected.sort((left, right) => this.timestampToMillis(right.timestamp) - this.timestampToMillis(left.timestamp));
-
-			this.scanTrendEvents = selected;
-
-			if (
-				this.selectedTrendDayKey &&
-				!this.scanTrendEvents.some((scan) => scan.dayKey === this.selectedTrendDayKey)
-			) {
-				this.selectedTrendDayKey = undefined;
-			}
-		});
+		return this.normalizePath(snapshotProjectRoot || queryProjectRoot);
 	}
 
 	private buildDrilldownTrendBars(): TrendBar[] | undefined {
-		if (!this.isTrendDrilldown || !this.selectedTrendDayKey) {
+		const selectedDayKey = this.selectedTrendDayKey();
+		if (!this.isTrendDrilldown || !selectedDayKey) {
 			return undefined;
 		}
 
-		const dayScans = this.scanTrendEvents.filter((item) => item.dayKey === this.selectedTrendDayKey);
+		const dayScans = this.scanTrendEvents().filter((item) => item.dayKey === selectedDayKey);
 		const chronologicallySorted = [...dayScans].sort(
 			(left, right) => this.timestampToMillis(left.timestamp) - this.timestampToMillis(right.timestamp)
 		);
 
 		if (chronologicallySorted.length === 0) {
-			this.selectedTrendDayKey = undefined;
+			this.selectedTrendDayKey.set(undefined);
 			return undefined;
 		}
 
@@ -313,14 +303,15 @@ export class DashboardPage implements OnInit, OnDestroy {
 	}
 
 	private buildOverviewTrendBars(): TrendBar[] {
-		if (this.scanTrendEvents.length === 0) {
+		const trendEvents = this.scanTrendEvents();
+		if (trendEvents.length === 0) {
 			return [];
 		}
 
 		const seenDays = new Set<string>();
 		const latestPerDay: TrendBar[] = [];
 
-		for (const scan of this.scanTrendEvents) {
+		for (const scan of trendEvents) {
 			if (seenDays.has(scan.dayKey)) {
 				continue;
 			}

@@ -3,9 +3,9 @@
 		<div class="progress-header">
 			<div>
 				<h2>
-					@if (scanState === 'completed') {
+					@if (scanState() === 'completed') {
 						Scan Completed
-					} @else if (scanState === 'failed') {
+					} @else if (scanState() === 'failed') {
 						Scan Failed
 					} @else {
 						Scanning Repository...
@@ -17,7 +17,7 @@
 		</div>
 		<div class="progress-rail">
 			<div class="scan-line"></div>
-			<div class="progress-fill" [style.width.%]="progressPercent"></div>
+			<div class="progress-fill" [style.width.%]="progressPercent()"></div>
 		</div>
 	</section>
 
@@ -62,7 +62,7 @@
 					<span>Process Console</span>
 				</div>
 				<div class="console-body custom-scrollbar">
-					@for (line of logLines; track $index) {
+					@for (line of logLines(); track $index) {
 						<p>{{ line }}</p>
 					}
 					<span class="cursor"></span>
@@ -71,7 +71,7 @@
 		</div>
 	</section>
 
-	@if (scanState !== 'completed') {
+	@if (scanState() !== 'completed') {
 		<div class="actions">
 			<button class="cancel-btn" (click)="cancelAnalysis()" [disabled]="isCancelling">
 				<span class="material-symbols-outlined">cancel</span>

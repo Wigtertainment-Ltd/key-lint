@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 
 @Component({
 	selector: 'app-documentation-page',
-	standalone: true,
 	template: `
 		<main class="documentation-shell custom-scrollbar">
 			<header class="doc-header">

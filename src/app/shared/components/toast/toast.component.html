@@ -1,0 +1,25 @@
+@if (message(); as toast) {
+	<output
+		class="app-toast"
+		[class.app-toast-success]="toast.type === 'success'"
+		[class.app-toast-error]="toast.type === 'error'"
+		[class.app-toast-info]="toast.type === 'info'"
+		aria-live="polite"
+		aria-atomic="true"
+		(keydown.escape)="dismiss()"
+	>
+		<span class="material-symbols-outlined">
+			@if (toast.type === 'success') {
+				check_circle
+			} @else if (toast.type === 'error') {
+				error
+			} @else {
+				info
+			}
+		</span>
+		<span>{{ toast.text }}</span>
+		<button type="button" class="toast-close" (click)="dismiss()" aria-label="Dismiss notification">
+			<span class="material-symbols-outlined">close</span>
+		</button>
+	</output>
+}

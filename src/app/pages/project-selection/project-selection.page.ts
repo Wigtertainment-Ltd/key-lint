@@ -14,7 +14,6 @@ interface RecentProjectViewModel extends RecentProjectItem {
 
 @Component({
 	selector: 'app-project-selection-page',
-	standalone: true,
 	templateUrl: './project-selection.page.html',
 	styleUrl: './project-selection.page.scss'
 })
