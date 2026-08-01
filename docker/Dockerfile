@@ -1,10 +1,10 @@
 # Build context is the repository root: docker build -f docker/Dockerfile -t key-lint .
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /build
 COPY package.json package-lock.json ./
 COPY packages ./packages
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts --include-workspace-root=false --workspace @key-lint/core --workspace @key-lint/cli
 RUN npm run build --workspace @key-lint/core \
 	&& npm run build --workspace @key-lint/cli
 

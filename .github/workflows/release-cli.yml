@@ -5,6 +5,21 @@ on:
     tags:
       - 'cli-v*'
   workflow_dispatch:
+    inputs:
+      releaseTarget:
+        description: 'Select which release part to run'
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - npm-only
+          - docker-only
+      dockerTag:
+        description: 'Optional Docker image tag override (default: github.ref_name)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -13,6 +28,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.event_name == 'push' || inputs.releaseTarget == 'full' || inputs.releaseTarget == 'npm-only'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +52,7 @@ jobs:
         run: npm publish --workspace @key-lint/cli --access public --provenance
 
   docker:
+    if: github.event_name == 'push' || inputs.releaseTarget == 'full'
     runs-on: ubuntu-latest
     needs: publish
     steps:
@@ -45,6 +62,16 @@ jobs:
         id: ghcr
         shell: bash
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Docker tag
+        id: docker_meta
+        shell: bash
+        run: |
+          image_tag="${{ github.ref_name }}"
+          if [ -n "${{ inputs.dockerTag }}" ]; then
+            image_tag="${{ inputs.dockerTag }}"
+          fi
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@v3
         with:
@@ -59,4 +86,40 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:latest
-            ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:${{ github.ref_name }}
+            ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:${{ steps.docker_meta.outputs.image_tag }}
+
+  docker_only:
+    if: github.event_name == 'workflow_dispatch' && inputs.releaseTarget == 'docker-only'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize GHCR owner
+        id: ghcr
+        shell: bash
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Docker tag
+        id: docker_meta
+        shell: bash
+        run: |
+          image_tag="${{ github.ref_name }}"
+          if [ -n "${{ inputs.dockerTag }}" ]; then
+            image_tag="${{ inputs.dockerTag }}"
+          fi
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:latest
+            ghcr.io/${{ steps.ghcr.outputs.owner }}/key-lint:${{ steps.docker_meta.outputs.image_tag }}
