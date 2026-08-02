@@ -7,8 +7,8 @@
 }
 
 .dashboard-shell {
-	height: 100%;
-	overflow: auto;
+	min-height: 100%;
+	overflow: visible;
 	padding: 0.875rem;
 	display: grid;
 	gap: 0.75rem;

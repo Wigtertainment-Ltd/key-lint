@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -15,6 +16,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
+	private readonly document: Document = inject(DOCUMENT);
 	projectPath = '';
 	lastScanText = 'Running now';
 	isSidebarCollapsed = false;
@@ -29,6 +31,9 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	private stateSubscription?: Subscription;
 
 	ngOnInit(): void {
+		this.document.documentElement.classList.add('analysis-scroll-lock');
+		this.document.body.classList.add('analysis-scroll-lock');
+
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '/root/apps/web-client';
 
 		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
@@ -39,6 +44,8 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		this.document.documentElement.classList.remove('analysis-scroll-lock');
+		this.document.body.classList.remove('analysis-scroll-lock');
 		this.stateSubscription?.unsubscribe();
 	}
 

@@ -3,7 +3,7 @@ import { Component } from '@angular/core';
 @Component({
 	selector: 'app-documentation-page',
 	template: `
-		<main class="documentation-shell custom-scrollbar">
+		<main class="documentation-shell">
 			<header class="doc-header">
 				<p class="eyebrow">Documentation</p>
 				<h2>i18n Analyzer Guide</h2>
@@ -75,14 +75,15 @@ import { Component } from '@angular/core';
 		`
 			:host {
 				display: block;
-				height: 100%;
+				min-height: 0;
 				font-family: var(--sans);
 				background: linear-gradient(180deg, var(--surface) 0%, var(--surface-container-lowest) 100%);
 			}
 
 			.documentation-shell {
-				height: 100%;
-				overflow: auto;
+				height: auto;
+				min-height: 0;
+				overflow: visible;
 				padding: 1.25rem;
 				display: grid;
 				gap: 1rem;

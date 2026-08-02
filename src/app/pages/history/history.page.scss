@@ -6,8 +6,8 @@
 }
 
 .history-shell {
-	height: 100%;
-	overflow: auto;
+	min-height: 100%;
+	overflow: visible;
 	padding: 1.25rem;
 	display: flex;
 	flex-direction: column;

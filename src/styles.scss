@@ -30,6 +30,11 @@ body {
 	scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
 }
 
+html.analysis-scroll-lock,
+body.analysis-scroll-lock {
+	overflow: hidden;
+}
+
 app-root {
 	display: block;
 	height: 100%;
