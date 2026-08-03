@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-const APP_VERSION_FALLBACK = '1.1.1';
+const APP_VERSION_FALLBACK = '1.1.2';
 
 @Injectable({
 	providedIn: 'root'
