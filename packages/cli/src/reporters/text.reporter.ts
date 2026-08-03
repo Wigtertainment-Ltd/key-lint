@@ -1,4 +1,4 @@
-import { Finding, ProjectScanResult } from '@key-lint/core';
+import { IFinding, IProjectScanResult } from '@key-lint/core';
 
 import { IReporter, IReporterContext, severityRank } from './reporter.js';
 
@@ -15,7 +15,7 @@ function paint(text: string, code: string, color: boolean): string {
 	return color ? `${code}${text}${ANSI.reset}` : text;
 }
 
-function formatLocation(finding: Finding): string {
+function formatLocation(finding: IFinding): string {
 	const evidence = finding.evidence[0];
 	if (!evidence) {
 		return '';
@@ -28,7 +28,7 @@ function formatLocation(finding: Finding): string {
 
 export const textReporter: IReporter = {
 	name: 'text',
-	format(result: ProjectScanResult, context: IReporterContext): string {
+	format(result: IProjectScanResult, context: IReporterContext): string {
 		const { color } = context;
 		const lines: string[] = [];
 

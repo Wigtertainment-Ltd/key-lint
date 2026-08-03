@@ -1,4 +1,4 @@
-import { Finding, FindingSeverity, ProjectScanResult } from '@key-lint/core';
+import { IFinding, FindingSeverity, IProjectScanResult } from '@key-lint/core';
 
 export interface IReporterContext {
 	/** Effective config file that was applied, if any. */
@@ -16,7 +16,7 @@ export interface IReporterContext {
 
 export interface IReporter {
 	name: ReporterName;
-	format(result: ProjectScanResult, context: IReporterContext): string;
+	format(result: IProjectScanResult, context: IReporterContext): string;
 }
 
 export type ReporterName = 'text' | 'json' | 'markdown';
@@ -27,7 +27,7 @@ export interface ISeverityCounts {
 	info: number;
 }
 
-export function countSeverities(findings: Finding[]): ISeverityCounts {
+export function countSeverities(findings: IFinding[]): ISeverityCounts {
 	const counts: ISeverityCounts = { error: 0, warning: 0, info: 0 };
 	for (const finding of findings) {
 		counts[finding.severity] += 1;

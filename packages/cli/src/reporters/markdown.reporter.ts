@@ -1,4 +1,4 @@
-import { Finding, ProjectScanResult } from '@key-lint/core';
+import { IFinding, IProjectScanResult } from '@key-lint/core';
 
 import { IReporter, IReporterContext } from './reporter.js';
 
@@ -8,7 +8,7 @@ function escapeCell(value: string): string {
 	return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
-function locationOf(finding: Finding): string {
+function locationOf(finding: IFinding): string {
 	const evidence = finding.evidence[0];
 	if (!evidence) {
 		return '-';
@@ -19,7 +19,7 @@ function locationOf(finding: Finding): string {
 
 export const markdownReporter: IReporter = {
 	name: 'markdown',
-	format(result: ProjectScanResult, context: IReporterContext): string {
+	format(result: IProjectScanResult, context: IReporterContext): string {
 		const lines: string[] = [];
 		const status = context.counts.error > context.thresholds.maxErrors ? 'failed' : 'passed';
 

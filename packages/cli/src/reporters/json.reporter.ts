@@ -1,4 +1,4 @@
-import { ProjectScanResult } from '@key-lint/core';
+import { IProjectScanResult } from '@key-lint/core';
 
 import { IReporter, IReporterContext } from './reporter.js';
 
@@ -10,7 +10,7 @@ export const JSON_REPORT_SCHEMA_VERSION = 1;
  */
 export const jsonReporter: IReporter = {
 	name: 'json',
-	format(result: ProjectScanResult, context: IReporterContext): string {
+	format(result: IProjectScanResult, context: IReporterContext): string {
 		const payload = {
 			schemaVersion: JSON_REPORT_SCHEMA_VERSION,
 			projectRoot: result.projectRoot,

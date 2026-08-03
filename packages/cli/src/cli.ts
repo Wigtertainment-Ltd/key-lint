@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { normalizePath, ProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
+import { normalizePath, IProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
 import { loadScannerConfig, NodeFileSystemAdapter } from '@key-lint/core/node';
 
 import { ICliOptions, CliUsageError, parseCliArgs, USAGE } from './args.js';
@@ -57,7 +57,7 @@ function determineExitCode(options: ICliOptions, errors: number, warnings: numbe
 	return EXIT_OK;
 }
 
-async function emitReports(options: ICliOptions, result: ProjectScanResult, context: IReporterContext, io: ICliIo): Promise<void> {
+async function emitReports(options: ICliOptions, result: IProjectScanResult, context: IReporterContext, io: ICliIo): Promise<void> {
 	for (const name of options.reporters) {
 		const targetFile = options.outputs.get(name);
 		const output = REPORTERS[name].format(result, {
