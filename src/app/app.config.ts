@@ -1,12 +1,9 @@
-import { ApplicationConfig, provideZoneChangeDetection, Injector } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 import { provideHttpClient } from '@angular/common/http';
-// import { providePrimeNG } from 'primeng/config';
-// import Aura from '@primeuix/themes/aura';
 import { routes } from './app.routes';
-import { setLoggerInjector } from './shared/services/logging/logger';
 
 export const appConfig: ApplicationConfig = {
 	providers: [
@@ -20,14 +17,6 @@ export const appConfig: ApplicationConfig = {
 			fallbackLang: 'en',
 			lang: 'en',
 		}),
-		provideRouter(routes),
-		// providePrimeNG({
-		// 	theme: {
-		// 		preset: Aura,
-		// 		options: {
-		// 			darkModeSelector: 'system'
-		// 		}
-		// 	}
-		// })
+		provideRouter(routes)
 	]
 };

@@ -8,7 +8,7 @@ export type FindingStatus =
 
 export type FindingSeverity = 'info' | 'warning' | 'error';
 
-export interface FileEvidence {
+export interface IFileEvidence {
 	filePath: string;
 	line?: number;
 	column?: number;
@@ -16,7 +16,7 @@ export interface FileEvidence {
 	matchType?: string;
 }
 
-export interface Finding {
+export interface IFinding {
 	id: string;
 	adapterId: string;
 	key: string;
@@ -24,5 +24,5 @@ export interface Finding {
 	severity: FindingSeverity;
 	message: string;
 	language?: string;
-	evidence: FileEvidence[];
+	evidence: IFileEvidence[];
 }

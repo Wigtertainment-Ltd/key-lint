@@ -1,20 +1,16 @@
-import { AdapterDetectionResult, FileSystemAdapter, ScanAdapter } from './scan-adapter.interface.js';
-
-export interface AdapterMatch {
-	adapter: ScanAdapter;
-	detection: AdapterDetectionResult;
-}
+import { IAdapterMatch } from './adapter.interfaces.js';
+import { IFileSystemAdapter, IScanAdapter } from './scan-adapter.interface.js';
 
 export class AdapterRegistry {
-	private readonly adapters: ScanAdapter[] = [];
+	private readonly adapters: IScanAdapter[] = [];
 
-	constructor(initialAdapters: ScanAdapter[] = []) {
+	constructor(initialAdapters: IScanAdapter[] = []) {
 		for (const adapter of initialAdapters) {
 			this.register(adapter);
 		}
 	}
 
-	register(adapter: ScanAdapter): void {
+	register(adapter: IScanAdapter): void {
 		if (this.adapters.some((item) => item.id === adapter.id)) {
 			return;
 		}
@@ -22,12 +18,12 @@ export class AdapterRegistry {
 		this.adapters.push(adapter);
 	}
 
-	list(): ScanAdapter[] {
+	list(): IScanAdapter[] {
 		return [...this.adapters];
 	}
 
-	async detectBestAdapter(projectRoot: string, fs: FileSystemAdapter): Promise<AdapterMatch | null> {
-		let bestMatch: AdapterMatch | null = null;
+	async detectBestAdapter(projectRoot: string, fs: IFileSystemAdapter): Promise<IAdapterMatch | null> {
+		let bestMatch: IAdapterMatch | null = null;
 
 		for (const adapter of this.adapters) {
 			const result = await adapter.detect(projectRoot, fs);

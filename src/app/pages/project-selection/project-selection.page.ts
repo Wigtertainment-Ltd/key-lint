@@ -2,15 +2,11 @@ import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
-import { RecentProjectItem, RecentProjectsService } from '../../shared/services/recent-projects.service';
+import { RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ThemeService } from '../../services/theme.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
-
-type ElectronFile = File & { path?: string; webkitRelativePath?: string };
-interface RecentProjectViewModel extends RecentProjectItem {
-	name: string;
-}
+import { ElectronFile, IRecentProjectViewModel } from './project-selection.interfaces';
 
 @Component({
 	selector: 'app-project-selection-page',
@@ -21,7 +17,7 @@ export class ProjectSelectionPage implements OnInit {
 	projectPath?: string = undefined;
 	projectName?: string = undefined;
 	isDragOver = false;
-	recentProjects: RecentProjectViewModel[] = [];
+	recentProjects: IRecentProjectViewModel[] = [];
 
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly recentProjectsService: RecentProjectsService = inject(RecentProjectsService);
@@ -137,7 +133,7 @@ export class ProjectSelectionPage implements OnInit {
 		this.scanOrchestrationService.reset();
 	}
 
-	onSelectRecentProject(project: RecentProjectViewModel): void {
+	onSelectRecentProject(project: IRecentProjectViewModel): void {
 		if (!project.exists) {
 			return;
 		}
@@ -145,7 +141,7 @@ export class ProjectSelectionPage implements OnInit {
 		this.setSelectedPath(project.path);
 	}
 
-	onRemoveRecentProject(project: RecentProjectViewModel, event: Event): void {
+	onRemoveRecentProject(project: IRecentProjectViewModel, event: Event): void {
 		event.stopPropagation();
 		this.recentProjectsService.removeRecentProject(project.path);
 		this.loadRecentProjects();

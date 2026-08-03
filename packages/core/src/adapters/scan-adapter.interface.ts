@@ -1,34 +1,34 @@
-import { ScannerConfig } from '../config/scanner-defaults.js';
-import { Finding } from '../models/finding.model.js';
-import { TranslationMatrix } from '../models/scan-result.model.js';
+import { IScannerConfig } from '../config/scanner-defaults.js';
+import { IFinding } from '../models/finding.model.js';
+import { ITranslationMatrix } from '../models/scan-result.model.js';
 
 export type TranslationFormat = 'json' | 'yaml' | 'xliff' | 'po';
 
-export interface AdapterCapabilities {
+export interface IAdapterCapabilities {
 	templateParsing: boolean;
 	typescriptParsing: boolean;
 	translationFormats: TranslationFormat[];
 }
 
-export interface AdapterDetectionResult {
+export interface IAdapterDetectionResult {
 	supported: boolean;
 	confidence: number;
 	reason?: string;
 	resolvedProjectRoot?: string;
 }
 
-export interface FileSystemAdapter {
+export interface IFileSystemAdapter {
 	fileExists(filePath: string): Promise<boolean>;
 	readFile(filePath: string): Promise<string>;
 	listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]>;
 }
 
-export interface ProjectContext {
+export interface IProjectContext {
 	projectRoot: string;
-	config: ScannerConfig;
+	config: IScannerConfig;
 }
 
-export interface KeyUsage {
+export interface IKeyUsage {
 	key: string;
 	filePath: string;
 	line?: number;
@@ -38,18 +38,18 @@ export interface KeyUsage {
 	isDynamic?: boolean;
 }
 
-export interface ScanAdapter {
+export interface IScanAdapter {
 	id: string;
 	framework: string;
-	capabilities: AdapterCapabilities;
-	detect(projectRoot: string, fs: FileSystemAdapter): Promise<AdapterDetectionResult>;
-	collectTranslationFiles(context: ProjectContext, fs: FileSystemAdapter): Promise<string[]>;
-	extractDefinedKeys(translationFiles: string[], fs: FileSystemAdapter): Promise<string[]>;
-	extractUsedKeys(context: ProjectContext, fs: FileSystemAdapter): Promise<KeyUsage[]>;
-	buildTranslationMatrix?(translationFiles: string[], fs: FileSystemAdapter): Promise<TranslationMatrix>;
+	capabilities: IAdapterCapabilities;
+	detect(projectRoot: string, fs: IFileSystemAdapter): Promise<IAdapterDetectionResult>;
+	collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter): Promise<string[]>;
+	extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter): Promise<string[]>;
+	extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter): Promise<IKeyUsage[]>;
+	buildTranslationMatrix?(translationFiles: string[], fs: IFileSystemAdapter): Promise<ITranslationMatrix>;
 	runRules(input: {
 		definedKeys: string[];
-		usedKeys: KeyUsage[];
-		context: ProjectContext;
-	}): Promise<Finding[]>;
+		usedKeys: IKeyUsage[];
+		context: IProjectContext;
+	}): Promise<IFinding[]>;
 }

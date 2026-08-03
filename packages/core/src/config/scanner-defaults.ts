@@ -1,19 +1,19 @@
-export interface ScannerGuardrails {
+export interface IScannerGuardrails {
 	maxFiles: number;
 	maxFileSizeBytes: number;
 }
 
-export interface ScannerConfig {
+export interface IScannerConfig {
 	includeTranslationGlobs: string[];
 	includeSourceGlobs: string[];
 	excludeGlobs: string[];
 	supportedTranslationExtensions: string[];
 	/** Glob patterns matched against translation keys; matching findings are dropped. */
 	ignoreKeys: string[];
-	guardrails: ScannerGuardrails;
+	guardrails: IScannerGuardrails;
 }
 
-export const DEFAULT_SCANNER_CONFIG: ScannerConfig = {
+export const DEFAULT_SCANNER_CONFIG: IScannerConfig = {
 	includeTranslationGlobs: [
 		'src/assets/i18n/**/*.json',
 		'assets/i18n/**/*.json',

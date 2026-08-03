@@ -1,8 +1,8 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { FileSystemAdapter } from '../adapters/scan-adapter.interface.js';
-import { DEFAULT_SCANNER_CONFIG, ScannerGuardrails } from '../config/scanner-defaults.js';
+import { IFileSystemAdapter } from '../adapters/scan-adapter.interface.js';
+import { DEFAULT_SCANNER_CONFIG, IScannerGuardrails } from '../config/scanner-defaults.js';
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
 
@@ -12,7 +12,7 @@ export type FileSystemWarningCode =
 	| 'unreadable-directory'
 	| 'symlink-skipped';
 
-export interface FileSystemWarning {
+export interface IFileSystemWarning {
 	code: FileSystemWarningCode;
 	message: string;
 	filePath?: string;
@@ -23,12 +23,12 @@ export interface FileSystemWarning {
  * Enforces the scanner guardrails and never follows symlinks, so a scan can
  * neither run away on huge repositories nor escape the selected project root.
  */
-export class NodeFileSystemAdapter implements FileSystemAdapter {
-	private readonly collectedWarnings: FileSystemWarning[] = [];
+export class NodeFileSystemAdapter implements IFileSystemAdapter {
+	private readonly collectedWarnings: IFileSystemWarning[] = [];
 
-	constructor(private readonly guardrails: ScannerGuardrails = DEFAULT_SCANNER_CONFIG.guardrails) { }
+	constructor(private readonly guardrails: IScannerGuardrails = DEFAULT_SCANNER_CONFIG.guardrails) { }
 
-	get warnings(): FileSystemWarning[] {
+	get warnings(): IFileSystemWarning[] {
 		return [...this.collectedWarnings];
 	}
 

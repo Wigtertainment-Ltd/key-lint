@@ -1,6 +1,6 @@
 import { Finding, ProjectScanResult } from '@key-lint/core';
 
-import { Reporter, ReporterContext } from './reporter.js';
+import { IReporter, IReporterContext } from './reporter.js';
 
 const MAX_LISTED_FINDINGS = 50;
 
@@ -17,9 +17,9 @@ function locationOf(finding: Finding): string {
 	return evidence.line ? `${evidence.filePath}:${evidence.line}` : evidence.filePath;
 }
 
-export const markdownReporter: Reporter = {
+export const markdownReporter: IReporter = {
 	name: 'markdown',
-	format(result: ProjectScanResult, context: ReporterContext): string {
+	format(result: ProjectScanResult, context: IReporterContext): string {
 		const lines: string[] = [];
 		const status = context.counts.error > context.thresholds.maxErrors ? 'failed' : 'passed';
 

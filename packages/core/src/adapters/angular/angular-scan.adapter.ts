@@ -1,21 +1,10 @@
-import {
-	FileSystemAdapter,
-	KeyUsage,
-	ProjectContext,
-	ScanAdapter
-} from '../scan-adapter.interface.js';
-import { Finding } from '../../models/finding.model.js';
-import { TranslationMatrix } from '../../models/scan-result.model.js';
+import { IFileSystemAdapter, IKeyUsage, IProjectContext, IScanAdapter } from '../scan-adapter.interface.js';
+import { IFinding } from '../../models/finding.model.js';
+import { ITranslationMatrix } from '../../models/scan-result.model.js';
+import { IPatternDescriptor } from '../adapter.interfaces.js';
+import { IAngularMarkers } from './angular.interfaces.js';
 
-interface PatternDescriptor {
-	matchType: string;
-	regex: RegExp;
-	dynamic: boolean;
-	keyCaptureIndex?: number;
-	literalKeyExtraction?: boolean;
-}
-
-const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
+const STATIC_HTML_PATTERNS: IPatternDescriptor[] = [
 	{
 		matchType: 'html-pipe-translate-interpolation',
 		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*translate\b[^}]*\}\}/g,
@@ -42,7 +31,7 @@ const STATIC_HTML_PATTERNS: PatternDescriptor[] = [
 	}
 ];
 
-const STATIC_TS_PATTERNS: PatternDescriptor[] = [
+const STATIC_TS_PATTERNS: IPatternDescriptor[] = [
 	{
 		matchType: 'ts-translate-method',
 		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
@@ -63,7 +52,7 @@ const STATIC_TS_PATTERNS: PatternDescriptor[] = [
 	}
 ];
 
-const DYNAMIC_PATTERNS: PatternDescriptor[] = [
+const DYNAMIC_PATTERNS: IPatternDescriptor[] = [
 	{
 		matchType: 'ts-dynamic-template-literal',
 		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
@@ -274,7 +263,8 @@ function leadingLiteralPrefix(expression: string): string | null {
 	return prefix.endsWith('.') ? prefix : null;
 }
 
-function extractMatches(source: string, filePath: string, descriptors: PatternDescriptor[]): KeyUsage[] {	const matches: KeyUsage[] = [];
+function extractMatches(source: string, filePath: string, descriptors: IPatternDescriptor[]): IKeyUsage[] {
+	const matches: IKeyUsage[] = [];
 
 	for (const descriptor of descriptors) {
 		const regex = new RegExp(descriptor.regex.source, descriptor.regex.flags);
@@ -358,11 +348,7 @@ function uniqueSorted(values: string[]): string[] {
 	return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-function flattenTranslationValueObject(
-	value: unknown,
-	prefix = '',
-	collector: Record<string, string>
-): void {
+function flattenTranslationValueObject(value: unknown, prefix = '', collector: Record<string, string>): void {
 	if (value === null || value === undefined) {
 		if (prefix) {
 			collector[prefix] = '';
@@ -463,20 +449,7 @@ function collectCandidateRoots(startPath: string): string[] {
 	return candidates;
 }
 
-interface AngularMarkers {
-	root: string;
-	hasAngularJson: boolean;
-	hasNxJson: boolean;
-	hasWorkspaceJson: boolean;
-	hasProjectJson: boolean;
-	hasPackageJson: boolean;
-	hasAngularDependency: boolean;
-}
-
-async function readPackageJsonDependencies(
-	root: string,
-	fs: FileSystemAdapter
-): Promise<{ hasPackageJson: boolean; hasAngularDependency: boolean }> {
+async function readPackageJsonDependencies(root: string, fs: IFileSystemAdapter): Promise<{ hasPackageJson: boolean; hasAngularDependency: boolean }> {
 	const packageJsonPath = joinPath(root, 'package.json');
 	const hasPackageJson = await fs.fileExists(packageJsonPath);
 	if (!hasPackageJson) {
@@ -500,7 +473,7 @@ async function readPackageJsonDependencies(
 	}
 }
 
-function scoreMarkers(markers: AngularMarkers): number {
+function scoreMarkers(markers: IAngularMarkers): number {
 	if (markers.hasAngularJson && markers.hasAngularDependency) {
 		return 1;
 	}
@@ -520,7 +493,7 @@ function scoreMarkers(markers: AngularMarkers): number {
 	return 0;
 }
 
-function buildReason(markers: AngularMarkers): string {
+function buildReason(markers: IAngularMarkers): string {
 	const parts: string[] = [];
 	if (markers.hasAngularJson) {
 		parts.push('angular.json');
@@ -545,7 +518,7 @@ function buildReason(markers: AngularMarkers): string {
 	return `Detected ${parts.join(', ')}`;
 }
 
-export const angularScanAdapter: ScanAdapter = {
+export const angularScanAdapter: IScanAdapter = {
 	id: 'angular',
 	framework: 'angular',
 	capabilities: {
@@ -554,11 +527,11 @@ export const angularScanAdapter: ScanAdapter = {
 		translationFormats: ['json']
 	},
 
-	async detect(projectRoot: string, fs: FileSystemAdapter) {
+	async detect(projectRoot: string, fs: IFileSystemAdapter) {
 		const normalizedStart = normalizePath(projectRoot);
 		const candidates = collectCandidateRoots(normalizedStart);
 
-		let best: { markers: AngularMarkers; confidence: number } | null = null;
+		let best: { markers: IAngularMarkers; confidence: number } | null = null;
 
 		for (const root of candidates) {
 			const [hasAngularJson, hasNxJson, hasWorkspaceJson, hasProjectJson, packageInfo] = await Promise.all([
@@ -569,7 +542,7 @@ export const angularScanAdapter: ScanAdapter = {
 				readPackageJsonDependencies(root, fs)
 			]);
 
-			const markers: AngularMarkers = {
+			const markers: IAngularMarkers = {
 				root,
 				hasAngularJson,
 				hasNxJson,
@@ -605,7 +578,7 @@ export const angularScanAdapter: ScanAdapter = {
 		};
 	},
 
-	async collectTranslationFiles(context: ProjectContext, fs: FileSystemAdapter) {
+	async collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter) {
 		const listedFiles = await fs.listFiles(
 			context.projectRoot,
 			context.config.includeTranslationGlobs,
@@ -624,7 +597,7 @@ export const angularScanAdapter: ScanAdapter = {
 			.sort((a, b) => a.localeCompare(b));
 	},
 
-	async extractDefinedKeys(translationFiles: string[], fs: FileSystemAdapter) {
+	async extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter) {
 		const allKeys: string[] = [];
 
 		for (const filePath of translationFiles) {
@@ -640,7 +613,7 @@ export const angularScanAdapter: ScanAdapter = {
 		return uniqueSorted(allKeys);
 	},
 
-	async buildTranslationMatrix(translationFiles: string[], fs: FileSystemAdapter): Promise<TranslationMatrix> {
+	async buildTranslationMatrix(translationFiles: string[], fs: IFileSystemAdapter): Promise<ITranslationMatrix> {
 		const localeToValues = new Map<string, Record<string, string>>();
 		const localeToPresence = new Map<string, Set<string>>();
 
@@ -693,14 +666,14 @@ export const angularScanAdapter: ScanAdapter = {
 		};
 	},
 
-	async extractUsedKeys(context: ProjectContext, fs: FileSystemAdapter) {
+	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter) {
 		const sourceFiles = await fs.listFiles(
 			context.projectRoot,
 			context.config.includeSourceGlobs,
 			context.config.excludeGlobs
 		);
 
-		const used: KeyUsage[] = [];
+		const used: IKeyUsage[] = [];
 
 		for (const filePath of sourceFiles.map((file) => normalizePath(file)).sort((a, b) => a.localeCompare(b))) {
 			if (matchesAny(filePath, context.config.excludeGlobs)) {
@@ -717,12 +690,12 @@ export const angularScanAdapter: ScanAdapter = {
 		return used;
 	},
 
-	async runRules(input: { definedKeys: string[]; usedKeys: KeyUsage[]; context: ProjectContext }) {
-		const findings: Finding[] = [];
+	async runRules(input: { definedKeys: string[]; usedKeys: IKeyUsage[]; context: IProjectContext }) {
+		const findings: IFinding[] = [];
 		const staticUsage = new Set<string>();
-		const dynamicUsage = new Map<string, KeyUsage>();
-		const dynamicPrefixes = new Map<string, KeyUsage>();
-		const indirectLiteralUsage = new Map<string, KeyUsage>();
+		const dynamicUsage = new Map<string, IKeyUsage>();
+		const dynamicPrefixes = new Map<string, IKeyUsage>();
+		const indirectLiteralUsage = new Map<string, IKeyUsage>();
 		const allDefined = new Set(input.definedKeys);
 
 		for (const usage of input.usedKeys) {
@@ -748,7 +721,7 @@ export const angularScanAdapter: ScanAdapter = {
 			staticUsage.add(usage.key);
 		}
 
-		const matchDynamicPrefix = (key: string): KeyUsage | undefined => {
+		const matchDynamicPrefix = (key: string): IKeyUsage | undefined => {
 			for (const [prefix, usage] of dynamicPrefixes.entries()) {
 				if (key.startsWith(prefix)) {
 					return usage;

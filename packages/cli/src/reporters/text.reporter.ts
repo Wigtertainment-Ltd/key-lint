@@ -1,6 +1,6 @@
 import { Finding, ProjectScanResult } from '@key-lint/core';
 
-import { Reporter, ReporterContext, severityRank } from './reporter.js';
+import { IReporter, IReporterContext, severityRank } from './reporter.js';
 
 const ANSI = {
 	reset: '\u001B[0m',
@@ -26,9 +26,9 @@ function formatLocation(finding: Finding): string {
 	return position ? `${evidence.filePath}:${position}` : evidence.filePath;
 }
 
-export const textReporter: Reporter = {
+export const textReporter: IReporter = {
 	name: 'text',
-	format(result: ProjectScanResult, context: ReporterContext): string {
+	format(result: ProjectScanResult, context: IReporterContext): string {
 		const { color } = context;
 		const lines: string[] = [];
 

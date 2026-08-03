@@ -162,15 +162,17 @@
 					</div>
 				</section>
 
-				<section class="detail-section action-stack">
-					@if (isSelectedFindingResolved) {
-						<p class="success-message">Successfully added. This entry will be removed in a moment.</p>
-					}
-					@if (canShowAddToTranslationsAction) {
-						<button type="button" class="primary-action" (click)="openAddTranslationModal()">Add to Translation Files</button>
-					}
-					<button type="button" class="secondary-action">Ignore Key</button>
-				</section>
+				@if (isSelectedFindingResolved || canShowAddToTranslationsAction) {
+					<section class="detail-section action-stack">
+						@if (isSelectedFindingResolved) {
+							<p class="success-message">Successfully added. This entry will be removed in a moment.</p>
+						}
+						@if (canShowAddToTranslationsAction) {
+							<button type="button" class="primary-action" (click)="openAddTranslationModal()">Add to Translation Files</button>
+						}
+						<!-- <button type="button" class="secondary-action">Ignore Key</button> -->
+					</section>
+				}
 			</div>
 		}
 	</aside>

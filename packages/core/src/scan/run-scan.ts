@@ -1,8 +1,8 @@
 import { AdapterRegistry } from '../adapters/adapter-registry.js';
 import { defaultAdapterRegistry } from '../adapters/default-adapter-registry.js';
-import { FileSystemAdapter, ProjectContext } from '../adapters/scan-adapter.interface.js';
-import { DEFAULT_SCANNER_CONFIG, ScannerConfig } from '../config/scanner-defaults.js';
-import { buildSummary, ProjectScanResult, TranslationMatrix } from '../models/scan-result.model.js';
+import { IFileSystemAdapter, IProjectContext } from '../adapters/scan-adapter.interface.js';
+import { DEFAULT_SCANNER_CONFIG, IScannerConfig } from '../config/scanner-defaults.js';
+import { buildSummary, IProjectScanResult, ITranslationMatrix } from '../models/scan-result.model.js';
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
 
@@ -15,20 +15,20 @@ export type ScanStage =
 	| 'evaluating-rules'
 	| 'completed';
 
-export interface ScanProgress {
+export interface IScanProgress {
 	stage: ScanStage;
 	message: string;
 }
 
-export interface RunScanOptions {
+export interface IRunScanOptions {
 	projectRoot: string;
-	fs: FileSystemAdapter;
-	config?: ScannerConfig;
+	fs: IFileSystemAdapter;
+	config?: IScannerConfig;
 	registry?: AdapterRegistry;
-	onProgress?: (progress: ScanProgress) => void;
+	onProgress?: (progress: IScanProgress) => void;
 }
 
-const EMPTY_TRANSLATION_MATRIX: TranslationMatrix = {
+const EMPTY_TRANSLATION_MATRIX: ITranslationMatrix = {
 	locales: [],
 	rows: [],
 	totalKeys: 0
@@ -38,7 +38,7 @@ const EMPTY_TRANSLATION_MATRIX: TranslationMatrix = {
  * Runs the full i18n scan pipeline. Framework agnostic: every runtime concern
  * (filesystem access, progress reporting) is injected by the caller.
  */
-export async function runScan(options: RunScanOptions): Promise<ProjectScanResult> {
+export async function runScan(options: IRunScanOptions): Promise<IProjectScanResult> {
 	const { fs, registry = defaultAdapterRegistry, config = DEFAULT_SCANNER_CONFIG } = options;
 	const report = (stage: ScanStage, message: string): void => options.onProgress?.({ stage, message });
 
@@ -55,7 +55,7 @@ export async function runScan(options: RunScanOptions): Promise<ProjectScanResul
 		adapterMatch.detection.resolvedProjectRoot ?? normalizedProjectRoot
 	);
 	const adapter = adapterMatch.adapter;
-	const context: ProjectContext = {
+	const context: IProjectContext = {
 		projectRoot: resolvedProjectRoot,
 		config
 	};
@@ -82,7 +82,7 @@ export async function runScan(options: RunScanOptions): Promise<ProjectScanResul
 	const ignoredFindingCount = rawFindings.length - findings.length;
 
 	const finishedAt = new Date();
-	const result: ProjectScanResult = {
+	const result: IProjectScanResult = {
 		projectRoot: resolvedProjectRoot,
 		adapterId: adapter.id,
 		startedAt: startedAt.toISOString(),

@@ -1,18 +1,10 @@
 import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import {
-	ProjectHistoryEvent,
-	ScanCompletedHistoryPayload,
-	TranslationKeyAddedHistoryPayload
-} from '@key-lint/core';
+import { IProjectHistoryEvent, IScanCompletedHistoryPayload, ITranslationKeyAddedHistoryPayload } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
-
-interface HistoryDayGroup {
-	label: string;
-	events: ProjectHistoryEvent[];
-}
+import { IHistoryDayGroup } from './history.interfaces';
 
 function normalizePath(path: string): string {
 	const normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
@@ -38,7 +30,7 @@ export class HistoryPage implements OnInit {
 	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
-	private readonly events = signal<ProjectHistoryEvent[]>([]);
+	private readonly events = signal<IProjectHistoryEvent[]>([]);
 	private currentWatchedProjectPath = '';
 
 	ngOnInit(): void {
@@ -75,7 +67,7 @@ export class HistoryPage implements OnInit {
 		return this.projectPathSignal();
 	}
 
-	get filteredEvents(): ProjectHistoryEvent[] {
+	get filteredEvents(): IProjectHistoryEvent[] {
 		const events = this.events();
 		if (this.activeFilter === 'all') {
 			return events;
@@ -88,8 +80,8 @@ export class HistoryPage implements OnInit {
 		return events.filter((event) => event.type === 'translation-key-added');
 	}
 
-	get groupedEvents(): HistoryDayGroup[] {
-		const groups = new Map<string, ProjectHistoryEvent[]>();
+	get groupedEvents(): IHistoryDayGroup[] {
+		const groups = new Map<string, IProjectHistoryEvent[]>();
 		for (const event of this.filteredEvents) {
 			const date = new Date(event.timestamp);
 			const dayKey = Number.isNaN(date.getTime()) ? 'Unknown date' : date.toDateString();
@@ -118,7 +110,7 @@ export class HistoryPage implements OnInit {
 		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	}
 
-	eventTitle(event: ProjectHistoryEvent): string {
+	eventTitle(event: IProjectHistoryEvent): string {
 		if (event.type === 'scan-started') {
 			return 'Scan started';
 		}
@@ -130,28 +122,27 @@ export class HistoryPage implements OnInit {
 		return 'Translation key added';
 	}
 
-	eventDescription(event: ProjectHistoryEvent): string {
+	eventDescription(event: IProjectHistoryEvent): string {
 		if (event.type === 'scan-started') {
 			return 'A new project scan was started.';
 		}
 
 		if (event.type === 'scan-completed') {
-			const payload = event.payload as ScanCompletedHistoryPayload;
+			const payload = event.payload as IScanCompletedHistoryPayload;
 			return `Adapter ${payload.adapterId} finished in ${Math.max(0, Math.round(payload.durationMs / 1000))}s, ${payload.totalFindings} finding(s), ${payload.totalKeys} key(s), ${payload.localeCount} locale(s).`;
 		}
 
-		const payload = event.payload as TranslationKeyAddedHistoryPayload;
+		const payload = event.payload as ITranslationKeyAddedHistoryPayload;
 		const valueState = payload.valueWasEmpty ? 'empty value' : 'text value';
 		return `Key "${payload.key}" was added to locale "${payload.locale}" (${valueState}) from ${payload.source}.`;
 	}
 
-	eventMeta(event: ProjectHistoryEvent): string {
+	eventMeta(event: IProjectHistoryEvent): string {
 		if (event.type !== 'translation-key-added') {
 			return this.projectPath;
 		}
 
-		const payload = event.payload as TranslationKeyAddedHistoryPayload;
+		const payload = event.payload as ITranslationKeyAddedHistoryPayload;
 		return payload.filePath;
 	}
-
 }

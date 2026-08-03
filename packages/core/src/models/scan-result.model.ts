@@ -1,18 +1,18 @@
-import { Finding, FindingStatus } from './finding.model.js';
+import { IFinding, FindingStatus } from './finding.model.js';
 
-export interface TranslationMatrixRow {
+export interface ITranslationMatrixRow {
 	key: string;
 	values: Record<string, string>;
 	keyPresence?: Record<string, boolean>;
 }
 
-export interface TranslationMatrix {
+export interface ITranslationMatrix {
 	locales: string[];
-	rows: TranslationMatrixRow[];
+	rows: ITranslationMatrixRow[];
 	totalKeys: number;
 }
 
-export interface ScanSummary {
+export interface IScanSummary {
 	totalKeys: number;
 	used: number;
 	unused: number;
@@ -23,26 +23,26 @@ export interface ScanSummary {
 	totalFindings: number;
 }
 
-export interface ScanError {
+export interface IScanError {
 	code: string;
 	message: string;
 	filePath?: string;
 }
 
-export interface ProjectScanResult {
+export interface IProjectScanResult {
 	projectRoot: string;
 	adapterId: string;
 	startedAt: string;
 	finishedAt: string;
 	durationMs: number;
-	summary: ScanSummary;
-	findings: Finding[];
-	errors: ScanError[];
-	translationMatrix?: TranslationMatrix;
+	summary: IScanSummary;
+	findings: IFinding[];
+	errors: IScanError[];
+	translationMatrix?: ITranslationMatrix;
 	metadata?: Record<string, unknown>;
 }
 
-export function createEmptyScanSummary(): ScanSummary {
+export function createEmptyScanSummary(): IScanSummary {
 	return {
 		totalKeys: 0,
 		used: 0,
@@ -55,7 +55,7 @@ export function createEmptyScanSummary(): ScanSummary {
 	};
 }
 
-export function buildSummary(findings: Finding[], totalKeys: number): ScanSummary {
+export function buildSummary(findings: IFinding[], totalKeys: number): IScanSummary {
 	const summary = createEmptyScanSummary();
 	summary.totalKeys = totalKeys;
 	summary.totalFindings = findings.length;

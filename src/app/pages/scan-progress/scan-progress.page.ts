@@ -2,14 +2,9 @@ import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signa
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
-import { ProjectScanResult } from '@key-lint/core';
+import { IProjectScanResult } from '@key-lint/core';
 import { LoggerService } from '../../shared/services/logging/logger.service';
-
-interface StepItem {
-	id: number;
-	title: string;
-	trigger: string;
-}
+import { IStepItem } from './scan-progress.interfaces';
 
 @Component({
 	selector: 'app-scan-progress-page',
@@ -21,7 +16,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	readonly scanState = computed<ScanExecutionSnapshot['state']>(() => this.scanSnapshot().state);
 	readonly scanStage = computed(() => this.scanSnapshot().stage);
 	readonly scanError = computed(() => this.scanSnapshot().error);
-	readonly scanResult = computed<ProjectScanResult | undefined>(() => this.scanSnapshot().result);
+	readonly scanResult = computed<IProjectScanResult | undefined>(() => this.scanSnapshot().result);
 	readonly progressPercent = signal(0);
 	isCancelling = false;
 
@@ -33,7 +28,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
-	readonly steps: StepItem[] = [
+	readonly steps: IStepItem[] = [
 		{ id: 1, title: 'Detecting framework', trigger: 'Detecting project adapter' },
 		{ id: 2, title: 'Discovering translation files', trigger: 'Collecting translation files' },
 		{ id: 3, title: 'Extracting keys', trigger: 'Extracting translation keys' },
@@ -141,7 +136,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		return idx >= 0 ? this.steps[idx].id : 1;
 	}
 
-	isStepCompleted(step: StepItem): boolean {
+	isStepCompleted(step: IStepItem): boolean {
 		if (this.scanState() === 'completed') {
 			return true;
 		}
@@ -149,7 +144,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		return step.id < this.activeStepId;
 	}
 
-	isStepActive(step: StepItem): boolean {
+	isStepActive(step: IStepItem): boolean {
 		if (this.scanState() === 'completed') {
 			return false;
 		}

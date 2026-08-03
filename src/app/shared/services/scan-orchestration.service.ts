@@ -2,10 +2,10 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
-	FileSystemAdapter,
+	IFileSystemAdapter,
 	inferLocaleFromTranslationFile,
 	normalizePath,
-	ProjectScanResult,
+	IProjectScanResult,
 	runScan,
 	setNestedTranslationKey,
 	TranslationEventSource
@@ -21,7 +21,7 @@ export interface ScanExecutionSnapshot {
 	state: ScanExecutionState;
 	stage?: string;
 	error?: string;
-	result?: ProjectScanResult;
+	result?: IProjectScanResult;
 }
 
 @Injectable({
@@ -31,13 +31,13 @@ export class ScanOrchestrationService {
 	private readonly stateSubject = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'idle' });
 	readonly state$ = this.stateSubject.asObservable();
 
-	private readonly fsAdapter: FileSystemAdapter;
+	private readonly fsAdapter: IFileSystemAdapter;
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly projectHistoryService: ProjectHistoryService = inject(ProjectHistoryService);
 	private readonly loggerService: LoggerService = inject(LoggerService);
 
-	private withNormalizedSummary(result: ProjectScanResult): ProjectScanResult {
-		const summaryWithOptionalIndirect = result.summary as ProjectScanResult['summary'] & {
+	private withNormalizedSummary(result: IProjectScanResult): IProjectScanResult {
+		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
 			indirectUncertain?: number;
 		};
 		if (typeof summaryWithOptionalIndirect.indirectUncertain === 'number') {
@@ -193,7 +193,7 @@ export class ScanOrchestrationService {
 		});
 	}
 
-	async scanProject(projectRoot: string): Promise<ProjectScanResult> {
+	async scanProject(projectRoot: string): Promise<IProjectScanResult> {
 		this.loggerService.info('ScanOrchestrationService', 'Starting scan for project root:', projectRoot);
 		const normalizedProjectRoot = normalizePath(projectRoot);
 		this.projectHistoryService.addEvent({

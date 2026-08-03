@@ -4,17 +4,17 @@ import { dirname, resolve } from 'node:path';
 import { normalizePath, ProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
 import { loadScannerConfig, NodeFileSystemAdapter } from '@key-lint/core/node';
 
-import { CliOptions, CliUsageError, parseCliArgs, USAGE } from './args.js';
+import { ICliOptions, CliUsageError, parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
-import { countSeverities, REPORTERS, ReporterContext } from './reporters/index.js';
+import { countSeverities, REPORTERS, IReporterContext } from './reporters/index.js';
 
-export interface CliIo {
+export interface ICliIo {
 	stdout(text: string): void;
 	stderr(text: string): void;
 	writeFile(filePath: string, content: string): Promise<void>;
 }
 
-const defaultIo: CliIo = {
+const defaultIo: ICliIo = {
 	stdout: (text) => process.stdout.write(text),
 	stderr: (text) => process.stderr.write(text),
 	writeFile: async (filePath, content) => {
@@ -45,7 +45,7 @@ async function assertDirectory(projectRoot: string): Promise<void> {
 	}
 }
 
-function determineExitCode(options: CliOptions, errors: number, warnings: number): number {
+function determineExitCode(options: ICliOptions, errors: number, warnings: number): number {
 	if (errors > options.maxErrors) {
 		return EXIT_THRESHOLD_EXCEEDED;
 	}
@@ -57,12 +57,7 @@ function determineExitCode(options: CliOptions, errors: number, warnings: number
 	return EXIT_OK;
 }
 
-async function emitReports(
-	options: CliOptions,
-	result: ProjectScanResult,
-	context: ReporterContext,
-	io: CliIo
-): Promise<void> {
+async function emitReports(options: ICliOptions, result: ProjectScanResult, context: IReporterContext, io: ICliIo): Promise<void> {
 	for (const name of options.reporters) {
 		const targetFile = options.outputs.get(name);
 		const output = REPORTERS[name].format(result, {
@@ -79,8 +74,8 @@ async function emitReports(
 	}
 }
 
-export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<number> {
-	let options: CliOptions;
+export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<number> {
+	let options: ICliOptions;
 
 	try {
 		options = parseCliArgs(argv);
@@ -122,7 +117,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 		});
 
 		const counts = countSeverities(result.findings);
-		const context: ReporterContext = {
+		const context: IReporterContext = {
 			configFilePath,
 			warnings: fs.warnings.map((warning) =>
 				warning.filePath ? `${warning.filePath}: ${warning.message}` : warning.message

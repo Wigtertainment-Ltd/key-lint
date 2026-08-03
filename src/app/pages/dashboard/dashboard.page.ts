@@ -2,19 +2,10 @@ import { Component, computed, effect, inject, Injector, OnInit, signal } from '@
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ScanCompletedHistoryPayload, ProjectScanResult } from '@key-lint/core';
+import { IScanCompletedHistoryPayload, IProjectScanResult } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
-
-interface TrendBar {
-	id: string;
-	label: string;
-	keys: number;
-	issues: number;
-	dayKey: string;
-	timestamp: string;
-	isLatest?: boolean;
-}
+import { ITrendBar } from './dashboard.interfaces';
 
 @Component({
 	selector: 'app-dashboard-page',
@@ -33,7 +24,7 @@ export class DashboardPage implements OnInit {
 	});
 	private readonly scanResultSignal = computed(() => this.scanSnapshot().result);
 	private watchedProjectPath = '';
-	private readonly scanTrendEvents = signal<TrendBar[]>([]);
+	private readonly scanTrendEvents = signal<ITrendBar[]>([]);
 	private readonly selectedTrendDayKey = signal<string | undefined>(undefined);
 
 	ngOnInit(): void {
@@ -45,7 +36,7 @@ export class DashboardPage implements OnInit {
 
 			this.watchedProjectPath = normalizedProjectRoot;
 			const subscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events) => {
-				const selected: TrendBar[] = [];
+				const selected: ITrendBar[] = [];
 				for (const event of events) {
 					if (event.type !== 'scan-completed') {
 						continue;
@@ -57,7 +48,7 @@ export class DashboardPage implements OnInit {
 					}
 
 					const dayKey = this.toDayKey(eventTime);
-					const payload = event.payload as ScanCompletedHistoryPayload;
+					const payload = event.payload as IScanCompletedHistoryPayload;
 					const hasDetailedIssueCounts =
 						typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
 					const missingCount = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
@@ -93,7 +84,7 @@ export class DashboardPage implements OnInit {
 		}
 	}
 
-	private get scanResult(): ProjectScanResult | undefined {
+	private get scanResult(): IProjectScanResult | undefined {
 		return this.scanResultSignal();
 	}
 
@@ -184,7 +175,7 @@ export class DashboardPage implements OnInit {
 		return this.scanResult?.translationMatrix?.locales ?? [];
 	}
 
-	get trendBars(): TrendBar[] {
+	get trendBars(): ITrendBar[] {
 		const drilldownBars = this.buildDrilldownTrendBars();
 		if (drilldownBars) {
 			return drilldownBars;
@@ -238,11 +229,11 @@ export class DashboardPage implements OnInit {
 		return Math.max(10, Math.round((value / this.maxTrendMetric) * 100));
 	}
 
-	trackTrendBar(_: number, bar: TrendBar): string {
+	trackTrendBar(_: number, bar: ITrendBar): string {
 		return bar.id;
 	}
 
-	onTrendBarClick(bar: TrendBar): void {
+	onTrendBarClick(bar: ITrendBar): void {
 		if (this.isTrendDrilldown) {
 			return;
 		}
@@ -277,7 +268,7 @@ export class DashboardPage implements OnInit {
 		return this.normalizePath(snapshotProjectRoot || queryProjectRoot);
 	}
 
-	private buildDrilldownTrendBars(): TrendBar[] | undefined {
+	private buildDrilldownTrendBars(): ITrendBar[] | undefined {
 		const selectedDayKey = this.selectedTrendDayKey();
 		if (!this.isTrendDrilldown || !selectedDayKey) {
 			return undefined;
@@ -302,14 +293,14 @@ export class DashboardPage implements OnInit {
 		}));
 	}
 
-	private buildOverviewTrendBars(): TrendBar[] {
+	private buildOverviewTrendBars(): ITrendBar[] {
 		const trendEvents = this.scanTrendEvents();
 		if (trendEvents.length === 0) {
 			return [];
 		}
 
 		const seenDays = new Set<string>();
-		const latestPerDay: TrendBar[] = [];
+		const latestPerDay: ITrendBar[] = [];
 
 		for (const scan of trendEvents) {
 			if (seenDays.has(scan.dayKey)) {
@@ -337,7 +328,7 @@ export class DashboardPage implements OnInit {
 		return chronologicallyOrdered;
 	}
 
-	private buildFallbackTrendBars(): TrendBar[] {
+	private buildFallbackTrendBars(): ITrendBar[] {
 		if (!this.scanResult) {
 			return [];
 		}

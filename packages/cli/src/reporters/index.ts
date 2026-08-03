@@ -1,9 +1,9 @@
 import { jsonReporter } from './json.reporter.js';
 import { markdownReporter } from './markdown.reporter.js';
-import { Reporter, ReporterName } from './reporter.js';
+import { IReporter, ReporterName } from './reporter.js';
 import { textReporter } from './text.reporter.js';
 
-export const REPORTERS: Record<ReporterName, Reporter> = {
+export const REPORTERS: Record<ReporterName, IReporter> = {
 	text: textReporter,
 	json: jsonReporter,
 	markdown: markdownReporter

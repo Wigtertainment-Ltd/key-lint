@@ -1,29 +1,23 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
-
-import {
-	mergeScannerConfig,
-	parseScannerConfigOverrides,
-	ScannerConfigError,
-	ScannerConfigOverrides
-} from './scanner-config.js';
-import { DEFAULT_SCANNER_CONFIG, ScannerConfig } from './scanner-defaults.js';
+import { mergeScannerConfig, parseScannerConfigOverrides, ScannerConfigError, IScannerConfigOverrides } from './scanner-config.js';
+import { DEFAULT_SCANNER_CONFIG, IScannerConfig } from './scanner-defaults.js';
 import { normalizePath } from '../util/path.util.js';
 
 export const CONFIG_FILE_NAME = 'keylint.config.json';
 export const PACKAGE_JSON_CONFIG_KEY = 'keylint';
 
-export interface LoadScannerConfigOptions {
+export interface ILoadScannerConfigOptions {
 	/** Directory the implicit config lookup starts from. */
 	projectRoot: string;
 	/** Explicit config file path. When set, a missing file is an error. */
 	configPath?: string;
 	/** Highest precedence overrides, typically parsed from CLI flags. */
-	overrides?: ScannerConfigOverrides;
+	overrides?: IScannerConfigOverrides;
 }
 
-export interface LoadedScannerConfig {
-	config: ScannerConfig;
+export interface ILoadedScannerConfig {
+	config: IScannerConfig;
 	/** Normalized path of the config file that was applied, if any. */
 	configFilePath?: string;
 }
@@ -50,7 +44,7 @@ async function readJsonFile(filePath: string): Promise<unknown> {
  * Precedence: defaults < package.json["keylint"] < config file < overrides.
  * Only JSON is supported on purpose - a config file must never execute code.
  */
-export async function loadScannerConfig(options: LoadScannerConfigOptions): Promise<LoadedScannerConfig> {
+export async function loadScannerConfig(options: ILoadScannerConfigOptions): Promise<ILoadedScannerConfig> {
 	const projectRoot = resolve(options.projectRoot);
 	let config = DEFAULT_SCANNER_CONFIG;
 	let appliedConfigFilePath: string | undefined;

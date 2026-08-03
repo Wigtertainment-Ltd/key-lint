@@ -2,18 +2,18 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { parseCliArgs } from './args.js';
-import { runCli, CliIo } from './cli.js';
+import { runCli, ICliIo } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
 
 const FIXTURE_ROOT = fileURLToPath(new URL('../test/fixtures/angular-app', import.meta.url));
 
-interface CapturedIo extends CliIo {
+interface ICapturedIo extends ICliIo {
 	out: string[];
 	err: string[];
 	files: Map<string, string>;
 }
 
-function createIo(): CapturedIo {
+function createIo(): ICapturedIo {
 	const out: string[] = [];
 	const err: string[] = [];
 	const files = new Map<string, string>();
@@ -28,14 +28,14 @@ function createIo(): CapturedIo {
 	};
 }
 
-interface JsonReport {
+interface IJsonReport {
 	schemaVersion: number;
 	severityCounts: { error: number; warning: number; info: number };
 	findings: Array<{ key: string; status: string; severity: string }>;
 }
 
-function parseJsonReport(io: CapturedIo): JsonReport {
-	return JSON.parse(io.out.join('')) as JsonReport;
+function parseJsonReport(io: ICapturedIo): IJsonReport {
+	return JSON.parse(io.out.join('')) as IJsonReport;
 }
 
 describe('runCli', () => {

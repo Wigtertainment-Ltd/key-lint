@@ -1,13 +1,13 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map, Observable } from 'rxjs';
-import { ProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '@key-lint/core';
+import { IProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '@key-lint/core';
 
-interface StoredProjectHistoryV1 {
+interface IStoredProjectHistoryV1 {
 	version: 1;
-	events: ProjectHistoryEvent[];
+	events: IProjectHistoryEvent[];
 }
 
-export interface CreateProjectHistoryEventInput<TPayload extends ProjectHistoryPayload = ProjectHistoryPayload> {
+export interface ICreateIProjectHistoryEventInput<TPayload extends ProjectHistoryPayload = ProjectHistoryPayload> {
 	projectPath: string;
 	type: ProjectHistoryEventType;
 	payload: TPayload;
@@ -30,7 +30,7 @@ function dedupeKey(path: string): string {
 	return normalizePath(path).toLowerCase();
 }
 
-function compareByNewest(a: ProjectHistoryEvent, b: ProjectHistoryEvent): number {
+function compareByNewest(a: IProjectHistoryEvent, b: IProjectHistoryEvent): number {
 	const left = Date.parse(a.timestamp);
 	const right = Date.parse(b.timestamp);
 
@@ -53,14 +53,14 @@ function compareByNewest(a: ProjectHistoryEvent, b: ProjectHistoryEvent): number
 	providedIn: 'root'
 })
 export class ProjectHistoryService {
-	private readonly eventsSubject = new BehaviorSubject<ProjectHistoryEvent[]>([]);
+	private readonly eventsSubject = new BehaviorSubject<IProjectHistoryEvent[]>([]);
 	private eventCounter = 0;
 
 	constructor() {
 		this.eventsSubject.next(this.readStoredEvents());
 	}
 
-	getEventsForProject(projectPath: string): ProjectHistoryEvent[] {
+	getEventsForProject(projectPath: string): IProjectHistoryEvent[] {
 		const normalizedProjectPath = normalizePath(projectPath);
 		if (!normalizedProjectPath) {
 			return [];
@@ -71,7 +71,7 @@ export class ProjectHistoryService {
 			.sort(compareByNewest);
 	}
 
-	watchEventsForProject(projectPath: string): Observable<ProjectHistoryEvent[]> {
+	watchEventsForProject(projectPath: string): Observable<IProjectHistoryEvent[]> {
 		const normalizedProjectPath = normalizePath(projectPath);
 		const projectKey = dedupeKey(normalizedProjectPath);
 
@@ -85,14 +85,14 @@ export class ProjectHistoryService {
 	}
 
 	addEvent<TPayload extends ProjectHistoryPayload>(
-		input: CreateProjectHistoryEventInput<TPayload>
-	): ProjectHistoryEvent {
+		input: ICreateIProjectHistoryEventInput<TPayload>
+	): IProjectHistoryEvent {
 		const normalizedProjectPath = normalizePath(input.projectPath);
 		if (!normalizedProjectPath) {
 			throw new Error('Cannot add history event without a valid project path.');
 		}
 
-		const event: ProjectHistoryEvent = {
+		const event: IProjectHistoryEvent = {
 			id: `${Date.now()}-${++this.eventCounter}`,
 			projectPath: normalizedProjectPath,
 			timestamp: input.timestamp ?? new Date().toISOString(),
@@ -128,12 +128,12 @@ export class ProjectHistoryService {
 		this.replaceEvents(filtered);
 	}
 
-	private replaceEvents(nextEvents: ProjectHistoryEvent[]): void {
+	private replaceEvents(nextEvents: IProjectHistoryEvent[]): void {
 		this.eventsSubject.next(nextEvents);
 		this.writeStoredEvents(nextEvents);
 	}
 
-	private readStoredEvents(): ProjectHistoryEvent[] {
+	private readStoredEvents(): IProjectHistoryEvent[] {
 		try {
 			const raw = localStorage.getItem(PROJECT_HISTORY_STORAGE_KEY);
 			if (!raw) {
@@ -145,13 +145,13 @@ export class ProjectHistoryService {
 				return [];
 			}
 
-			const payload = parsed as Partial<StoredProjectHistoryV1>;
+			const payload = parsed as Partial<IStoredProjectHistoryV1>;
 			if (payload.version !== 1 || !Array.isArray(payload.events)) {
 				return [];
 			}
 
 			return payload.events
-				.filter((event): event is ProjectHistoryEvent =>
+				.filter((event): event is IProjectHistoryEvent =>
 					Boolean(
 						event &&
 						typeof event.id === 'string' &&
@@ -171,8 +171,8 @@ export class ProjectHistoryService {
 		}
 	}
 
-	private writeStoredEvents(events: ProjectHistoryEvent[]): void {
-		const payload: StoredProjectHistoryV1 = {
+	private writeStoredEvents(events: IProjectHistoryEvent[]): void {
+		const payload: IStoredProjectHistoryV1 = {
 			version: 1,
 			events
 		};

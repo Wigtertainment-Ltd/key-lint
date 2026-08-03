@@ -1,6 +1,6 @@
 import { ProjectScanResult } from '@key-lint/core';
 
-import { Reporter, ReporterContext } from './reporter.js';
+import { IReporter, IReporterContext } from './reporter.js';
 
 export const JSON_REPORT_SCHEMA_VERSION = 1;
 
@@ -8,9 +8,9 @@ export const JSON_REPORT_SCHEMA_VERSION = 1;
  * Machine readable report. The translation matrix is intentionally omitted:
  * it can grow to megabytes on large projects and is not actionable in a pipeline.
  */
-export const jsonReporter: Reporter = {
+export const jsonReporter: IReporter = {
 	name: 'json',
-	format(result: ProjectScanResult, context: ReporterContext): string {
+	format(result: ProjectScanResult, context: IReporterContext): string {
 		const payload = {
 			schemaVersion: JSON_REPORT_SCHEMA_VERSION,
 			projectRoot: result.projectRoot,

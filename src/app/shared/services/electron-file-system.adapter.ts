@@ -1,11 +1,11 @@
-import { FileSystemAdapter, matchesAny, normalizePath } from '@key-lint/core';
+import { IFileSystemAdapter, matchesAny, normalizePath } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
 /**
  * Filesystem adapter backed by the Node `fs` module exposed through the Electron renderer.
  * The CLI uses its own Node based adapter from `@key-lint/core`.
  */
-export class ElectronFileSystemAdapter implements FileSystemAdapter {
+export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 	constructor(private readonly electronService: ElectronService) { }
 
 	async fileExists(filePath: string): Promise<boolean> {

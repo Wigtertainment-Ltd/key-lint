@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { ProjectScanResult, TranslationMatrix, TranslationMatrixRow } from '@key-lint/core';
+import { IProjectScanResult, ITranslationMatrix, ITranslationMatrixRow } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ToastService } from '../../shared/services/toast.service';
 
@@ -18,7 +18,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
-	private readonly localScanResult = signal<ProjectScanResult | undefined>(undefined);
+	private readonly localScanResult = signal<IProjectScanResult | undefined>(undefined);
 	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
 
 	activeFilter: 'all' | 'missing-key' | 'empty-value' = 'all';
@@ -51,11 +51,11 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.addTranslationErrorSignal.set(value);
 	}
 
-	private get scanResult(): ProjectScanResult | undefined {
+	private get scanResult(): IProjectScanResult | undefined {
 		return this.scanResultSignal();
 	}
 
-	private set scanResult(value: ProjectScanResult | undefined) {
+	private set scanResult(value: IProjectScanResult | undefined) {
 		this.localScanResult.set(value);
 	}
 
@@ -99,12 +99,12 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.ensureSelectedRow();
 	}
 
-	onSelectRow(row: TranslationMatrixRow): void {
+	onSelectRow(row: ITranslationMatrixRow): void {
 		this.selectedKey = row.key;
 		this.isDetailOpen = true;
 	}
 
-	onRowKeydown(event: KeyboardEvent, row: TranslationMatrixRow): void {
+	onRowKeydown(event: KeyboardEvent, row: ITranslationMatrixRow): void {
 		if (event.key !== 'Enter' && event.key !== ' ') {
 			return;
 		}
@@ -118,7 +118,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.isAddTranslationModalOpen = false;
 	}
 
-	get matrix(): TranslationMatrix {
+	get matrix(): ITranslationMatrix {
 		return (
 			this.scanResult?.translationMatrix ?? {
 				locales: [],
@@ -132,7 +132,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return this.matrix.locales;
 	}
 
-	get filteredRows(): TranslationMatrixRow[] {
+	get filteredRows(): ITranslationMatrixRow[] {
 		const normalizedSearch = this.searchTerm.trim().toLowerCase();
 		return this.matrix.rows.filter((row) => {
 			if (
@@ -155,7 +155,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		});
 	}
 
-	get selectedRow(): TranslationMatrixRow | undefined {
+	get selectedRow(): ITranslationMatrixRow | undefined {
 		if (!this.isDetailOpen || !this.filteredRows.length) {
 			return undefined;
 		}
@@ -185,7 +185,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}
 
 		return this.locales.filter(
-			(locale) => !this.hasLocaleKey(this.selectedRow as TranslationMatrixRow, locale)
+			(locale) => !this.hasLocaleKey(this.selectedRow as ITranslationMatrixRow, locale)
 		);
 	}
 
@@ -194,7 +194,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		return this.locales.filter((locale) => this.isLocaleEmptyValue(this.selectedRow as TranslationMatrixRow, locale));
+		return this.locales.filter((locale) => this.isLocaleEmptyValue(this.selectedRow as ITranslationMatrixRow, locale));
 	}
 
 	get displayedMissingLocales(): string[] {
@@ -216,17 +216,17 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}
 
 		const presentCount = this.locales.filter(
-			(locale) => this.hasLocaleTranslation(this.selectedRow as TranslationMatrixRow, locale)
+			(locale) => this.hasLocaleTranslation(this.selectedRow as ITranslationMatrixRow, locale)
 		).length;
 		return `${presentCount}/${this.locales.length}`;
 	}
 
-	localeStatusLabel(row: TranslationMatrixRow): string {
+	localeStatusLabel(row: ITranslationMatrixRow): string {
 		const presentCount = this.locales.filter((locale) => this.hasLocaleTranslation(row, locale)).length;
 		return `${presentCount}/${this.locales.length}`;
 	}
 
-	missingLocalesLabel(row: TranslationMatrixRow): string {
+	missingLocalesLabel(row: ITranslationMatrixRow): string {
 		const missingKeyLocales = this.locales.filter((locale) => !this.hasLocaleKey(row, locale));
 		const emptyValueLocales = this.locales.filter((locale) => this.isLocaleEmptyValue(row, locale));
 
@@ -407,15 +407,15 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}
 	}
 
-	valueFor(row: TranslationMatrixRow, locale: string): string {
+	valueFor(row: ITranslationMatrixRow, locale: string): string {
 		return row.values[locale] ?? '';
 	}
 
-	hasLocaleTranslation(row: TranslationMatrixRow, locale: string): boolean {
+	hasLocaleTranslation(row: ITranslationMatrixRow, locale: string): boolean {
 		return this.valueFor(row, locale).trim().length > 0;
 	}
 
-	hasLocaleKey(row: TranslationMatrixRow, locale: string): boolean {
+	hasLocaleKey(row: ITranslationMatrixRow, locale: string): boolean {
 		if (this.isLocaleRecentlyResolvedForKey(row.key, locale)) {
 			return true;
 		}
@@ -427,23 +427,23 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return this.hasLocaleTranslation(row, locale);
 	}
 
-	isLocaleEmptyValue(row: TranslationMatrixRow, locale: string): boolean {
+	isLocaleEmptyValue(row: ITranslationMatrixRow, locale: string): boolean {
 		return this.hasLocaleKey(row, locale) && !this.hasLocaleTranslation(row, locale);
 	}
 
-	isRowMissing(row: TranslationMatrixRow): boolean {
+	isRowMissing(row: ITranslationMatrixRow): boolean {
 		return this.isRowMissingKey(row) || this.isRowEmptyValue(row);
 	}
 
-	isRowMissingKey(row: TranslationMatrixRow): boolean {
+	isRowMissingKey(row: ITranslationMatrixRow): boolean {
 		return this.locales.some((locale) => !this.hasLocaleKey(row, locale));
 	}
 
-	isRowEmptyValue(row: TranslationMatrixRow): boolean {
+	isRowEmptyValue(row: ITranslationMatrixRow): boolean {
 		return this.locales.some((locale) => this.isLocaleEmptyValue(row, locale));
 	}
 
-	isResolvedRow(row: TranslationMatrixRow): boolean {
+	isResolvedRow(row: ITranslationMatrixRow): boolean {
 		return this.isRowRecentlyResolved(row.key);
 	}
 

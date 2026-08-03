@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 
 export type ToastType = 'success' | 'error' | 'info';
 
-export interface ToastMessage {
+export interface IToastMessage {
 	id: number;
 	type: ToastType;
 	text: string;
@@ -12,7 +12,7 @@ export interface ToastMessage {
 	providedIn: 'root'
 })
 export class ToastService {
-	private readonly messageSignal = signal<ToastMessage | undefined>(undefined);
+	private readonly messageSignal = signal<IToastMessage | undefined>(undefined);
 	private timer?: ReturnType<typeof setTimeout>;
 	private nextId = 0;
 

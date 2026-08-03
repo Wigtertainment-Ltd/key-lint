@@ -1,6 +1,6 @@
 import { Finding, FindingSeverity, ProjectScanResult } from '@key-lint/core';
 
-export interface ReporterContext {
+export interface IReporterContext {
 	/** Effective config file that was applied, if any. */
 	configFilePath?: string;
 	/** Warnings collected by the filesystem adapter (skipped files, guardrails). */
@@ -11,24 +11,24 @@ export interface ReporterContext {
 		maxErrors: number;
 		maxWarnings: number;
 	};
-	counts: SeverityCounts;
+	counts: ISeverityCounts;
 }
 
-export interface Reporter {
+export interface IReporter {
 	name: ReporterName;
-	format(result: ProjectScanResult, context: ReporterContext): string;
+	format(result: ProjectScanResult, context: IReporterContext): string;
 }
 
 export type ReporterName = 'text' | 'json' | 'markdown';
 
-export interface SeverityCounts {
+export interface ISeverityCounts {
 	error: number;
 	warning: number;
 	info: number;
 }
 
-export function countSeverities(findings: Finding[]): SeverityCounts {
-	const counts: SeverityCounts = { error: 0, warning: 0, info: 0 };
+export function countSeverities(findings: Finding[]): ISeverityCounts {
+	const counts: ISeverityCounts = { error: 0, warning: 0, info: 0 };
 	for (const finding of findings) {
 		counts[finding.severity] += 1;
 	}

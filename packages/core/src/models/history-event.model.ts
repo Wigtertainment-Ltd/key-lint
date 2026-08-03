@@ -5,11 +5,11 @@ export type ProjectHistoryEventType =
 
 export type TranslationEventSource = 'translation-keys' | 'results-overview' | 'unknown';
 
-export interface ScanStartedHistoryPayload {
+export interface IScanStartedHistoryPayload {
 	requestedProjectRoot: string;
 }
 
-export interface ScanCompletedHistoryPayload {
+export interface IScanCompletedHistoryPayload {
 	adapterId: string;
 	durationMs: number;
 	totalFindings: number;
@@ -22,7 +22,7 @@ export interface ScanCompletedHistoryPayload {
 	extraCount?: number;
 }
 
-export interface TranslationKeyAddedHistoryPayload {
+export interface ITranslationKeyAddedHistoryPayload {
 	locale: string;
 	key: string;
 	filePath: string;
@@ -31,11 +31,11 @@ export interface TranslationKeyAddedHistoryPayload {
 }
 
 export type ProjectHistoryPayload =
-	| ScanStartedHistoryPayload
-	| ScanCompletedHistoryPayload
-	| TranslationKeyAddedHistoryPayload;
+	| IScanStartedHistoryPayload
+	| IScanCompletedHistoryPayload
+	| ITranslationKeyAddedHistoryPayload;
 
-export interface ProjectHistoryEvent {
+export interface IProjectHistoryEvent {
 	id: string;
 	projectPath: string;
 	timestamp: string;

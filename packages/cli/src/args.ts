@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 
 import { isReporterName, REPORTER_NAMES, ReporterName } from './reporters/index.js';
 
-export interface CliOptions {
+export interface ICliOptions {
 	command: 'scan' | 'help' | 'version';
 	projectPath: string;
 	configPath?: string;
@@ -59,7 +59,7 @@ function parseCount(raw: string | undefined, flag: string, fallback: number): nu
 	return value;
 }
 
-export function parseCliArgs(argv: string[]): CliOptions {
+export function parseCliArgs(argv: string[]): ICliOptions {
 	const color = !argv.includes('--no-color') && process.env['NO_COLOR'] === undefined;
 	const args = argv.filter((arg) => arg !== '--no-color');
 
@@ -87,7 +87,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
 	const values = parsed.values;
 	const positionals = parsed.positionals;
 
-	const base: CliOptions = {
+	const base: ICliOptions = {
 		command: 'scan',
 		projectPath: '.',
 		reporters: [],

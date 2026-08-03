@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { Finding, ProjectScanResult } from '@key-lint/core';
+import { IFinding, IProjectScanResult } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ToastService } from '../../shared/services/toast.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
@@ -20,7 +20,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
-	private readonly localScanResult = signal<ProjectScanResult | undefined>(undefined);
+	private readonly localScanResult = signal<IProjectScanResult | undefined>(undefined);
 	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
 	activeFilter:
 		| 'all'
@@ -52,11 +52,11 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.addTranslationsErrorSignal.set(value);
 	}
 
-	private get scanResult(): ProjectScanResult | undefined {
+	private get scanResult(): IProjectScanResult | undefined {
 		return this.scanResultSignal();
 	}
 
-	private set scanResult(value: ProjectScanResult | undefined) {
+	private set scanResult(value: IProjectScanResult | undefined) {
 		this.localScanResult.set(value);
 	}
 
@@ -105,7 +105,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.ensureSelectedFinding();
 	}
 
-	onSelectFinding(finding: Finding): void {
+	onSelectFinding(finding: IFinding): void {
 		this.selectedFindingId = finding.id;
 		this.isDetailOpen = true;
 	}
@@ -215,11 +215,11 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		}
 	}
 
-	get findings(): Finding[] {
+	get findings(): IFinding[] {
 		return this.scanResult?.findings ?? [];
 	}
 
-	get filteredFindings(): Finding[] {
+	get filteredFindings(): IFinding[] {
 		this.animationStateVersion();
 		const normalizedSearch = this.searchTerm.trim().toLowerCase();
 		return this.findings.filter((finding) => {
@@ -252,7 +252,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		});
 	}
 
-	get selectedFinding(): Finding | undefined {
+	get selectedFinding(): IFinding | undefined {
 		if (!this.isDetailOpen) {
 			return undefined;
 		}
@@ -346,7 +346,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		return this.resolvedFindingIds.has(this.selectedFinding.id);
 	}
 
-	isResolvedFinding(finding: Finding): boolean {
+	isResolvedFinding(finding: IFinding): boolean {
 		this.animationStateVersion();
 		return this.resolvedFindingIds.has(finding.id);
 	}
@@ -428,7 +428,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.animationStateVersion.update((value) => value + 1);
 	}
 
-	statusLabel(status: Finding['status']): string {
+	statusLabel(status: IFinding['status']): string {
 		if (status === 'missing-in-language') {
 			return 'Missing';
 		}
@@ -452,7 +452,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		return status === 'dynamic-uncertain' || status === 'indirect-uncertain';
 	}
 
-	severityLabel(severity: Finding['severity']): string {
+	severityLabel(severity: IFinding['severity']): string {
 		if (severity === 'error') {
 			return 'High';
 		}
@@ -464,7 +464,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		return 'Low';
 	}
 
-	severityPercent(severity: Finding['severity']): number {
+	severityPercent(severity: IFinding['severity']): number {
 		if (severity === 'error') {
 			return 100;
 		}
@@ -539,7 +539,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		return typeof value === 'number' ? value : 0;
 	}
 
-	get topMissingFindings(): Finding[] {
+	get topMissingFindings(): IFinding[] {
 		if (!this.scanResult) {
 			return [];
 		}

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ElectronService } from './electron.service';
 
-export interface RecentProjectItem {
+export interface IRecentProjectItem {
 	path: string;
 	exists: boolean;
 }
@@ -28,7 +28,7 @@ function dedupeKey(path: string): string {
 export class RecentProjectsService {
 	constructor(private readonly electronService: ElectronService) {}
 
-	getRecentProjects(): RecentProjectItem[] {
+	getRecentProjects(): IRecentProjectItem[] {
 		const recentPaths = this.readStoredPaths();
 		return recentPaths.map((path) => ({
 			path,

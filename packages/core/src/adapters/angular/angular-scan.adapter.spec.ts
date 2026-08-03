@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DEFAULT_SCANNER_CONFIG } from '../../config/scanner-defaults.js';
 import {
-	FileSystemAdapter,
-	KeyUsage,
-	ProjectContext
+	IFileSystemAdapter,
+	IKeyUsage,
+	IProjectContext
 } from '../scan-adapter.interface.js';
 import { angularScanAdapter } from './angular-scan.adapter.js';
 
-class InMemoryFsAdapter implements FileSystemAdapter {
+class InMemoryFsAdapter implements IFileSystemAdapter {
 	constructor(private readonly files: Record<string, string>) { }
 
 	async fileExists(filePath: string): Promise<boolean> {
@@ -55,7 +55,7 @@ class InMemoryFsAdapter implements FileSystemAdapter {
 
 describe('angularScanAdapter', () => {
 	const projectRoot = 'workspace/project';
-	let context: ProjectContext;
+	let context: IProjectContext;
 
 	beforeEach(() => {
 		context = {
@@ -102,7 +102,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -129,7 +129,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -159,7 +159,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -190,7 +190,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -221,7 +221,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -252,7 +252,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -295,7 +295,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -327,7 +327,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -359,7 +359,7 @@ describe('angularScanAdapter', () => {
 
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 		const findings = await angularScanAdapter.runRules({
 			definedKeys,
 			usedKeys,
@@ -393,7 +393,7 @@ describe('angularScanAdapter', () => {
 				"describe('Feature: Setup sender', () => { cy.get('wig-button').contains('Ok'); cy.get('div').contains('Sender successfully created.'); });"
 		});
 
-		const usedKeys: KeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 
 		expect(usedKeys.some((item) => item.key === 'wig-button')).toBeFalse();
 		expect(usedKeys.some((item) => item.key === 'div')).toBeFalse();
