@@ -32,8 +32,8 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	searchTerm = '';
 	selectedFindingId?: string;
 	isDetailOpen = false;
-	keyCopied = false;
-	copiedPath?: string;
+	private readonly keyCopiedSignal = signal(false);
+	private readonly copiedPathSignal = signal<string | undefined>(undefined);
 	isAddTranslationModalOpen = false;
 	isSavingTranslations = false;
 	private readonly addTranslationsErrorSignal = signal('');
@@ -50,6 +50,22 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 	set addTranslationsError(value: string) {
 		this.addTranslationsErrorSignal.set(value);
+	}
+
+	get keyCopied(): boolean {
+		return this.keyCopiedSignal();
+	}
+
+	set keyCopied(value: boolean) {
+		this.keyCopiedSignal.set(value);
+	}
+
+	get copiedPath(): string | undefined {
+		return this.copiedPathSignal();
+	}
+
+	set copiedPath(value: string | undefined) {
+		this.copiedPathSignal.set(value);
 	}
 
 	private get scanResult(): IProjectScanResult | undefined {

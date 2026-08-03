@@ -25,7 +25,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	searchTerm = '';
 	selectedKey?: string;
 	isDetailOpen = false;
-	keyCopied = false;
+	private readonly keyCopiedSignal = signal(false);
 	isAddTranslationModalOpen = false;
 	addTranslationLocale?: string;
 	addTranslationValue = '';
@@ -49,6 +49,14 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 
 	set addTranslationError(value: string) {
 		this.addTranslationErrorSignal.set(value);
+	}
+
+	get keyCopied(): boolean {
+		return this.keyCopiedSignal();
+	}
+
+	set keyCopied(value: boolean) {
+		this.keyCopiedSignal.set(value);
 	}
 
 	private get scanResult(): IProjectScanResult | undefined {
