@@ -1,6 +1,6 @@
 # KeyLint
 
-Desktop tool, CLI and GitHub Action for auditing i18n translation keys in Angular projects.
+Find missing, unused and inconsistent Angular translation keys before they reach production — using a desktop app, CLI or CI pipeline.
 
 ## Workspace layout
 
