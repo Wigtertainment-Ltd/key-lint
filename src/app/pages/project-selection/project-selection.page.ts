@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
@@ -14,10 +14,10 @@ import { ElectronFile, IRecentProjectViewModel } from './project-selection.inter
 	styleUrl: './project-selection.page.scss'
 })
 export class ProjectSelectionPage implements OnInit {
-	projectPath?: string = undefined;
-	projectName?: string = undefined;
-	isDragOver = false;
-	recentProjects: IRecentProjectViewModel[] = [];
+	private readonly projectPathSignal = signal<string | undefined>(undefined);
+	private readonly projectNameSignal = signal<string | undefined>(undefined);
+	private readonly isDragOverSignal = signal(false);
+	private readonly recentProjectsSignal = signal<IRecentProjectViewModel[]>([]);
 
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly recentProjectsService: RecentProjectsService = inject(RecentProjectsService);
@@ -32,6 +32,30 @@ export class ProjectSelectionPage implements OnInit {
 		return this.themeService.getCurrent() === 'dark';
 	}
 
+	get isDragOver(): boolean {
+		return this.isDragOverSignal();
+	}
+
+	get recentProjects(): IRecentProjectViewModel[] {
+		return this.recentProjectsSignal();
+	}
+
+	get hasSelection(): boolean {
+		return Boolean(this.projectPathSignal());
+	}
+
+	get pathDisplay(): string {
+		return this.projectPathSignal() ?? 'No project selected';
+	}
+
+	get hasRecentProjects(): boolean {
+		return this.recentProjectsSignal().length > 0;
+	}
+
+	get appVersion(): string {
+		return this.appVersionService.version;
+	}
+
 	ngOnInit(): void {
 		this.loadRecentProjects();
 	}
@@ -40,25 +64,13 @@ export class ProjectSelectionPage implements OnInit {
 		this.themeService.toggle();
 	}
 
-	get hasSelection(): boolean {
-		return Boolean(this.projectPath);
-	}
-
-	get pathDisplay(): string {
-		return this.projectPath ?? 'No project selected';
-	}
-
-	get hasRecentProjects(): boolean {
-		return this.recentProjects.length > 0;
-	}
-
-	get appVersion(): string {
-		return this.appVersionService.version;
-	}
-
 	async openFolderDialog(folderInput?: HTMLInputElement): Promise<void> {
 		if (!this.electronService.isElectron) {
-			folderInput?.click();
+			if (folderInput) {
+				// Reset input so selecting the same folder again still fires change.
+				folderInput.value = '';
+				folderInput.click();
+			}
 			return;
 		}
 
@@ -79,22 +91,22 @@ export class ProjectSelectionPage implements OnInit {
 
 	onDragEnter(event: DragEvent): void {
 		event.preventDefault();
-		this.isDragOver = true;
+		this.isDragOverSignal.set(true);
 	}
 
 	onDragOver(event: DragEvent): void {
 		event.preventDefault();
-		this.isDragOver = true;
+		this.isDragOverSignal.set(true);
 	}
 
 	onDragLeave(event: DragEvent): void {
 		event.preventDefault();
-		this.isDragOver = false;
+		this.isDragOverSignal.set(false);
 	}
 
 	onDrop(event: DragEvent): void {
 		event.preventDefault();
-		this.isDragOver = false;
+		this.isDragOverSignal.set(false);
 
 		const files = event.dataTransfer?.files;
 		if (!files || files.length === 0) {
@@ -124,12 +136,13 @@ export class ProjectSelectionPage implements OnInit {
 		}
 
 		this.setSelectedPath(selectedPath);
+		input.value = '';
 	}
 
 	clearSelection(event?: Event): void {
 		event?.stopPropagation();
-		this.projectPath = undefined;
-		this.projectName = undefined;
+		this.projectPathSignal.set(undefined);
+		this.projectNameSignal.set(undefined);
 		this.scanOrchestrationService.reset();
 	}
 
@@ -146,28 +159,30 @@ export class ProjectSelectionPage implements OnInit {
 		this.recentProjectsService.removeRecentProject(project.path);
 		this.loadRecentProjects();
 
-		if (this.projectPath && this.isSamePath(this.projectPath, project.path)) {
+		const selectedPath = this.projectPathSignal();
+		if (selectedPath && this.isSamePath(selectedPath, project.path)) {
 			this.clearSelection();
 		}
 	}
 
 	startAnalysis(): void {
-		if (!this.projectPath) {
+		const projectPath = this.projectPathSignal();
+		if (!projectPath) {
 			return;
 		}
 
 		this.scanOrchestrationService.reset();
 		void this.router.navigate(['/scan-progress'], {
 			queryParams: {
-				projectPath: this.projectPath
+				projectPath
 			}
 		});
 	}
 
 	private setSelectedPath(path: string): void {
 		this.loggerService.info('ProjectSelectionPage', 'Selected project path:', path);
-		this.projectPath = path;
-		this.projectName = this.getProjectName(path);
+		this.projectPathSignal.set(path);
+		this.projectNameSignal.set(this.getProjectName(path));
 		this.recentProjectsService.addRecentProject(path);
 		this.loadRecentProjects();
 		this.scanOrchestrationService.reset();
@@ -175,10 +190,10 @@ export class ProjectSelectionPage implements OnInit {
 
 	private loadRecentProjects(): void {
 		this.loggerService.debug('ProjectSelectionPage', 'Loading recent projects...');
-		this.recentProjects = this.recentProjectsService.getRecentProjects().map((project) => ({
+		this.recentProjectsSignal.set(this.recentProjectsService.getRecentProjects().map((project) => ({
 			...project,
 			name: this.getProjectName(project.path)
-		}));
+		})));
 	}
 
 	private getProjectName(path: string): string {
