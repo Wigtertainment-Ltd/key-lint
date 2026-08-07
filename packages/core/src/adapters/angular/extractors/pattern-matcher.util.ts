@@ -1,0 +1,188 @@
+import { IKeyUsage } from '../../scan-adapter.interface.js';
+import { IPatternDescriptor } from '../../adapter.interfaces.js';
+
+export function getLineColumn(source: string, index: number): { line: number; column: number } {
+	let line = 1;
+	let column = 1;
+
+	for (let i = 0; i < index; i += 1) {
+		if (source[i] === '\n') {
+			line += 1;
+			column = 1;
+			continue;
+		}
+
+		column += 1;
+	}
+
+	return { line, column };
+}
+
+export function extractSnippet(source: string, index: number): string {
+	const lineStart = source.lastIndexOf('\n', index - 1) + 1;
+	const lineEndIndex = source.indexOf('\n', index);
+	const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
+	const currentLine = source.slice(lineStart, lineEnd).trim();
+
+	if (currentLine) {
+		return currentLine;
+	}
+
+	const from = Math.max(0, index - 80);
+	const to = Math.min(source.length, index + 120);
+	return source.slice(from, to).replace(/\s+/g, ' ').trim();
+}
+
+export function firstCallArgument(argumentList: string): string {
+	let depth = 0;
+	let stringDelimiter: string | null = null;
+
+	for (let i = 0; i < argumentList.length; i += 1) {
+		const char = argumentList[i];
+
+		if (stringDelimiter) {
+			if (char === stringDelimiter && argumentList[i - 1] !== '\\') {
+				stringDelimiter = null;
+			}
+			continue;
+		}
+
+		if (char === '\'' || char === '"' || char === '`') {
+			stringDelimiter = char;
+			continue;
+		}
+
+		if (char === '(' || char === '[' || char === '{') {
+			depth += 1;
+			continue;
+		}
+
+		if (char === ')' || char === ']' || char === '}') {
+			depth -= 1;
+			continue;
+		}
+
+		if (char === ',' && depth === 0) {
+			return argumentList.slice(0, i);
+		}
+	}
+
+	return argumentList;
+}
+
+function extractCallArgumentList(source: string, openParenIndex: number): string | null {
+	let depth = 0;
+	let stringDelimiter: string | null = null;
+
+	for (let i = openParenIndex + 1; i < source.length; i += 1) {
+		const char = source[i];
+
+		if (stringDelimiter) {
+			if (char === stringDelimiter && source[i - 1] !== '\\') {
+				stringDelimiter = null;
+			}
+			continue;
+		}
+
+		if (char === '\'' || char === '"' || char === '`') {
+			stringDelimiter = char;
+			continue;
+		}
+
+		if (char === '(') {
+			depth += 1;
+			continue;
+		}
+
+		if (char === ')') {
+			if (depth === 0) {
+				return source.slice(openParenIndex + 1, i);
+			}
+
+			depth -= 1;
+		}
+	}
+
+	return null;
+}
+
+export function extractMatches(source: string, filePath: string, descriptors: IPatternDescriptor[]): IKeyUsage[] {
+	const matches: IKeyUsage[] = [];
+
+	for (const descriptor of descriptors) {
+		const regex = new RegExp(descriptor.regex.source, descriptor.regex.flags);
+		let match: RegExpExecArray | null = regex.exec(source);
+
+		while (match) {
+			const keyIndex = descriptor.keyCaptureIndex ?? 1;
+			const rawKey = match[keyIndex]?.trim();
+			const snippet = extractSnippet(source, match.index);
+
+			if (descriptor.literalKeyExtraction) {
+				const openParenIndex = source.indexOf('(', match.index);
+				const argumentList =
+					openParenIndex === -1 ? '' : extractCallArgumentList(source, openParenIndex) ?? '';
+				const argumentSource = firstCallArgument(argumentList);
+				const lineCol = getLineColumn(source, match.index);
+				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
+
+				if (isDynamicArgument) {
+					const cleanedKey = argumentSource.replace(/^`|`$/g, '').trim();
+					matches.push({
+						key: cleanedKey,
+						filePath,
+						line: lineCol.line,
+						column: lineCol.column,
+						snippet,
+						matchType: 'ts-dynamic-translate-call',
+						isDynamic: true
+					});
+
+					match = regex.exec(source);
+					continue;
+				}
+
+				const literalRegex = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
+				let literalMatch: RegExpExecArray | null = literalRegex.exec(argumentSource);
+
+				while (literalMatch) {
+					const literalKey = literalMatch[1]?.trim();
+					if (literalKey) {
+						matches.push({
+							key: literalKey,
+							filePath,
+							line: lineCol.line,
+							column: lineCol.column,
+							snippet,
+							matchType: descriptor.matchType,
+							isDynamic: descriptor.dynamic
+						});
+					}
+
+					literalMatch = literalRegex.exec(argumentSource);
+				}
+
+				match = regex.exec(source);
+				continue;
+			}
+
+			if (rawKey) {
+				const cleanedKey = rawKey.replace(/^`|`$/g, '').trim();
+				const lineCol = getLineColumn(source, match.index);
+				matches.push({
+					key: cleanedKey,
+					filePath,
+					line: lineCol.line,
+					column: lineCol.column,
+					snippet,
+					matchType: descriptor.matchType,
+					isDynamic: descriptor.dynamic
+				});
+			}
+
+			match = regex.exec(source);
+		}
+	}
+
+	return matches;
+}

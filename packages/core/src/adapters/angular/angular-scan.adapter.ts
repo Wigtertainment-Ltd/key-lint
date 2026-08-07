@@ -1,96 +1,10 @@
 import { IFileSystemAdapter, IKeyUsage, IProjectContext, IScanAdapter } from '../scan-adapter.interface.js';
 import { IFinding } from '../../models/finding.model.js';
 import { ITranslationMatrix } from '../../models/scan-result.model.js';
-import { IPatternDescriptor } from '../adapter.interfaces.js';
 import { IAngularMarkers } from './angular.interfaces.js';
-import { extractTranslocoStructuralMatches } from './extractors/transloco-structural.extractor.js';
-
-const STATIC_HTML_PATTERNS: IPatternDescriptor[] = [
-	{
-		matchType: 'html-pipe-translate-interpolation',
-		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*(?:translate|transloco)\b[^}]*\}\}/g,
-		dynamic: false,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'html-pipe-translate-binding',
-		regex: /=\s*['"]\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*(?:translate|transloco)\b[^'"\n]*['"]/g,
-		dynamic: false,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'html-attribute-translate',
-		regex: /\btranslate\s*=\s*['"]([A-Za-z0-9_.-]+)['"]/g,
-		dynamic: false,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'html-bound-translate',
-		regex: /\[translate\]\s*=\s*['"]\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*['"]/g,
-		dynamic: false,
-		keyCaptureIndex: 1
-	}
-];
-
-const STATIC_TS_PATTERNS: IPatternDescriptor[] = [
-	{
-		matchType: 'ts-translate-method',
-		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
-		dynamic: false,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'ts-translate-call',
-		regex: /\.\s*translate\s*\(/g,
-		dynamic: false,
-		literalKeyExtraction: true
-	},
-	{
-		matchType: 'ts-indirect-key-literal',
-		regex: /['"`]([A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+){2,})['"`]/g,
-		dynamic: true,
-		keyCaptureIndex: 1
-	}
-];
-
-const DYNAMIC_PATTERNS: IPatternDescriptor[] = [
-	{
-		matchType: 'ts-dynamic-template-literal',
-		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
-		dynamic: true,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'ts-dynamic-concat',
-		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
-		dynamic: true,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'html-dynamic-translate-binding',
-		regex: /\[translate\]\s*=\s*['"]([^'"\n]*\+[^'"\n]*)['"]/g,
-		dynamic: true,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'html-dynamic-pipe-concat-interpolation',
-		regex: /\{\{\s*([^}\n]*\+[^}\n]*?)\s*\|\s*(?:translate|transloco)\b[^}]*\}\}/g,
-		dynamic: true,
-		keyCaptureIndex: 1
-	},
-	{
-		matchType: 'html-dynamic-pipe-concat-binding',
-		regex: /=\s*(['"])\s*([^\n]*\+[^\n]*?)\s*\|\s*(?:translate|transloco)\b[^\n]*?\1/g,
-		dynamic: true,
-		keyCaptureIndex: 2
-	},
-	{
-		matchType: 'html-dynamic-pipe-template-literal',
-		regex: /=\s*['"]\s*(`[^`]*\$\{[^}]+\}[^`]*`)\s*\|\s*(?:translate|transloco)\b[^'"\n]*['"]/g,
-		dynamic: true,
-		keyCaptureIndex: 1
-	}
-];
+import { DYNAMIC_PATTERNS, STATIC_HTML_PATTERNS, STATIC_TS_PATTERNS } from './extractors/translation-usage.patterns.js';
+import { extractMatches } from './extractors/pattern-matcher.util.js';
+import { extractTranslocoStructuralMatches } from './extractors/transloco/transloco-structural.extractor.js';
 
 function normalizePath(value: string): string {
 	return value.replace(/\\/g, '/').replace(/\/+/g, '/');
@@ -120,37 +34,6 @@ function matchesAny(path: string, patterns: string[]): boolean {
 	return patterns.some((pattern) => globToRegex(pattern).test(path));
 }
 
-function getLineColumn(source: string, index: number): { line: number; column: number } {
-	let line = 1;
-	let column = 1;
-
-	for (let i = 0; i < index; i += 1) {
-		if (source[i] === '\n') {
-			line += 1;
-			column = 1;
-			continue;
-		}
-
-		column += 1;
-	}
-
-	return { line, column };
-}
-
-function extractSnippet(source: string, index: number): string {
-	const lineStart = source.lastIndexOf('\n', index - 1) + 1;
-	const lineEndIndex = source.indexOf('\n', index);
-	const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
-	const currentLine = source.slice(lineStart, lineEnd).trim();
-
-	if (currentLine) {
-		return currentLine;
-	}
-
-	const from = Math.max(0, index - 80);
-	const to = Math.min(source.length, index + 120);
-	return source.slice(from, to).replace(/\s+/g, ' ').trim();
-}
 
 function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	if (value === null || value === undefined) {
@@ -181,78 +64,6 @@ function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	return result;
 }
 
-function firstCallArgument(argumentList: string): string {
-	let depth = 0;
-	let stringDelimiter: string | null = null;
-
-	for (let i = 0; i < argumentList.length; i += 1) {
-		const char = argumentList[i];
-
-		if (stringDelimiter) {
-			if (char === stringDelimiter && argumentList[i - 1] !== '\\') {
-				stringDelimiter = null;
-			}
-			continue;
-		}
-
-		if (char === '\'' || char === '"' || char === '`') {
-			stringDelimiter = char;
-			continue;
-		}
-
-		if (char === '(' || char === '[' || char === '{') {
-			depth += 1;
-			continue;
-		}
-
-		if (char === ')' || char === ']' || char === '}') {
-			depth -= 1;
-			continue;
-		}
-
-		if (char === ',' && depth === 0) {
-			return argumentList.slice(0, i);
-		}
-	}
-
-	return argumentList;
-}
-
-function extractCallArgumentList(source: string, openParenIndex: number): string | null {
-	let depth = 0;
-	let stringDelimiter: string | null = null;
-
-	for (let i = openParenIndex + 1; i < source.length; i += 1) {
-		const char = source[i];
-
-		if (stringDelimiter) {
-			if (char === stringDelimiter && source[i - 1] !== '\\') {
-				stringDelimiter = null;
-			}
-			continue;
-		}
-
-		if (char === '\'' || char === '"' || char === '`') {
-			stringDelimiter = char;
-			continue;
-		}
-
-		if (char === '(') {
-			depth += 1;
-			continue;
-		}
-
-		if (char === ')') {
-			if (depth === 0) {
-				return source.slice(openParenIndex + 1, i);
-			}
-
-			depth -= 1;
-		}
-	}
-
-	return null;
-}
 
 function leadingLiteralPrefix(expression: string): string | null {
 	const match = /['"`]([A-Za-z0-9_.-]*)['"`]/.exec(expression);
@@ -262,87 +73,6 @@ function leadingLiteralPrefix(expression: string): string | null {
 
 	const prefix = match[1];
 	return prefix.endsWith('.') ? prefix : null;
-}
-
-function extractMatches(source: string, filePath: string, descriptors: IPatternDescriptor[]): IKeyUsage[] {
-	const matches: IKeyUsage[] = [];
-
-	for (const descriptor of descriptors) {
-		const regex = new RegExp(descriptor.regex.source, descriptor.regex.flags);
-		let match: RegExpExecArray | null = regex.exec(source);
-
-		while (match) {
-			const keyIndex = descriptor.keyCaptureIndex ?? 1;
-			const rawKey = match[keyIndex]?.trim();
-			const snippet = extractSnippet(source, match.index);
-
-			if (descriptor.literalKeyExtraction) {
-				const openParenIndex = source.indexOf('(', match.index);
-				const argumentList =
-					openParenIndex === -1 ? '' : extractCallArgumentList(source, openParenIndex) ?? '';
-				const argumentSource = firstCallArgument(argumentList);
-				const lineCol = getLineColumn(source, match.index);
-				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
-
-				if (isDynamicArgument) {
-					const cleanedKey = argumentSource.replace(/^`|`$/g, '').trim();
-					matches.push({
-						key: cleanedKey,
-						filePath,
-						line: lineCol.line,
-						column: lineCol.column,
-						snippet,
-						matchType: 'ts-dynamic-translate-call',
-						isDynamic: true
-					});
-
-					match = regex.exec(source);
-					continue;
-				}
-
-				const literalRegex = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
-				let literalMatch: RegExpExecArray | null = literalRegex.exec(argumentSource);
-
-				while (literalMatch) {
-					const literalKey = literalMatch[1]?.trim();
-					if (literalKey) {
-						matches.push({
-							key: literalKey,
-							filePath,
-							line: lineCol.line,
-							column: lineCol.column,
-							snippet,
-							matchType: descriptor.matchType,
-							isDynamic: descriptor.dynamic
-						});
-					}
-
-					literalMatch = literalRegex.exec(argumentSource);
-				}
-
-				match = regex.exec(source);
-				continue;
-			}
-
-			if (rawKey) {
-				const cleanedKey = rawKey.replace(/^`|`$/g, '').trim();
-				const lineCol = getLineColumn(source, match.index);
-				matches.push({
-					key: cleanedKey,
-					filePath,
-					line: lineCol.line,
-					column: lineCol.column,
-					snippet,
-					matchType: descriptor.matchType,
-					isDynamic: descriptor.dynamic
-				});
-			}
-
-			match = regex.exec(source);
-		}
-	}
-
-	return matches;
 }
 
 function uniqueSorted(values: string[]): string[] {

@@ -1,76 +1,8 @@
-import { IKeyUsage } from '../../scan-adapter.interface.js';
+import { IKeyUsage } from '../../../scan-adapter.interface.js';
+import { extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
 
 function escapeRegex(text: string): string {
 	return text.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-}
-
-function getLineColumn(source: string, index: number): { line: number; column: number } {
-	let line = 1;
-	let column = 1;
-
-	for (let i = 0; i < index; i += 1) {
-		if (source[i] === '\n') {
-			line += 1;
-			column = 1;
-			continue;
-		}
-
-		column += 1;
-	}
-
-	return { line, column };
-}
-
-function extractSnippet(source: string, index: number): string {
-	const lineStart = source.lastIndexOf('\n', index - 1) + 1;
-	const lineEndIndex = source.indexOf('\n', index);
-	const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
-	const currentLine = source.slice(lineStart, lineEnd).trim();
-
-	if (currentLine) {
-		return currentLine;
-	}
-
-	const from = Math.max(0, index - 80);
-	const to = Math.min(source.length, index + 120);
-	return source.slice(from, to).replace(/\s+/g, ' ').trim();
-}
-
-function firstCallArgument(argumentList: string): string {
-	let depth = 0;
-	let stringDelimiter: string | null = null;
-
-	for (let i = 0; i < argumentList.length; i += 1) {
-		const char = argumentList[i];
-
-		if (stringDelimiter) {
-			if (char === stringDelimiter && argumentList[i - 1] !== '\\') {
-				stringDelimiter = null;
-			}
-			continue;
-		}
-
-		if (char === '\'' || char === '"' || char === '`') {
-			stringDelimiter = char;
-			continue;
-		}
-
-		if (char === '(' || char === '[' || char === '{') {
-			depth += 1;
-			continue;
-		}
-
-		if (char === ')' || char === ']' || char === '}') {
-			depth -= 1;
-			continue;
-		}
-
-		if (char === ',' && depth === 0) {
-			return argumentList.slice(0, i);
-		}
-	}
-
-	return argumentList;
 }
 
 export function extractTranslocoStructuralMatches(source: string, filePath: string): IKeyUsage[] {
