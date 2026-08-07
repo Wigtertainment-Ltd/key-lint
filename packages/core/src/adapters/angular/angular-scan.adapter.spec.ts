@@ -265,6 +265,30 @@ describe('angularScanAdapter', () => {
 		expect(findings.some((item) => item.status === 'unused')).toBeFalse();
 	});
 
+	it('detects transloco structural directive calls in HTML templates', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json':
+				'{"APP":{"TITLE":"Title","SUBTITLE":"Subtitle","UNUSED":"Unused"}}',
+			'workspace/project/src/app/sample.component.html':
+				"<ng-container *transloco=\"let t\"><h1>{{ t('APP.TITLE') }}</h1><p>{{ t('APP.SUBTITLE') }}</p></ng-container>"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.matchType === 'html-transloco-structural-call')).toBeTrue();
+		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
+		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.SUBTITLE')).toBeTrue();
+		expect(findings.some((item) => item.status === 'unused' && item.key === 'APP.UNUSED')).toBeTrue();
+	});
+
 	it('classifies keys built via translate concatenation as dynamic, not unused', async () => {
 		const fs = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',

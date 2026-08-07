@@ -1,0 +1,9 @@
+{
+  "framework": "angular",
+  "translationFormat": "transloco-json",
+  "scenario": "structural-directive",
+  "covers": [
+    "used",
+    "unused"
+  ]
+}

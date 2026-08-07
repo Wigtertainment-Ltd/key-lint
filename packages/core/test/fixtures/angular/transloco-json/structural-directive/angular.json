@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "projects": {
+    "fixture-angular-transloco-structural-directive": {
+      "root": "",
+      "sourceRoot": "src"
+    }
+  }
+}

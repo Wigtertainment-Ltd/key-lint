@@ -3,6 +3,7 @@ import { IFinding } from '../../models/finding.model.js';
 import { ITranslationMatrix } from '../../models/scan-result.model.js';
 import { IPatternDescriptor } from '../adapter.interfaces.js';
 import { IAngularMarkers } from './angular.interfaces.js';
+import { extractTranslocoStructuralMatches } from './extractors/transloco-structural.extractor.js';
 
 const STATIC_HTML_PATTERNS: IPatternDescriptor[] = [
 	{
@@ -685,6 +686,10 @@ export const angularScanAdapter: IScanAdapter = {
 				? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS]
 				: [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
 			used.push(...extractMatches(source, filePath, descriptors));
+
+			if (filePath.endsWith('.html')) {
+				used.push(...extractTranslocoStructuralMatches(source, filePath));
+			}
 		}
 
 		return used;

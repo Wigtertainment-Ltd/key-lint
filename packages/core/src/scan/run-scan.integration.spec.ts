@@ -50,6 +50,15 @@ const FIXTURE_CASES: IFixtureCase[] = [
 		)
 	},
 	{
+		name: 'angular transloco json structural directive',
+		fixtureRoot: fileURLToPath(
+			new URL('../../test/fixtures/angular/transloco-json/structural-directive', import.meta.url)
+		),
+		expectedFile: fileURLToPath(
+			new URL('../../test/fixtures/angular/transloco-json/structural-directive/_expected.json', import.meta.url)
+		)
+	},
+	{
 		name: 'angular i18n xliff basic',
 		fixtureRoot: fileURLToPath(
 			new URL('../../test/fixtures/angular/angular-i18n-xliff/basic', import.meta.url)
