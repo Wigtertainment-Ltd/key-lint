@@ -1,0 +1,15 @@
+{
+	"APP": {
+		"TITLE": "Fixture title",
+		"UNUSED": "Nobody references me",
+		"INDIRECT": "Appears only as TS literal",
+		"DYN": {
+			"A": {
+				"LABEL": "Dynamic label A"
+			},
+			"B": {
+				"LABEL": "Dynamic label B"
+			}
+		}
+	}
+}

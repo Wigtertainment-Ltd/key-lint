@@ -1,6 +1,203 @@
+<div align="center">
+
+<img src="public/logo.png" alt="KeyLint logo" width="128" height="128">
+
 # KeyLint
 
-Find missing, unused and inconsistent Angular translation keys before they reach production — using a desktop app, CLI or CI pipeline.
+**Catch missing, unused and inconsistent Angular translation keys before they reach production.**
+
+Run it as a desktop app while you code, or wire it into your CI pipeline so a broken
+translation never gets merged again.
+
+[Desktop app](#-desktop-app) · [CLI](#-command-line) · [CI/CD](#-cicd-integration) · [GitHub Action](#github-action) · [Docker](#docker)
+
+</div>
+
+---
+
+## Why KeyLint?
+
+Translation keys drift. Someone renames a key, forgets a locale, or leaves a dead
+key behind after a refactor — and nobody notices until a user sees a raw
+`DASHBOARD.TITLE` on screen. KeyLint scans your source **and** your translation
+files and tells you exactly what is wrong:
+
+- 🔴 **Missing keys** — used in code/templates but absent in a locale file
+- 🟡 **Unused keys** — defined in a locale file but never referenced
+- 🟡 **Extra keys** — present in one locale but missing in the base language
+- 🟡 **Dynamic / indirect keys** — resolved at runtime, flagged so you can review them
+- ✅ **Used keys** — confirmed and safe
+
+The desktop app and the CLI run the **exact same scan engine**, so what you see
+while developing is what your pipeline enforces.
+
+---
+
+## 💻 Desktop app
+
+The fastest way to audit a project. No config required.
+
+1. Download the latest Windows installer or portable build from the
+   [Releases](https://github.com/Wigtertainment-Ltd/key-lint/releases) page.
+2. Launch KeyLint and pick your project folder — the framework is detected
+   automatically.
+3. Explore the results:
+
+   | View | What it gives you |
+   | --- | --- |
+   | **Dashboard** | KPI metrics and a scan-trend chart with day drilldown |
+   | **Results** | Filterable findings with evidence snippets, file/line and copy actions |
+   | **Translation keys** | A locale matrix (keys × languages) with filters and a detail panel |
+   | **History** | Every scan and change tracked per project |
+
+4. **Fix missing translations in place** — type the value and KeyLint writes it
+   back into the correct (nested) spot in your locale JSON.
+
+> Light/dark theme included, with a `prefers-color-scheme` fallback.
+
+---
+
+## ⚙️ Using KeyLint in your project
+
+KeyLint works out of the box for **Angular projects using ngx-translate** with
+**JSON** locale files. The scanner already knows the common layouts:
+
+- Translation files: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`,
+  `i18n/**/*.json`, `locales/**/*.json`, plus the usual Nx `apps|libs|packages`
+  paths.
+- Source files: `**/*.html` and `**/*.ts`.
+
+Nothing to configure to get started. When you need to tune it, drop a
+`keylint.config.json` in your project root (or a `"keylint"` key in
+`package.json`):
+
+```json
+{
+  "includeTranslationGlobs": ["src/assets/i18n/**/*.json"],
+  "includeSourceGlobs": ["**/*.html", "**/*.ts"],
+  "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
+  "ignoreKeys": ["LEGACY.**", "VENDOR.*"]
+}
+```
+
+Precedence is: built-in defaults < `package.json` < config file < CLI flags.
+Arrays are replaced (never merged), and the config file is pure JSON — it can
+never execute code.
+
+---
+
+## 🖥️ Command line
+
+Run the same engine headless — no Electron, no browser. Requires Node ≥ 20.
+
+```bash
+# One-off scan, no install
+npx @key-lint/cli scan .
+
+# Or install it globally
+npm install -g @key-lint/cli
+keylint scan /path/to/project --max-errors 0
+```
+
+Write machine-readable and human-readable reports at the same time:
+
+```bash
+keylint scan . \
+  --reporter text \
+  --output json=keylint-report/keylint.json \
+  --output markdown=keylint-report/keylint.md \
+  --max-errors 0
+```
+
+| Option | Description |
+| --- | --- |
+| `--config <file>` | Path to a `keylint.config.json`. |
+| `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
+| `--output <name>=<file>` | Redirect a reporter to a file (also enables it). |
+| `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
+| `--max-warnings <n>` | Tolerated `warning` findings. Default unlimited. |
+| `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. |
+| `--quiet` | No progress output on stderr. |
+| `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
+
+Progress goes to **stderr**, reports go to **stdout**, so `--reporter json` pipes
+cleanly. Exit code `0` means thresholds were respected, `1` means they were
+exceeded, `2` means the run itself failed.
+
+Full option reference and reporter details:
+[packages/cli/README.md](packages/cli/README.md).
+
+---
+
+## 🔁 CI/CD integration
+
+Fail the build the moment a translation key goes missing.
+
+### GitHub Action
+
+```yaml
+- uses: actions/checkout@v4
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20
+    cache: npm
+
+- id: keylint
+  uses: Wigtertainment-Ltd/key-lint/packages/action@v1
+  with:
+    path: .
+    max-errors: '0'
+    ignore: |
+      LEGACY.**
+
+# Upload the generated reports
+- if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: keylint-report
+    path: keylint-report/
+```
+
+The action appends a Markdown summary to the GitHub job summary and exposes
+`exit-code`, `total-findings`, `error-count` and `warning-count` as outputs.
+
+### Docker
+
+```bash
+docker pull ghcr.io/wigtertainment/key-lint:latest
+docker run --rm -v "$PWD:/work" -w /work ghcr.io/wigtertainment/key-lint scan . --max-errors 0
+```
+
+### Other pipelines
+
+Ready-to-use snippets for GitLab CI, Azure DevOps and Jenkins live in
+[docs/ci/README.md](docs/ci/README.md), alongside the full configuration schema.
+
+```bash
+npx @key-lint/cli scan . --max-errors 0 --output markdown=keylint.md
+```
+
+---
+
+## Supported today
+
+| Area | Status |
+| --- | --- |
+| Framework | Angular (ngx-translate style usage) |
+| Translation format | JSON |
+| Platforms (desktop) | Windows |
+
+More framework adapters (React/i18next, Vue/vue-i18n) and formats (YAML, XLIFF,
+PO) are on the roadmap. Contributions welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+<br>
+
+# For developers
+
+Everything below is for working **on** KeyLint itself.
 
 ## Workspace layout
 
@@ -74,19 +271,6 @@ Linux and macOS builds are not configured yet.
 
 Run `ng test` to execute the desktop unit tests via [Karma](https://karma-runner.github.io).
 Run `npm run test:packages` to execute the engine and CLI tests via Vitest.
-
-## CI/CD
-
-The scan can run headless in a pipeline:
-
-```bash
-npx @key-lint/cli scan . --max-errors 0 --output markdown=keylint.md
-```
-
-Exit code `0` means the thresholds were respected, `1` that they were exceeded and
-`2` that the run itself failed. See [docs/ci/README.md](docs/ci/README.md) for the
-full option reference, the `keylint.config.json` schema and ready-to-use
-pipeline snippets for GitHub Actions, GitLab CI, Azure DevOps and Jenkins.
 
 ## Running end-to-end tests
 

@@ -1,0 +1,9 @@
+{
+	"name": "fixture-angular-transloco-basic",
+	"private": true,
+	"version": "0.0.0",
+	"dependencies": {
+		"@angular/core": "^18.0.0",
+		"@jsverse/transloco": "^7.0.0"
+	}
+}

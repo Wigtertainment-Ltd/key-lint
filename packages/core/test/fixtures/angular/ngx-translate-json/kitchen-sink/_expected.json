@@ -1,0 +1,50 @@
+{
+	"adapterId": "angular",
+	"summary": {
+		"totalKeys": 5,
+		"used": 1,
+		"unused": 2,
+		"dynamicOrUncertain": 3,
+		"indirectUncertain": 0,
+		"missingInLanguage": 1,
+		"extraInLanguage": 0,
+		"totalFindings": 7
+	},
+	"findings": [
+		{
+			"key": "'APP.DYN.' + section + '.LABEL'",
+			"status": "dynamic-uncertain",
+			"severity": "warning"
+		},
+		{
+			"key": "APP.DYN.A.LABEL",
+			"status": "dynamic-uncertain",
+			"severity": "warning"
+		},
+		{
+			"key": "APP.DYN.B.LABEL",
+			"status": "dynamic-uncertain",
+			"severity": "warning"
+		},
+		{
+			"key": "APP.INDIRECT",
+			"status": "unused",
+			"severity": "warning"
+		},
+		{
+			"key": "APP.MISSING",
+			"status": "missing-in-language",
+			"severity": "error"
+		},
+		{
+			"key": "APP.TITLE",
+			"status": "used",
+			"severity": "info"
+		},
+		{
+			"key": "APP.UNUSED",
+			"status": "unused",
+			"severity": "warning"
+		}
+	]
+}

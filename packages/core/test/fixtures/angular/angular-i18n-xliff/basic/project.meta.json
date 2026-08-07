@@ -1,0 +1,8 @@
+{
+	"framework": "angular",
+	"translationFormat": "angular-i18n-xliff",
+	"scenario": "basic",
+	"covers": [
+		"current-behavior-xliff-not-scanned"
+	]
+}

@@ -1,0 +1,10 @@
+{
+	"framework": "angular",
+	"translationFormat": "transloco-json",
+	"scenario": "basic",
+	"covers": [
+		"used",
+		"unused",
+		"missing-in-language"
+	]
+}

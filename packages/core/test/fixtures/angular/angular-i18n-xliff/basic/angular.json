@@ -1,0 +1,9 @@
+{
+	"version": 1,
+	"projects": {
+		"fixture-angular-i18n-xliff-basic": {
+			"root": "",
+			"sourceRoot": "src"
+		}
+	}
+}

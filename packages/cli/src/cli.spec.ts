@@ -5,7 +5,9 @@ import { parseCliArgs } from './args.js';
 import { runCli, ICliIo } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
 
-const FIXTURE_ROOT = fileURLToPath(new URL('../test/fixtures/angular-app', import.meta.url));
+const FIXTURE_ROOT = fileURLToPath(
+	new URL('../../core/test/fixtures/angular/ngx-translate-json/kitchen-sink', import.meta.url)
+);
 
 interface ICapturedIo extends ICliIo {
 	out: string[];

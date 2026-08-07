@@ -1,0 +1,8 @@
+{
+  "framework": "angular",
+  "translationFormat": "transloco-json",
+  "scenario": "pipe-gap",
+  "covers": [
+    "used"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+	"framework": "angular",
+	"translationFormat": "ngx-translate-json",
+	"scenario": "kitchen-sink",
+	"covers": [
+		"used",
+		"unused",
+		"missing-in-language",
+		"dynamic-uncertain",
+		"indirect-uncertain"
+	]
+}

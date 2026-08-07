@@ -1,0 +1,30 @@
+{
+	"adapterId": "angular",
+	"summary": {
+		"totalKeys": 2,
+		"used": 1,
+		"unused": 1,
+		"dynamicOrUncertain": 0,
+		"indirectUncertain": 0,
+		"missingInLanguage": 1,
+		"extraInLanguage": 0,
+		"totalFindings": 3
+	},
+	"findings": [
+		{
+			"key": "APP.MISSING",
+			"status": "missing-in-language",
+			"severity": "error"
+		},
+		{
+			"key": "APP.TITLE",
+			"status": "used",
+			"severity": "info"
+		},
+		{
+			"key": "APP.UNUSED",
+			"status": "unused",
+			"severity": "warning"
+		}
+	]
+}

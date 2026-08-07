@@ -1,0 +1,25 @@
+{
+  "adapterId": "angular",
+  "summary": {
+    "totalKeys": 2,
+    "used": 1,
+    "unused": 0,
+    "dynamicOrUncertain": 1,
+    "indirectUncertain": 1,
+    "missingInLanguage": 0,
+    "extraInLanguage": 0,
+    "totalFindings": 2
+  },
+  "findings": [
+    {
+      "key": "APP.LABELS.INDIRECT",
+      "status": "indirect-uncertain",
+      "severity": "warning"
+    },
+    {
+      "key": "APP.TITLE",
+      "status": "used",
+      "severity": "info"
+    }
+  ]
+}

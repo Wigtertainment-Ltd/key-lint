@@ -241,6 +241,30 @@ describe('angularScanAdapter', () => {
 		).toBeFalse();
 	});
 
+	it('detects transloco pipe keys in HTML templates', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title","SUBTITLE":"Subtitle"}}',
+			'workspace/project/src/app/sample.component.html':
+				"<h1>{{ 'APP.TITLE' | transloco }}</h1><p [title]=\"'APP.SUBTITLE' | transloco\"></p>"
+		});
+
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings = await angularScanAdapter.runRules({
+			definedKeys,
+			usedKeys,
+			context
+		});
+
+		expect(usedKeys.some((item) => item.key === 'APP.TITLE')).toBeTrue();
+		expect(usedKeys.some((item) => item.key === 'APP.SUBTITLE')).toBeTrue();
+		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
+		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.SUBTITLE')).toBeTrue();
+		expect(findings.some((item) => item.status === 'unused')).toBeFalse();
+	});
+
 	it('classifies keys built via translate concatenation as dynamic, not unused', async () => {
 		const fs = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
