@@ -18,15 +18,15 @@ translation never gets merged again.
 ## Why KeyLint?
 
 Translation keys drift. Someone renames a key, forgets a locale, or leaves a dead
-key behind after a refactor — and nobody notices until a user sees a raw
+key behind after a refactor - and nobody notices until a user sees a raw
 `DASHBOARD.TITLE` on screen. KeyLint scans your source **and** your translation
 files and tells you exactly what is wrong:
 
-- 🔴 **Missing keys** — used in code/templates but absent in a locale file
-- 🟡 **Unused keys** — defined in a locale file but never referenced
-- 🟡 **Extra keys** — present in one locale but missing in the base language
-- 🟡 **Dynamic / indirect keys** — resolved at runtime, flagged so you can review them
-- ✅ **Used keys** — confirmed and safe
+- 🔴 **Missing keys** - used in code/templates but absent in a locale file
+- 🟡 **Unused keys** - defined in a locale file but never referenced
+- 🟡 **Extra keys** - present in one locale but missing in the base language
+- 🟡 **Dynamic / indirect keys** - resolved at runtime, flagged so you can review them
+- ✅ **Used keys** - confirmed and safe
 
 The desktop app and the CLI run the **exact same scan engine**, so what you see
 while developing is what your pipeline enforces.
@@ -39,7 +39,7 @@ The fastest way to audit a project. No config required.
 
 1. Download the latest Windows installer or portable build from the
    [Releases](https://github.com/Wigtertainment-Ltd/key-lint/releases) page.
-2. Launch KeyLint and pick your project folder — the framework is detected
+2. Launch KeyLint and pick your project folder - the framework is detected
    automatically.
 3. Explore the results:
 
@@ -50,7 +50,7 @@ The fastest way to audit a project. No config required.
    | **Translation keys** | A locale matrix (keys × languages) with filters and a detail panel |
    | **History** | Every scan and change tracked per project |
 
-4. **Fix missing translations in place** — type the value and KeyLint writes it
+4. **Fix missing translations in place** - type the value and KeyLint writes it
    back into the correct (nested) spot in your locale JSON.
 
 > Light/dark theme included, with a `prefers-color-scheme` fallback.
@@ -87,14 +87,14 @@ and extra findings are emitted per affected locale. An explicitly configured
 locale that cannot be found is a configuration error.
 
 Precedence is: built-in defaults < `package.json` < config file < CLI flags.
-Arrays are replaced (never merged), and the config file is pure JSON — it can
+Arrays are replaced (never merged), and the config file is pure JSON - it can
 never execute code.
 
 ---
 
 ## 🖥️ Command line
 
-Run the same engine headless — no Electron, no browser. Requires Node ≥ 20.
+Run the same engine headless - no Electron, no browser. Requires Node ≥ 20.
 
 ```bash
 # One-off scan, no install
@@ -194,7 +194,7 @@ npx @key-lint/cli scan . --max-errors 0 --output markdown=keylint.md
 | Platforms (desktop) | Windows |
 
 More framework adapters (React/i18next, Vue/vue-i18n) and formats (YAML, XLIFF,
-PO) are on the roadmap. Contributions welcome — see
+PO) are on the roadmap. Contributions welcome - see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
