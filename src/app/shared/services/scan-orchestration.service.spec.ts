@@ -21,17 +21,38 @@ describe('ScanOrchestrationService translation updates', () => {
 		writtenPath = undefined;
 		writtenContent = undefined;
 		const tree: Record<string, IFakeEntry[]> = {
-			'C:/project': [{ name: 'src', type: 'directory' }],
-			'C:/project/src': [{ name: 'assets', type: 'directory' }],
+			'C:/project': [
+				{ name: 'angular.json', type: 'file' },
+				{ name: 'keylint.config.json', type: 'file' },
+				{ name: 'src', type: 'directory' },
+				{ name: 'translations', type: 'directory' }
+			],
+			'C:/project/src': [
+				{ name: 'app.component.html', type: 'file' },
+				{ name: 'assets', type: 'directory' }
+			],
 			'C:/project/src/assets': [{ name: 'i18n', type: 'directory' }],
 			'C:/project/src/assets/i18n': [
+				{ name: 'de.json', type: 'file' },
+				{ name: 'en.json', type: 'file' }
+			],
+			'C:/project/translations': [
 				{ name: 'de.json', type: 'file' },
 				{ name: 'en.json', type: 'file' }
 			]
 		};
 		const contents: Record<string, string> = {
+			'C:/project/angular.json': '{}',
+			'C:/project/keylint.config.json': JSON.stringify({
+				baseLocale: 'en',
+				includeTranslationGlobs: ['translations/*.json'],
+				includeSourceGlobs: ['src/*.html']
+			}),
+			'C:/project/src/app.component.html': "{{ 'APP.TITLE' | translate }}",
 			'C:/project/src/assets/i18n/de.json': '{}',
-			'C:/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title"}}'
+			'C:/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Default title"}}',
+			'C:/project/translations/de.json': '{}',
+			'C:/project/translations/en.json': '{"APP":{"TITLE":"Configured title"}}'
 		};
 		const electronService = {
 			isElectron: true,
@@ -58,6 +79,28 @@ describe('ScanOrchestrationService translation updates', () => {
 				{ provide: ProjectHistoryService, useValue: historyService },
 				{ provide: LoggerService, useValue: jasmine.createSpyObj('LoggerService', ['info', 'error']) }
 			]
+		});
+	});
+
+	it('uses project config for both scanning and later translation writes', async () => {
+		const service = TestBed.inject(ScanOrchestrationService);
+
+		const result = await service.scanProject('C:/project');
+
+		expect(result.metadata?.['configFilePath']).toBe('C:/project/keylint.config.json');
+		expect(result.metadata?.['packageJsonConfigApplied']).toBeFalse();
+		expect(result.metadata?.['translationFileCount']).toBe(2);
+		expect(result.translationMatrix?.rows[0].values['en']).toBe('Configured title');
+		expect(result.findings).toContain(jasmine.objectContaining({
+			id: 'missing:APP.TITLE:de',
+			language: 'de'
+		}));
+
+		await service.addTranslationKeyForLocale('de', 'APP.TITLE', 'Konfigurierter Titel');
+
+		expect(writtenPath).toBe('C:/project/translations/de.json');
+		expect(JSON.parse(writtenContent ?? '{}')).toEqual({
+			APP: { TITLE: 'Konfigurierter Titel' }
 		});
 	});
 

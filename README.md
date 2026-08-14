@@ -90,6 +90,10 @@ Precedence is: built-in defaults < `package.json` < config file < CLI flags.
 Arrays are replaced (never merged), and the config file is pure JSON - it can
 never execute code.
 
+The desktop app reloads `package.json` and `keylint.config.json` before every
+scan and uses the same validation and merge rules as the CLI. CLI flags remain
+the only CLI-specific precedence level.
+
 ---
 
 ## 🖥️ Command line

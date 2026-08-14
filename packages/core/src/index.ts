@@ -4,6 +4,7 @@ export * from './adapters/default-adapter-registry.js';
 export * from './adapters/scan-adapter.interface.js';
 export * from './config/scanner-config.js';
 export * from './config/scanner-defaults.js';
+export * from './config/resolve-config.js';
 export * from './models/finding.model.js';
 export * from './models/history-event.model.js';
 export * from './models/scan-result.model.js';

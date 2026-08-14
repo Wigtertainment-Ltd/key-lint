@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
 	IFileSystemAdapter,
+	IScannerConfig,
 	inferLocaleFromTranslationFile,
 	normalizePath,
 	IProjectScanResult,
@@ -14,6 +15,7 @@ import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import { ProjectHistoryService } from './project-history.service';
 import { LoggerService } from './logging/logger.service';
+import { DesktopScannerConfigService } from './desktop-scanner-config.service';
 
 export type ScanExecutionState = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -35,6 +37,8 @@ export class ScanOrchestrationService {
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly projectHistoryService: ProjectHistoryService = inject(ProjectHistoryService);
 	private readonly loggerService: LoggerService = inject(LoggerService);
+	private readonly desktopScannerConfigService: DesktopScannerConfigService = inject(DesktopScannerConfigService);
+	private activeScannerConfig: IScannerConfig = DEFAULT_SCANNER_CONFIG;
 
 	private withNormalizedSummary(result: IProjectScanResult): IProjectScanResult {
 		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
@@ -66,6 +70,7 @@ export class ScanOrchestrationService {
 	}
 
 	reset(): void {
+		this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
 		this.stateSubject.next({ state: 'idle' });
 	}
 
@@ -109,8 +114,8 @@ export class ScanOrchestrationService {
 	private async resolveLocaleTranslationFile(projectRoot: string, locale: string): Promise<string> {
 		const translationFiles = await this.fsAdapter.listFiles(
 			projectRoot,
-			DEFAULT_SCANNER_CONFIG.includeTranslationGlobs,
-			DEFAULT_SCANNER_CONFIG.excludeGlobs
+			this.activeScannerConfig.includeTranslationGlobs,
+			this.activeScannerConfig.excludeGlobs
 		);
 
 		const normalizedLocale = locale.trim().toLowerCase();
@@ -230,13 +235,15 @@ export class ScanOrchestrationService {
 			}
 		});
 
-		this.stateSubject.next({ state: 'running', stage: 'Detecting project adapter...' });
+		this.stateSubject.next({ state: 'running', stage: 'Loading scanner configuration...' });
 
 		try {
+			const loadedConfig = this.desktopScannerConfigService.load(normalizedProjectRoot);
+			this.activeScannerConfig = loadedConfig.config;
 			const rawResult = await runScan({
 				projectRoot: normalizedProjectRoot,
 				fs: this.fsAdapter,
-				config: DEFAULT_SCANNER_CONFIG,
+				config: loadedConfig.config,
 				onProgress: (progress) => {
 					if (progress.stage === 'completed') {
 						return;
@@ -246,7 +253,14 @@ export class ScanOrchestrationService {
 				}
 			});
 
-			const result = this.withNormalizedSummary(rawResult);
+			const result = this.withNormalizedSummary({
+				...rawResult,
+				metadata: {
+					...rawResult.metadata,
+					configFilePath: loadedConfig.configFilePath ?? null,
+					packageJsonConfigApplied: loadedConfig.packageJsonConfigApplied
+				}
+			});
 
 			this.stateSubject.next({
 				state: 'completed',
@@ -272,6 +286,7 @@ export class ScanOrchestrationService {
 
 			return result;
 		} catch (error) {
+			this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
 			this.loggerService.error('ScanOrchestrationService', 'Scan failed for project root:', normalizedProjectRoot, error);
 			const message = error instanceof Error ? error.message : 'Unknown scan error';
 			this.stateSubject.next({

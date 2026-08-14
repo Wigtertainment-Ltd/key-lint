@@ -39,7 +39,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 
 	readonly logLines = signal<string[]>([
 		'Initializing analyzer engine...',
-		'Loading local configuration: scanner defaults'
+		'Loading project configuration...'
 	]);
 
 	private fakeLogTimer?: ReturnType<typeof setTimeout>;

@@ -1,11 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
-import { mergeScannerConfig, parseScannerConfigOverrides, ScannerConfigError, IScannerConfigOverrides } from './scanner-config.js';
-import { DEFAULT_SCANNER_CONFIG, IScannerConfig } from './scanner-defaults.js';
+import { ScannerConfigError, IScannerConfigOverrides } from './scanner-config.js';
+import { IScannerConfig } from './scanner-defaults.js';
+import {
+	CONFIG_FILE_NAME,
+	resolveScannerConfigSources
+} from './resolve-config.js';
 import { normalizePath } from '../util/path.util.js';
 
-export const CONFIG_FILE_NAME = 'keylint.config.json';
-export const PACKAGE_JSON_CONFIG_KEY = 'keylint';
+export { CONFIG_FILE_NAME, PACKAGE_JSON_CONFIG_KEY } from './resolve-config.js';
 
 export interface ILoadScannerConfigOptions {
 	/** Directory the implicit config lookup starts from. */
@@ -46,16 +49,9 @@ async function readJsonFile(filePath: string): Promise<unknown> {
  */
 export async function loadScannerConfig(options: ILoadScannerConfigOptions): Promise<ILoadedScannerConfig> {
 	const projectRoot = resolve(options.projectRoot);
-	let config = DEFAULT_SCANNER_CONFIG;
 	let appliedConfigFilePath: string | undefined;
 
 	const packageJson = await readJsonFile(resolve(projectRoot, 'package.json'));
-	if (packageJson && typeof packageJson === 'object' && !Array.isArray(packageJson)) {
-		const embedded = (packageJson as Record<string, unknown>)[PACKAGE_JSON_CONFIG_KEY];
-		if (embedded !== undefined) {
-			config = mergeScannerConfig(config, parseScannerConfigOverrides(embedded));
-		}
-	}
 
 	const explicitPath = options.configPath
 		? isAbsolute(options.configPath)
@@ -70,11 +66,14 @@ export async function loadScannerConfig(options: ILoadScannerConfigOptions): Pro
 	}
 
 	if (fileContent !== undefined) {
-		config = mergeScannerConfig(config, parseScannerConfigOverrides(fileContent));
 		appliedConfigFilePath = normalizePath(configFilePath);
 	}
 
-	config = mergeScannerConfig(config, options.overrides ?? {});
+	const { config } = resolveScannerConfigSources({
+		packageJson,
+		configFile: fileContent,
+		overrides: options.overrides
+	});
 
 	return { config, configFilePath: appliedConfigFilePath };
 }

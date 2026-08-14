@@ -43,7 +43,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
   - `models/finding.model.ts`, `models/scan-result.model.ts`, `models/history-event.model.ts`
   - `adapters/scan-adapter.interface.ts`, `adapters/adapter-registry.ts`, `adapters/default-adapter-registry.ts`
   - `adapters/angular/angular-scan.adapter.ts`
-  - `config/scanner-defaults.ts`, `config/scanner-config.ts` (merge + validation), `config/load-config.ts` (Node only)
+  - `config/scanner-defaults.ts`, `config/scanner-config.ts`, `config/resolve-config.ts` (shared merge + validation), `config/load-config.ts` (Node only)
   - `scan/run-scan.ts` (the pipeline itself)
   - `fs/node-file-system.adapter.ts` (Node only, exported via `@key-lint/core/node`)
   - `util/` (path, glob and translation JSON helpers)
@@ -52,6 +52,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `src/app/shared/services/` — desktop runtime services
   - `electron.service.ts` (Electron/Node bridge)
   - `electron-file-system.adapter.ts` (FileSystemAdapter for the renderer)
+  - `desktop-scanner-config.service.ts` (Electron config loading through the shared core resolver)
   - `scan-orchestration.service.ts` (thin wrapper around `runScan`, state stream, translation writes)
   - `project-history.service.ts`, `recent-projects.service.ts`
 - `src/app/pages/` — routed pages
@@ -98,7 +99,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Reporters: `text` (stdout), `json` (machine readable, without the translation matrix), `markdown` (job summary / PR comment)
 - Thresholds: `--max-errors` (default 0), `--max-warnings` (default unlimited)
 - Exit codes: `0` thresholds respected, `1` thresholds exceeded, `2` usage/config/runtime error
-- Configuration: `keylint.config.json` or a `keylint` key in `package.json`; precedence defaults < package.json < config file < CLI flags
+- Configuration: desktop and CLI both load `keylint.config.json` or a `keylint` key in `package.json`; precedence defaults < package.json < config file < CLI flags
 - Distribution: npm packages, GitHub Action (`packages/action`), Docker image (`docker/Dockerfile`)
 - Details and pipeline templates: `docs/ci/`
 
@@ -151,7 +152,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Persistence for recent projects and history relies on `localStorage`, not on files on disk.
 - The desktop UI has no dedicated report export flow yet; JSON/Markdown reporting is available via `@key-lint/cli` and the GitHub Action in `packages/action`.
 - Scanning requires the Electron runtime; in a plain browser context the filesystem adapter returns no files.
-- Test coverage is concentrated in `src/app/app.component.spec.ts`, `packages/core/src/adapters/angular/angular-scan.adapter.spec.ts`, and `packages/cli/src/cli.spec.ts`.
+- Automated coverage includes core adapter/config integration, CLI thresholds/reporting, and desktop persistence, filesystem, configuration and translation-write services.
 - `strict: true` is not enabled in the TypeScript configuration.
 
 ## Suggested Next Milestones
