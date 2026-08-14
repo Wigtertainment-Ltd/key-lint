@@ -59,6 +59,7 @@ Place a `keylint.config.json` in your project root:
 
 ```json
 {
+  "baseLocale": "en",
   "includeTranslationGlobs": ["src/assets/i18n/**/*.json"],
   "includeSourceGlobs": ["**/*.html", "**/*.ts"],
   "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
@@ -69,6 +70,12 @@ Place a `keylint.config.json` in your project root:
   }
 }
 ```
+
+`baseLocale` defines the canonical key set for locale consistency checks. Keys
+missing from a target locale are errors; keys found only outside the base locale
+are warnings. Findings are reported per key and locale. If omitted, KeyLint
+prefers exact `en`, then the most complete `en-*` locale, then the most complete
+locale overall. A configured locale that is not discovered fails the scan.
 
 Alternatively embed the config in `package.json` under the `"keylint"` key.
 

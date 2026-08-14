@@ -8,6 +8,12 @@ import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from '.
 const FIXTURE_ROOT = fileURLToPath(
 	new URL('../../core/test/fixtures/angular/ngx-translate-json/kitchen-sink', import.meta.url)
 );
+const MULTI_LOCALE_FIXTURE_ROOT = fileURLToPath(
+	new URL('../test/fixtures/multi-locale', import.meta.url)
+);
+const INVALID_BASE_CONFIG = fileURLToPath(
+	new URL('../test/fixtures/multi-locale/invalid-base.config.json', import.meta.url)
+);
 
 interface ICapturedIo extends ICliIo {
 	out: string[];
@@ -33,7 +39,8 @@ function createIo(): ICapturedIo {
 interface IJsonReport {
 	schemaVersion: number;
 	severityCounts: { error: number; warning: number; info: number };
-	findings: Array<{ key: string; status: string; severity: string }>;
+	metadata: { baseLocale?: string; baseLocaleSelectionSource?: string };
+	findings: Array<{ key: string; status: string; severity: string; language: string | null }>;
 }
 
 function parseJsonReport(io: ICapturedIo): IJsonReport {
@@ -89,6 +96,72 @@ describe('runCli', () => {
 		expect(exitCode).toBe(EXIT_OK);
 		expect(report.findings.some((f) => f.key === 'APP.MISSING')).toBe(false);
 		expect(report.severityCounts.error).toBe(0);
+	});
+
+	it('counts per-locale findings against thresholds and reports their locales', async () => {
+		const failingIo = createIo();
+		const failingExitCode = await runCli(
+			['scan', MULTI_LOCALE_FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--max-errors', '2'],
+			failingIo
+		);
+		const report = parseJsonReport(failingIo);
+
+		expect(failingExitCode).toBe(EXIT_THRESHOLD_EXCEEDED);
+		expect(report.severityCounts.error).toBe(3);
+		expect(report.metadata).toMatchObject({ baseLocale: 'en', baseLocaleSelectionSource: 'exact-en' });
+		expect(report.findings).toContainEqual(expect.objectContaining({
+			key: 'APP.BASE_ONLY',
+			status: 'missing-in-language',
+			language: 'de'
+		}));
+		expect(report.findings).toContainEqual(expect.objectContaining({
+			key: 'APP.EXTRA',
+			status: 'extra-in-language',
+			language: 'de'
+		}));
+		expect(
+			report.findings
+				.filter((finding) => finding.key === 'APP.NOWHERE')
+				.map((finding) => finding.language)
+				.sort()
+		).toEqual(['de', 'en']);
+
+		const passingIo = createIo();
+		const passingExitCode = await runCli(
+			['scan', MULTI_LOCALE_FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--max-errors', '3'],
+			passingIo
+		);
+		expect(passingExitCode).toBe(EXIT_OK);
+
+		const ignoredIo = createIo();
+		await runCli(
+			[
+				'scan',
+				MULTI_LOCALE_FIXTURE_ROOT,
+				'--quiet',
+				'--reporter',
+				'json',
+				'--ignore',
+				'APP.NOWHERE',
+				'--max-errors',
+				'1'
+			],
+			ignoredIo
+		);
+		const ignoredReport = parseJsonReport(ignoredIo);
+		expect(ignoredReport.severityCounts.error).toBe(1);
+		expect(ignoredReport.findings.some((finding) => finding.key === 'APP.NOWHERE')).toBe(false);
+	});
+
+	it('fails clearly when configured baseLocale is not discovered', async () => {
+		const io = createIo();
+		const exitCode = await runCli(
+			['scan', MULTI_LOCALE_FIXTURE_ROOT, '--quiet', '--config', INVALID_BASE_CONFIG],
+			io
+		);
+
+		expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
+		expect(io.err.join('')).toContain('Configured baseLocale "fr" was not found');
 	});
 
 	it('writes a reporter to a file instead of stdout', async () => {

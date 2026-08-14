@@ -74,6 +74,8 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 
 ### Finding Model
 - `FindingStatus`: `used`, `unused`, `dynamic-uncertain`, `indirect-uncertain`, `missing-in-language`, `extra-in-language`
+- Missing and extra findings are emitted per affected locale and populate `language`.
+- The canonical locale is configured with `baseLocale` or selected automatically (`en`, English variant, most complete locale).
 - `FindingSeverity`: `info`, `warning`, `error`
 - Each finding carries evidence entries with file path, line, column, snippet and match type
 

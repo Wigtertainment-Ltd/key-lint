@@ -11,3 +11,4 @@ export * from './scan/run-scan.js';
 export * from './util/glob.util.js';
 export * from './util/path.util.js';
 export * from './util/translation-json.util.js';
+export * from './util/translation-matrix.util.js';

@@ -1,5 +1,6 @@
 import { IScannerConfig } from '../config/scanner-defaults.js';
 import { IFinding } from '../models/finding.model.js';
+import { BaseLocaleSelectionSource } from '../util/translation-matrix.util.js';
 import { ITranslationMatrix } from '../models/scan-result.model.js';
 
 export type TranslationFormat = 'json' | 'yaml' | 'xliff' | 'po';
@@ -50,6 +51,9 @@ export interface IScanAdapter {
 	runRules(input: {
 		definedKeys: string[];
 		usedKeys: IKeyUsage[];
+		translationMatrix: ITranslationMatrix;
+		baseLocale?: string;
+		baseLocaleSelectionSource: BaseLocaleSelectionSource;
 		context: IProjectContext;
 	}): Promise<IFinding[]>;
 }

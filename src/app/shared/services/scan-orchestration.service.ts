@@ -180,10 +180,36 @@ export class ScanOrchestrationService {
 			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
 		}
 
+		const resolvedFindingCount = existingResult.findings.filter(
+			(finding) =>
+				finding.status === 'missing-in-language' &&
+				finding.key === key &&
+				finding.language === locale
+		).length;
+
 		this.stateSubject.next({
 			...snapshot,
 			result: {
 				...existingResult,
+				findings: existingResult.findings.filter(
+					(finding) =>
+						!(
+							finding.status === 'missing-in-language' &&
+							finding.key === key &&
+							finding.language === locale
+						)
+				),
+				summary: {
+					...existingResult.summary,
+					missingInLanguage: Math.max(
+						0,
+						existingResult.summary.missingInLanguage - resolvedFindingCount
+					),
+					totalFindings: Math.max(
+						0,
+						existingResult.summary.totalFindings - resolvedFindingCount
+					)
+				},
 				translationMatrix: {
 					locales,
 					rows: updatedRows,

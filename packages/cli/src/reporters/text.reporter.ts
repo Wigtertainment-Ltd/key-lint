@@ -40,6 +40,10 @@ export const textReporter: IReporter = {
 				color
 			)
 		);
+		const baseLocale = result.metadata?.['baseLocale'];
+		if (typeof baseLocale === 'string') {
+			lines.push(paint(`base locale: ${baseLocale}`, ANSI.dim, color));
+		}
 
 		if (context.configFilePath) {
 			lines.push(paint(`config: ${context.configFilePath}`, ANSI.dim, color));
@@ -63,7 +67,8 @@ export const textReporter: IReporter = {
 					? paint('error  ', ANSI.red, color)
 					: paint('warning', ANSI.yellow, color);
 			const location = formatLocation(finding);
-			lines.push(`  ${severityLabel}  ${finding.message}`);
+			const localeLabel = finding.language ? ` [${finding.language}]` : '';
+			lines.push(`  ${severityLabel}${localeLabel}  ${finding.message}`);
 			if (location) {
 				lines.push(`           ${paint(location, ANSI.cyan, color)}`);
 			}

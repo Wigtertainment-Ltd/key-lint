@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { IFinding, IProjectScanResult } from '@key-lint/core';
+import { hasTranslationKey, IFinding, IProjectScanResult } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ToastService } from '../../shared/services/toast.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
@@ -28,6 +28,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		| 'unused'
 		| 'dynamic-uncertain'
 		| 'indirect-uncertain'
+		| 'extra-in-language'
 		| 'used' = 'all';
 	searchTerm = '';
 	selectedFindingId?: string;
@@ -40,7 +41,6 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	translationDrafts: Record<string, string> = {};
 	private readonly resolvedFindingIds = new Set<string>();
 	private readonly hiddenResolvedMissingFindingIds = new Set<string>();
-	private readonly hiddenResolvedMissingKeys = new Set<string>();
 	private readonly resolvedRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly animationStateVersion = signal(0);
 
@@ -110,6 +110,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			| 'unused'
 			| 'dynamic-uncertain'
 			| 'indirect-uncertain'
+			| 'extra-in-language'
 			| 'used'
 	): void {
 		this.activeFilter = filter;
@@ -208,8 +209,9 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 		try {
 			const key = this.selectedFinding.key;
-			const resolvedLocaleCount = this.selectedMissingLocales.length;
-			for (const locale of this.selectedMissingLocales) {
+			const resolvedLocales = [...this.selectedMissingLocales];
+			const resolvedLocaleCount = resolvedLocales.length;
+			for (const locale of resolvedLocales) {
 				await this.scanOrchestrationService.addTranslationKeyForLocale(
 					locale,
 					key,
@@ -218,7 +220,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 				);
 			}
 
-			this.reconcileResolvedMissingFindings(key);
+			this.reconcileResolvedMissingFindings(key, resolvedLocales);
 			this.ensureSelectedFinding();
 
 			this.toastService.success(`Added key to ${resolvedLocaleCount} locale file(s).`);
@@ -239,10 +241,6 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.animationStateVersion();
 		const normalizedSearch = this.searchTerm.trim().toLowerCase();
 		return this.findings.filter((finding) => {
-			if (finding.status === 'missing-in-language' && this.hiddenResolvedMissingKeys.has(finding.key)) {
-				return false;
-			}
-
 			if (this.hiddenResolvedMissingFindingIds.has(finding.id)) {
 				return false;
 			}
@@ -331,7 +329,9 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		const locales = this.matrixLocales;
+		const locales = this.selectedFinding.language
+			? [this.selectedFinding.language]
+			: this.matrixLocales;
 		if (!locales.length) {
 			return [];
 		}
@@ -341,7 +341,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return locales;
 		}
 
-		return locales.filter((locale) => !(row.values[locale] ?? ''));
+		return locales.filter((locale) => !hasTranslationKey(row, locale));
 	}
 
 	get canShowAddToTranslationsAction(): boolean {
@@ -367,13 +367,17 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		return this.resolvedFindingIds.has(finding.id);
 	}
 
-	private reconcileResolvedMissingFindings(key: string): void {
+	private reconcileResolvedMissingFindings(key: string, resolvedLocales: string[]): void {
 		if (!this.scanResult) {
 			return;
 		}
 
 		const resolvedMissingFindings = this.scanResult.findings.filter(
-			(finding) => finding.status === 'missing-in-language' && finding.key === key
+			(finding) =>
+				finding.status === 'missing-in-language' &&
+				finding.key === key &&
+				finding.language !== undefined &&
+				resolvedLocales.includes(finding.language)
 		);
 		if (!resolvedMissingFindings.length) {
 			return;
@@ -383,41 +387,46 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			this.resolvedFindingIds.add(finding.id);
 			this.hiddenResolvedMissingFindingIds.add(finding.id);
 		}
-		this.hiddenResolvedMissingKeys.add(key);
 		this.bumpAnimationStateVersion();
 
-		const existingTimer = this.resolvedRemovalTimers.get(key);
+		const resolutionId = `${key}::${resolvedLocales.slice().sort().join(',')}`;
+		const findingIds = resolvedMissingFindings.map((finding) => finding.id);
+		const existingTimer = this.resolvedRemovalTimers.get(resolutionId);
 		if (existingTimer) {
 			clearTimeout(existingTimer);
 		}
 
 		// In the Missing-only view users expect an immediate disappearance after adding translations.
 		if (this.activeFilter === 'missing-in-language') {
-			this.finalizeResolvedMissingFindings(key);
+			this.finalizeResolvedMissingFindings(findingIds, resolutionId);
 			return;
 		}
 
 		const timer = setTimeout(() => {
-			this.finalizeResolvedMissingFindings(key);
+			this.finalizeResolvedMissingFindings(findingIds, resolutionId);
 		}, 1600);
-		this.resolvedRemovalTimers.set(key, timer);
+		this.resolvedRemovalTimers.set(resolutionId, timer);
 	}
 
-	private finalizeResolvedMissingFindings(key: string): void {
+	get extraFilterCount(): number {
+		return this.findings.filter((finding) => finding.status === 'extra-in-language').length;
+	}
+
+	private finalizeResolvedMissingFindings(findingIds: string[], resolutionId: string): void {
 		if (!this.scanResult) {
 			return;
 		}
 
 		const resolvedMissingFindings = this.scanResult.findings.filter(
-			(finding) => finding.status === 'missing-in-language' && finding.key === key
+			(finding) => findingIds.includes(finding.id)
 		);
 		if (!resolvedMissingFindings.length) {
-			this.resolvedRemovalTimers.delete(key);
+			this.resolvedRemovalTimers.delete(resolutionId);
 			return;
 		}
 
 		const remainingFindings = this.scanResult.findings.filter(
-			(finding) => !(finding.status === 'missing-in-language' && finding.key === key)
+			(finding) => !findingIds.includes(finding.id)
 		);
 
 		const summary = this.scanResult.summary;
@@ -436,7 +445,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		}
 		this.bumpAnimationStateVersion();
 
-		this.resolvedRemovalTimers.delete(key);
+		this.resolvedRemovalTimers.delete(resolutionId);
 		this.ensureSelectedFinding();
 	}
 
@@ -551,7 +560,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get localeCount(): number {
-		const value = this.scanResult?.metadata?.['translationFileCount'];
+		const value = this.scanResult?.metadata?.['translationLocaleCount'];
 		return typeof value === 'number' ? value : 0;
 	}
 

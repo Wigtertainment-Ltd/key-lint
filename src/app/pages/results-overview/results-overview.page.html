@@ -15,11 +15,14 @@
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'indirect-uncertain'" (click)="onFilterChange('indirect-uncertain')">
 					Indirect ({{ indirectFilterCount }})
 				</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'extra-in-language'" (click)="onFilterChange('extra-in-language')">
+					Extra ({{ extraFilterCount }})
+				</button>
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'used'" (click)="onFilterChange('used')">Used ({{ usedFilterCount }})</button>
 			</div>
 
 			<div class="toolbar-right">
-				<span class="result-count">{{ filteredFindings.length }} of {{ allFilterCount }} keys</span>
+				<span class="result-count">{{ filteredFindings.length }} of {{ allFilterCount }} findings</span>
 				<label class="search-box">
 					<span class="material-symbols-outlined">search</span>
 					<input type="text" placeholder="Search key, message or file path" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
@@ -57,7 +60,7 @@
 									[class.dynamic]="isUncertainStatus(finding.status)"
 									[class.missing]="finding.status === 'missing-in-language'"
 									[class.extra]="finding.status === 'extra-in-language'">
-									{{ statusLabel(finding.status) }}
+									{{ statusLabel(finding.status) }}{{ finding.language ? ' · ' + finding.language : '' }}
 								</span>
 							</td>
 							<td class="path-cell">
@@ -122,7 +125,7 @@
 							[class.dynamic]="isUncertainStatus(selectedFinding.status)"
 							[class.missing]="selectedFinding.status === 'missing-in-language'"
 							[class.extra]="selectedFinding.status === 'extra-in-language'">
-							{{ statusLabel(selectedFinding.status) }}
+							{{ statusLabel(selectedFinding.status) }}{{ selectedFinding.language ? ' · ' + selectedFinding.language : '' }}
 						</span>
 						<span class="severity-label">{{ severityLabel(selectedFinding.severity) }} severity</span>
 					</div>
@@ -157,8 +160,8 @@
 						<strong>{{ selectedFinding.evidence.length }}</strong>
 					</div>
 					<div class="metric-card">
-						<p>Locales</p>
-						<strong>{{ selectedFinding.status === 'missing-in-language' ? '0/' + localeCount : localeCount + '/' + localeCount }}</strong>
+						<p>Affected locale</p>
+						<strong>{{ selectedFinding.language ?? 'All' }}</strong>
 					</div>
 				</section>
 

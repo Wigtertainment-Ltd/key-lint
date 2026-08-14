@@ -73,12 +73,18 @@ Nothing to configure to get started. When you need to tune it, drop a
 
 ```json
 {
+  "baseLocale": "en",
   "includeTranslationGlobs": ["src/assets/i18n/**/*.json"],
   "includeSourceGlobs": ["**/*.html", "**/*.ts"],
   "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
   "ignoreKeys": ["LEGACY.**", "VENDOR.*"]
 }
 ```
+
+`baseLocale` is optional. Without it, KeyLint selects exact `en`, then the most
+complete `en-*` locale, and finally the most complete discovered locale. Missing
+and extra findings are emitted per affected locale. An explicitly configured
+locale that cannot be found is a configuration error.
 
 Precedence is: built-in defaults < `package.json` < config file < CLI flags.
 Arrays are replaced (never merged), and the config file is pure JSON — it can

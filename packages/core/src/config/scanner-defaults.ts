@@ -4,6 +4,8 @@ export interface IScannerGuardrails {
 }
 
 export interface IScannerConfig {
+	/** Canonical locale used for cross-locale consistency checks. Auto-detected when omitted. */
+	baseLocale?: string;
 	includeTranslationGlobs: string[];
 	includeSourceGlobs: string[];
 	excludeGlobs: string[];
@@ -14,6 +16,7 @@ export interface IScannerConfig {
 }
 
 export const DEFAULT_SCANNER_CONFIG: IScannerConfig = {
+	baseLocale: undefined,
 	includeTranslationGlobs: [
 		'src/assets/i18n/**/*.json',
 		'assets/i18n/**/*.json',

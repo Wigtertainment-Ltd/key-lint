@@ -1,6 +1,7 @@
 import { DEFAULT_SCANNER_CONFIG, IScannerConfig, IScannerGuardrails } from './scanner-defaults.js';
 
 export interface IScannerConfigOverrides {
+	baseLocale?: string;
 	includeTranslationGlobs?: string[];
 	includeSourceGlobs?: string[];
 	excludeGlobs?: string[];
@@ -52,7 +53,7 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 	}
 
 	const source = raw as Record<string, unknown>;
-	const allowedKeys = new Set<string>([...STRING_ARRAY_KEYS, 'guardrails']);
+	const allowedKeys = new Set<string>([...STRING_ARRAY_KEYS, 'baseLocale', 'guardrails']);
 	const overrides: IScannerConfigOverrides = {};
 
 	for (const [key, value] of Object.entries(source)) {
@@ -64,6 +65,15 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 			throw new ScannerConfigError(
 				`Unknown configuration key "${key}". Allowed keys: ${[...allowedKeys].join(', ')}.`
 			);
+		}
+
+		if (key === 'baseLocale') {
+			if (typeof value !== 'string' || value.trim().length === 0) {
+				throw new ScannerConfigError('"baseLocale" must be a non-empty string.');
+			}
+
+			overrides.baseLocale = value.trim();
+			continue;
 		}
 
 		if (key === 'guardrails') {
@@ -98,6 +108,7 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 /** Merges overrides on top of a base config. Arrays are replaced, not concatenated. */
 export function mergeScannerConfig(base: IScannerConfig = DEFAULT_SCANNER_CONFIG, overrides: IScannerConfigOverrides = {}): IScannerConfig {
 	return {
+		baseLocale: overrides.baseLocale ?? base.baseLocale,
 		includeTranslationGlobs: overrides.includeTranslationGlobs ?? base.includeTranslationGlobs,
 		includeSourceGlobs: overrides.includeSourceGlobs ?? base.includeSourceGlobs,
 		excludeGlobs: overrides.excludeGlobs ?? base.excludeGlobs,

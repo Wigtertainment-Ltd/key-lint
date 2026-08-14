@@ -51,6 +51,7 @@ piped safely.
 
 ```json
 {
+  "baseLocale": "en",
   "includeTranslationGlobs": ["src/assets/i18n/**/*.json"],
   "includeSourceGlobs": ["**/*.html", "**/*.ts"],
   "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
@@ -61,6 +62,11 @@ piped safely.
   }
 }
 ```
+
+`baseLocale` is optional and defines the canonical translation key set. Missing
+and extra findings are emitted once per affected locale. Without an explicit
+value, KeyLint prefers exact `en`, then the most complete `en-*` locale, then the
+most complete locale overall. A configured locale that is not found is an error.
 
 Precedence: built-in defaults < `package.json` < config file < CLI flags.
 Arrays are replaced, never merged. Unknown keys fail the run.

@@ -134,10 +134,10 @@ export class DashboardPage implements OnInit {
 
 	get criticalDescription(): string {
 		if (this.missingKeys === 0) {
-			return 'No missing keys found in the current scan. Translation lookup coverage is stable.';
+			return 'No missing translations found in the current scan. Locale coverage is consistent.';
 		}
 
-		return `${this.missingKeys} missing key(s) found. These keys are referenced in source code but missing in locale files.`;
+		return `${this.missingKeys} missing translation(s) found across the discovered locales.`;
 	}
 
 	get optimizationDescription(): string {

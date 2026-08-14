@@ -1,0 +1,7 @@
+{
+  "name": "keylint-multi-locale-fixture",
+  "private": true,
+  "dependencies": {
+    "@angular/core": "0.0.0"
+  }
+}

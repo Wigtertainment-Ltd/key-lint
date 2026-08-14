@@ -8,6 +8,7 @@ Framework-agnostic i18n scan engine. Detects missing, unused and dynamically res
 - **Configurable guardrails** (max files, max file size) to keep scans fast
 - **`ignoreKeys`** glob patterns to suppress known false positives
 - **Progress callbacks** for live UI updates or CI logging
+- **Per-locale consistency checks** with configurable or automatic base locale selection
 - **Node-only APIs** (`@key-lint/core/node`) for CLI and pipeline usage
 
 ## Installation
@@ -30,6 +31,10 @@ const result = await runScan({
 
 console.log(result.summary.totalFindings); // → 37
 ```
+
+Set `config.baseLocale` to make one locale canonical. When omitted, the engine
+prefers exact `en`, then the most complete English variant, then the most complete
+discovered locale. Missing and extra findings carry the affected `language`.
 
 ## Usage (Node / CLI)
 

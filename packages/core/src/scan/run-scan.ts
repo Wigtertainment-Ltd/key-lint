@@ -5,6 +5,7 @@ import { DEFAULT_SCANNER_CONFIG, IScannerConfig } from '../config/scanner-defaul
 import { buildSummary, IProjectScanResult, ITranslationMatrix } from '../models/scan-result.model.js';
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
+import { resolveBaseLocale } from '../util/translation-matrix.util.js';
 
 export type ScanStage =
 	| 'detecting-adapter'
@@ -70,12 +71,20 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 	const translationMatrix = adapter.buildTranslationMatrix
 		? await adapter.buildTranslationMatrix(translationFiles, fs)
 		: EMPTY_TRANSLATION_MATRIX;
+	const baseLocaleSelection = resolveBaseLocale(translationMatrix, config.baseLocale);
 
 	report('scanning-source-usage', 'Scanning source key usage...');
 	const usedKeys = await adapter.extractUsedKeys(context, fs);
 
 	report('evaluating-rules', 'Evaluating scan rules...');
-	const rawFindings = await adapter.runRules({ definedKeys, usedKeys, context });
+	const rawFindings = await adapter.runRules({
+		definedKeys,
+		usedKeys,
+		translationMatrix,
+		baseLocale: baseLocaleSelection.locale,
+		baseLocaleSelectionSource: baseLocaleSelection.source,
+		context
+	});
 	const findings = config.ignoreKeys.length
 		? rawFindings.filter((finding) => !matchesAny(finding.key, config.ignoreKeys))
 		: rawFindings;
@@ -99,6 +108,8 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 			translationFileCount: translationFiles.length,
 			usedKeyEvidenceCount: usedKeys.length,
 			translationLocaleCount: translationMatrix.locales.length,
+			baseLocale: baseLocaleSelection.locale ?? null,
+			baseLocaleSelectionSource: baseLocaleSelection.source,
 			ignoredFindingCount
 		}
 	};

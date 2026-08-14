@@ -5,6 +5,7 @@ import { IAngularMarkers } from './angular.interfaces.js';
 import { DYNAMIC_PATTERNS, STATIC_HTML_PATTERNS, STATIC_TS_PATTERNS } from './extractors/translation-usage.patterns.js';
 import { extractMatches } from './extractors/pattern-matcher.util.js';
 import { extractTranslocoStructuralMatches } from './extractors/transloco/transloco-structural.extractor.js';
+import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/translation-matrix.util.js';
 
 function normalizePath(value: string): string {
 	return value.replace(/\\/g, '/').replace(/\/+/g, '/');
@@ -425,13 +426,21 @@ export const angularScanAdapter: IScanAdapter = {
 		return used;
 	},
 
-	async runRules(input: { definedKeys: string[]; usedKeys: IKeyUsage[]; context: IProjectContext }) {
+	async runRules(input: {
+		definedKeys: string[];
+		usedKeys: IKeyUsage[];
+		translationMatrix?: ITranslationMatrix;
+		baseLocale?: string;
+		baseLocaleSelectionSource?: BaseLocaleSelectionSource;
+		context: IProjectContext;
+	}) {
 		const findings: IFinding[] = [];
 		const staticUsage = new Set<string>();
 		const dynamicUsage = new Map<string, IKeyUsage>();
 		const dynamicPrefixes = new Map<string, IKeyUsage>();
 		const indirectLiteralUsage = new Map<string, IKeyUsage>();
 		const allDefined = new Set(input.definedKeys);
+		const translationMatrix = input.translationMatrix ?? { locales: [], rows: [], totalKeys: 0 };
 
 		for (const usage of input.usedKeys) {
 			if (usage.matchType === 'ts-indirect-key-literal') {
@@ -563,29 +572,97 @@ export const angularScanAdapter: IScanAdapter = {
 			});
 		}
 
+		if (input.baseLocale) {
+			const targetLocales = translationMatrix.locales.filter(
+				(locale) => locale !== input.baseLocale
+			);
+
+			for (const row of translationMatrix.rows) {
+				const isInBaseLocale = hasTranslationKey(row, input.baseLocale);
+
+				if (isInBaseLocale) {
+					for (const locale of targetLocales) {
+						if (hasTranslationKey(row, locale)) {
+							continue;
+						}
+
+						const evidence = input.usedKeys.filter(
+							(usage) => !usage.isDynamic && usage.key === row.key
+						);
+						findings.push({
+							id: `missing:${row.key}:${locale}`,
+							adapterId: this.id,
+							key: row.key,
+							status: 'missing-in-language',
+							severity: 'error',
+							language: locale,
+							message: `Key "${row.key}" is present in base locale "${input.baseLocale}" but missing in locale "${locale}".`,
+							evidence: evidence.map((usage) => ({
+								filePath: usage.filePath,
+								line: usage.line,
+								column: usage.column,
+								snippet: usage.snippet,
+								matchType: usage.matchType
+							}))
+						});
+					}
+
+					continue;
+				}
+
+				for (const locale of targetLocales) {
+					if (!hasTranslationKey(row, locale)) {
+						continue;
+					}
+
+					findings.push({
+						id: `extra:${row.key}:${locale}`,
+						adapterId: this.id,
+						key: row.key,
+						status: 'extra-in-language',
+						severity: 'warning',
+						language: locale,
+						message: `Key "${row.key}" exists in locale "${locale}" but not in base locale "${input.baseLocale}".`,
+						evidence: []
+					});
+				}
+			}
+		}
+
 		for (const usedKey of uniqueSorted([...staticUsage])) {
 			if (allDefined.has(usedKey)) {
 				continue;
 			}
 
 			const evidence = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === usedKey);
-			findings.push({
-				id: `missing:${usedKey}`,
-				adapterId: this.id,
-				key: usedKey,
-				status: 'missing-in-language',
-				severity: 'error',
-				message: `Key "${usedKey}" is used but not present in discovered translation files.`,
-				evidence: evidence.map((usage) => ({
-					filePath: usage.filePath,
-					line: usage.line,
-					column: usage.column,
-					snippet: usage.snippet,
-					matchType: usage.matchType
-				}))
-			});
+			const missingLocales = translationMatrix.locales.length > 0
+				? translationMatrix.locales
+				: [undefined];
+
+			for (const locale of missingLocales) {
+				findings.push({
+					id: locale ? `missing:${usedKey}:${locale}` : `missing:${usedKey}`,
+					adapterId: this.id,
+					key: usedKey,
+					status: 'missing-in-language',
+					severity: 'error',
+					language: locale,
+					message: locale
+						? `Key "${usedKey}" is used but missing in locale "${locale}".`
+						: `Key "${usedKey}" is used but not present in discovered translation files.`,
+					evidence: evidence.map((usage) => ({
+						filePath: usage.filePath,
+						line: usage.line,
+						column: usage.column,
+						snippet: usage.snippet,
+						matchType: usage.matchType
+					}))
+				});
+			}
 		}
 
-		return findings.sort((a, b) => a.key.localeCompare(b.key));
+		return findings.sort(
+			(a, b) => a.key.localeCompare(b.key) || (a.language ?? '').localeCompare(b.language ?? '')
+		);
 	}
 };
