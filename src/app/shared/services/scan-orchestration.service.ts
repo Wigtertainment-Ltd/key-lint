@@ -7,6 +7,7 @@ import {
 	inferLocaleFromTranslationFile,
 	normalizePath,
 	IProjectScanResult,
+	readTranslationJson,
 	runScan,
 	setNestedTranslationKey,
 	TranslationEventSource
@@ -132,17 +133,7 @@ export class ScanOrchestrationService {
 	}
 
 	private async readTranslationJson(filePath: string): Promise<Record<string, unknown>> {
-		try {
-			const raw = await this.fsAdapter.readFile(filePath);
-			const loaded = JSON.parse(raw) as unknown;
-			if (loaded !== null && typeof loaded === 'object' && !Array.isArray(loaded)) {
-				return loaded as Record<string, unknown>;
-			}
-		} catch {
-			// Fall through to create an empty JSON object.
-		}
-
-		return {};
+		return readTranslationJson(this.fsAdapter, filePath);
 	}
 
 	private updateMatrixWithAddedKey(locale: string, key: string, value: string): void {

@@ -94,6 +94,11 @@ The desktop app reloads `package.json` and `keylint.config.json` before every
 scan and uses the same validation and merge rules as the CLI. CLI flags remain
 the only CLI-specific precedence level.
 
+Translation files must contain valid JSON with an object at the root. An
+unreadable or invalid file stops the scan and reports its path instead of being
+silently omitted. The desktop editor applies the same validation before writing,
+so malformed files are never replaced with newly generated content.
+
 ---
 
 ## 🖥️ Command line

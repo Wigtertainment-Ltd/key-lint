@@ -14,6 +14,9 @@ const MULTI_LOCALE_FIXTURE_ROOT = fileURLToPath(
 const INVALID_BASE_CONFIG = fileURLToPath(
 	new URL('../test/fixtures/multi-locale/invalid-base.config.json', import.meta.url)
 );
+const INVALID_TRANSLATION_FIXTURE_ROOT = fileURLToPath(
+	new URL('../test/fixtures/invalid-translation', import.meta.url)
+);
 
 interface ICapturedIo extends ICliIo {
 	out: string[];
@@ -162,6 +165,20 @@ describe('runCli', () => {
 
 		expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 		expect(io.err.join('')).toContain('Configured baseLocale "fr" was not found');
+	});
+
+	it('fails without a partial report when a translation file contains invalid JSON', async () => {
+		const io = createIo();
+		const exitCode = await runCli(
+			['scan', INVALID_TRANSLATION_FIXTURE_ROOT, '--quiet', '--reporter', 'json'],
+			io
+		);
+
+		expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
+		expect(io.out).toHaveLength(0);
+		expect(io.files.size).toBe(0);
+		expect(io.err.join('')).toContain('Invalid JSON in translation file');
+		expect(io.err.join('')).toContain('/src/assets/i18n/de.json');
 	});
 
 	it('writes a reporter to a file instead of stdout', async () => {

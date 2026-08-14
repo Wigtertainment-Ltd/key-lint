@@ -489,4 +489,27 @@ describe('angularScanAdapter', () => {
 		expect(featureRow?.values['en']).toBe('Feature');
 		expect(featureRow?.values['fr']).toBe('');
 	});
+
+	it('fails key extraction when a translation file contains invalid JSON', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title"}}',
+			'workspace/project/src/assets/i18n/de.json': '{"APP":'
+		});
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+
+		await expect(angularScanAdapter.extractDefinedKeys(translationFiles, fs)).rejects.toThrowError(
+			/Invalid JSON in translation file "workspace\/project\/src\/assets\/i18n\/de\.json"/
+		);
+	});
+
+	it('fails matrix creation when a translation file has an array root', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/src/assets/i18n/en.json': '[]'
+		});
+		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+
+		await expect(angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs)).rejects.toThrowError(
+			'Translation file "workspace/project/src/assets/i18n/en.json" must contain a JSON object at the root.'
+		);
+	});
 });

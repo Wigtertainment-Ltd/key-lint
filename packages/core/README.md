@@ -9,6 +9,7 @@ Framework-agnostic i18n scan engine. Detects missing, unused and dynamically res
 - **`ignoreKeys`** glob patterns to suppress known false positives
 - **Progress callbacks** for live UI updates or CI logging
 - **Per-locale consistency checks** with configurable or automatic base locale selection
+- **Fail-fast translation validation** with file-specific errors for unreadable JSON, malformed JSON and non-object roots
 - **Node-only APIs** (`@key-lint/core/node`) for CLI and pipeline usage
 
 ## Installation
@@ -35,6 +36,10 @@ console.log(result.summary.totalFindings); // → 37
 Set `config.baseLocale` to make one locale canonical. When omitted, the engine
 prefers exact `en`, then the most complete English variant, then the most complete
 discovered locale. Missing and extra findings carry the affected `language`.
+
+Every discovered translation file must be readable, contain valid JSON and use
+an object as its root value. A violation rejects `runScan` with a
+`TranslationFileError`; no partial result is returned.
 
 ## Usage (Node / CLI)
 

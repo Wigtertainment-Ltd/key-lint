@@ -15,6 +15,7 @@ interface IFakeEntry {
 describe('ScanOrchestrationService translation updates', () => {
 	let writtenPath: string | undefined;
 	let writtenContent: string | undefined;
+	let contents: Record<string, string>;
 	let historyService: jasmine.SpyObj<ProjectHistoryService>;
 
 	beforeEach(() => {
@@ -41,7 +42,7 @@ describe('ScanOrchestrationService translation updates', () => {
 				{ name: 'en.json', type: 'file' }
 			]
 		};
-		const contents: Record<string, string> = {
+		contents = {
 			'C:/project/angular.json': '{}',
 			'C:/project/keylint.config.json': JSON.stringify({
 				baseLocale: 'en',
@@ -182,5 +183,72 @@ describe('ScanOrchestrationService translation updates', () => {
 			type: 'translation-key-added',
 			payload: jasmine.objectContaining({ locale: 'de', key: 'APP.TITLE' })
 		}));
+	});
+
+	it('fails the scan and exposes the file error when translation JSON is invalid', async () => {
+		contents['C:/project/translations/de.json'] = '{"APP":';
+		const service = TestBed.inject(ScanOrchestrationService);
+
+		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(
+			/Invalid JSON in translation file "C:\/project\/translations\/de\.json"/
+		);
+		expect(service.snapshot.state).toBe('failed');
+		expect(service.snapshot.result).toBeUndefined();
+		expect(service.snapshot.error).toContain('C:/project/translations/de.json');
+	});
+
+	it('never overwrites invalid translation JSON while adding a key', async () => {
+		const service = TestBed.inject(ScanOrchestrationService);
+		const result: IProjectScanResult = {
+			projectRoot: 'C:/project',
+			adapterId: 'angular',
+			startedAt: '2026-01-01T00:00:00.000Z',
+			finishedAt: '2026-01-01T00:00:01.000Z',
+			durationMs: 1000,
+			summary: {
+				totalKeys: 1,
+				used: 0,
+				unused: 0,
+				dynamicOrUncertain: 0,
+				indirectUncertain: 0,
+				missingInLanguage: 1,
+				extraInLanguage: 0,
+				totalFindings: 1
+			},
+			errors: [],
+			findings: [{
+				id: 'missing:APP.TITLE:de',
+				adapterId: 'angular',
+				key: 'APP.TITLE',
+				status: 'missing-in-language',
+				severity: 'error',
+				language: 'de',
+				message: 'Missing in de',
+				evidence: []
+			}],
+			translationMatrix: {
+				locales: ['de', 'en'],
+				totalKeys: 1,
+				rows: [{
+					key: 'APP.TITLE',
+					values: { de: '', en: 'Title' },
+					keyPresence: { de: false, en: true }
+				}]
+			}
+		};
+		const internal = service as unknown as {
+			stateSubject: BehaviorSubject<ScanExecutionSnapshot>;
+		};
+		internal.stateSubject.next({ state: 'completed', result });
+		contents['C:/project/src/assets/i18n/de.json'] = '{"APP":';
+
+		await expectAsync(
+			service.addTranslationKeyForLocale('de', 'APP.TITLE', 'Titel')
+		).toBeRejectedWithError(/Invalid JSON in translation file/);
+
+		expect(writtenPath).toBeUndefined();
+		expect(writtenContent).toBeUndefined();
+		expect(service.snapshot.result).toBe(result);
+		expect(historyService.addEvent).not.toHaveBeenCalled();
 	});
 });

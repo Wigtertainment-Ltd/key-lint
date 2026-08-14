@@ -6,6 +6,7 @@ import { DYNAMIC_PATTERNS, STATIC_HTML_PATTERNS, STATIC_TS_PATTERNS } from './ex
 import { extractMatches } from './extractors/pattern-matcher.util.js';
 import { extractTranslocoStructuralMatches } from './extractors/transloco/transloco-structural.extractor.js';
 import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/translation-matrix.util.js';
+import { readTranslationJson } from '../../util/translation-json.util.js';
 
 function normalizePath(value: string): string {
 	return value.replace(/\\/g, '/').replace(/\/+/g, '/');
@@ -333,13 +334,8 @@ export const angularScanAdapter: IScanAdapter = {
 		const allKeys: string[] = [];
 
 		for (const filePath of translationFiles) {
-			try {
-				const raw = await fs.readFile(filePath);
-				const parsed = JSON.parse(raw) as Record<string, unknown>;
-				allKeys.push(...flattenTranslationObject(parsed));
-			} catch {
-				// Parse errors are handled as findings later when rule pipeline carries parse diagnostics.
-			}
+			const parsed = await readTranslationJson(fs, filePath);
+			allKeys.push(...flattenTranslationObject(parsed));
 		}
 
 		return uniqueSorted(allKeys);
@@ -350,27 +346,22 @@ export const angularScanAdapter: IScanAdapter = {
 		const localeToPresence = new Map<string, Set<string>>();
 
 		for (const filePath of translationFiles) {
-			try {
-				const raw = await fs.readFile(filePath);
-				const parsed = JSON.parse(raw) as Record<string, unknown>;
-				const locale = inferLocaleFromTranslationFile(filePath);
-				const flattened: Record<string, string> = {};
-				flattenTranslationValueObject(parsed, '', flattened);
+			const parsed = await readTranslationJson(fs, filePath);
+			const locale = inferLocaleFromTranslationFile(filePath);
+			const flattened: Record<string, string> = {};
+			flattenTranslationValueObject(parsed, '', flattened);
 
-				const existing = localeToValues.get(locale) ?? {};
-				localeToValues.set(locale, {
-					...existing,
-					...flattened
-				});
+			const existing = localeToValues.get(locale) ?? {};
+			localeToValues.set(locale, {
+				...existing,
+				...flattened
+			});
 
-				const existingPresence = localeToPresence.get(locale) ?? new Set<string>();
-				for (const key of Object.keys(flattened)) {
-					existingPresence.add(key);
-				}
-				localeToPresence.set(locale, existingPresence);
-			} catch {
-				// Invalid translation files are ignored here and reflected by findings/rule checks.
+			const existingPresence = localeToPresence.get(locale) ?? new Set<string>();
+			for (const key of Object.keys(flattened)) {
+				existingPresence.add(key);
 			}
+			localeToPresence.set(locale, existingPresence);
 		}
 
 		const locales = uniqueSorted([...localeToValues.keys()]);

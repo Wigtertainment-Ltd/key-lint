@@ -68,7 +68,8 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 1. Detect project adapter (parent directories are also probed; best confidence wins)
 2. Collect translation files
 3. Extract defined translation keys
-4. Build the translation matrix (keys x locales)
+4. Build the translation matrix (keys x locales); unreadable, malformed or
+   non-object JSON fails the scan with the affected path
 5. Scan source files for key usage
 6. Evaluate scan rules and build findings + summary
 7. Emit `ScanExecutionSnapshot` (`idle` / `running` / `completed` / `failed`) and record history events
@@ -86,6 +87,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - TypeScript patterns: `translate.instant/get/stream/translate('key')` and similar service calls
 - Non-literal arguments are reported as `dynamic-uncertain` instead of being silently ignored
 - Key-like TypeScript string literals without direct translate evidence are reported as `indirect-uncertain`
+- Translation JSON is validated before analysis and before desktop write-back; invalid files are never silently skipped or overwritten
 
 ### Scanner Defaults (`DEFAULT_SCANNER_CONFIG`)
 - Translation globs: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`, `i18n/**/*.json`, `locales/**/*.json`, plus `apps|libs|packages/**/src/assets/i18n/**/*.json`

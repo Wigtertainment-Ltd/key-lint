@@ -43,7 +43,7 @@ Progress goes to **stderr**, reports go to **stdout** — so JSON output can be 
 | --- | --- |
 | `0` | Thresholds respected, no errors or warnings exceeded |
 | `1` | Error or warning threshold exceeded |
-| `2` | Usage error: invalid arguments, missing project path, unreadable config, no adapter detected |
+| `2` | Usage/runtime error: invalid arguments, missing project path, unreadable config or translation file, invalid translation JSON, no adapter detected |
 
 ### Severity mapping
 
@@ -76,6 +76,10 @@ missing from a target locale are errors; keys found only outside the base locale
 are warnings. Findings are reported per key and locale. If omitted, KeyLint
 prefers exact `en`, then the most complete `en-*` locale, then the most complete
 locale overall. A configured locale that is not discovered fails the scan.
+
+Translation files must be readable JSON objects. Malformed JSON, an array or
+another non-object root stops the scan with exit code `2`, prints the affected
+path to stderr and does not emit a partial report.
 
 Alternatively embed the config in `package.json` under the `"keylint"` key.
 
