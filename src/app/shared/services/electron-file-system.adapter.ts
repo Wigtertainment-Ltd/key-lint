@@ -13,7 +13,7 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 			return false;
 		}
 
-		return this.electronService.fs.existsSync(filePath);
+		return this.electronService.pathExists(filePath);
 	}
 
 	async readFile(filePath: string): Promise<string> {
@@ -21,7 +21,7 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 			throw new Error('Electron runtime is required for filesystem access.');
 		}
 
-		return this.electronService.fs.readFileSync(filePath, 'utf8');
+		return this.electronService.readFile(filePath);
 	}
 
 	async listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
@@ -40,17 +40,13 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 				continue;
 			}
 
-			const entries = this.electronService.fs.readdirSync(current, { withFileTypes: true }) as Array<{
-				isDirectory(): boolean;
-				isFile(): boolean;
-				name: string;
-			}>;
+			const entries = await this.electronService.readDirectory(current);
 
 			for (const entry of entries) {
 				const fullPath = `${current.replace(/[\\/]$/, '')}/${entry.name}`;
 				const normalizedFullPath = normalizePath(fullPath);
 
-				if (entry.isDirectory()) {
+				if (entry.isDirectory) {
 					const relativeDir = normalizedFullPath.replace(`${normalizedRoot}/`, '');
 					if (matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativeDir, excludeGlobs)) {
 						continue;
@@ -60,7 +56,7 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 					continue;
 				}
 
-				if (!entry.isFile()) {
+				if (!entry.isFile) {
 					continue;
 				}
 

@@ -39,7 +39,8 @@
 		"dist:win": "npm run build:electron && electron-builder --win --publish never",
 		"publish:win": "npm run build:electron && electron-builder --win --publish always",
 		"test": "npm run build:core && ng test",
-		"test:packages": "npm run build:core && npm run test --workspaces --if-present",
+		"test:electron": "node --test electron/ipc-handlers.spec.cjs electron/preload.spec.cjs",
+		"test:packages": "npm run build:core && npm run test --workspaces --if-present && npm run test:electron",
 		"lint": "ng lint",
 		"e2e": "ng e2e",
 		"icons": "powershell -NoProfile -ExecutionPolicy Bypass -File build/generate-icons.ps1"
@@ -54,7 +55,6 @@
 		"@angular/platform-browser": "22.1.0",
 		"@angular/platform-browser-dynamic": "22.1.0",
 		"@angular/router": "22.1.0",
-		"@electron/remote": "^2.1.2",
 		"@ngx-translate/core": "18.0.0",
 		"@ngx-translate/http-loader": "18.0.0",
 		"dayjs": "1.11.21",

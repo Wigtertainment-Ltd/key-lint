@@ -4,23 +4,21 @@ import { DesktopScannerConfigService } from './desktop-scanner-config.service';
 function electronWithFiles(files: Record<string, string>, isElectron = true): ElectronService {
 	return {
 		isElectron,
-		fs: {
-			existsSync: (path: string) => path in files,
-			readFileSync: (path: string) => files[path]
-		}
+		pathExists: async (path: string) => path in files,
+		readFile: async (path: string) => files[path]
 	} as unknown as ElectronService;
 }
 
 describe('DesktopScannerConfigService', () => {
-	it('uses defaults when no project configuration exists', () => {
-		const loaded = new DesktopScannerConfigService(electronWithFiles({})).load('C:\\project\\');
+	it('uses defaults when no project configuration exists', async () => {
+		const loaded = await new DesktopScannerConfigService(electronWithFiles({})).load('C:\\project\\');
 
 		expect(loaded.config.includeSourceGlobs).toContain('**/*.ts');
 		expect(loaded.configFilePath).toBeUndefined();
 		expect(loaded.packageJsonConfigApplied).toBeFalse();
 	});
 
-	it('loads package.json and lets keylint.config.json override it', () => {
+	it('loads package.json and lets keylint.config.json override it', async () => {
 		const service = new DesktopScannerConfigService(electronWithFiles({
 			'C:/project/package.json': JSON.stringify({
 				keylint: {
@@ -35,7 +33,7 @@ describe('DesktopScannerConfigService', () => {
 			})
 		}));
 
-		const loaded = service.load('C:/project');
+		const loaded = await service.load('C:/project');
 
 		expect(loaded.config.baseLocale).toBe('en');
 		expect(loaded.config.ignoreKeys).toEqual(['FILE.**']);
@@ -44,18 +42,18 @@ describe('DesktopScannerConfigService', () => {
 		expect(loaded.packageJsonConfigApplied).toBeTrue();
 	});
 
-	it('fails clearly for malformed JSON and unknown options', () => {
-		expect(() => new DesktopScannerConfigService(electronWithFiles({
+	it('fails clearly for malformed JSON and unknown options', async () => {
+		await expectAsync(new DesktopScannerConfigService(electronWithFiles({
 			'C:/project/keylint.config.json': '{invalid'
-		})).load('C:/project')).toThrowError(/Could not parse.*keylint\.config\.json/);
+		})).load('C:/project')).toBeRejectedWithError(/Could not parse.*keylint\.config\.json/);
 
-		expect(() => new DesktopScannerConfigService(electronWithFiles({
+		await expectAsync(new DesktopScannerConfigService(electronWithFiles({
 			'C:/project/keylint.config.json': JSON.stringify({ typoOption: true })
-		})).load('C:/project')).toThrowError(/Unknown configuration key "typoOption"/);
+		})).load('C:/project')).toBeRejectedWithError(/Unknown configuration key "typoOption"/);
 	});
 
-	it('returns defaults in a non-Electron browser context', () => {
-		const loaded = new DesktopScannerConfigService(electronWithFiles({}, false)).load('/project');
+	it('returns defaults in a non-Electron browser context', async () => {
+		const loaded = await new DesktopScannerConfigService(electronWithFiles({}, false)).load('/project');
 
 		expect(loaded.config.ignoreKeys).toEqual([]);
 		expect(loaded.packageJsonConfigApplied).toBeFalse();

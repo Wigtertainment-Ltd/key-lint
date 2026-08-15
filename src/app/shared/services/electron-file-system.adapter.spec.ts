@@ -9,15 +9,13 @@ interface IFakeEntry {
 function electronWithTree(tree: Record<string, IFakeEntry[]>, files: Record<string, string> = {}): ElectronService {
 	return {
 		isElectron: true,
-		fs: {
-			existsSync: (path: string) => path in tree || path in files,
-			readFileSync: (path: string) => files[path],
-			readdirSync: (path: string) => (tree[path] ?? []).map((entry) => ({
+		pathExists: async (path: string) => path in tree || path in files,
+		readFile: async (path: string) => files[path],
+		readDirectory: async (path: string) => (tree[path] ?? []).map((entry) => ({
 				name: entry.name,
-				isDirectory: () => entry.type === 'directory',
-				isFile: () => entry.type === 'file'
+				isDirectory: entry.type === 'directory',
+				isFile: entry.type === 'file'
 			}))
-		}
 	} as unknown as ElectronService;
 }
 

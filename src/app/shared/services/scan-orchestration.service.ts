@@ -95,7 +95,7 @@ export class ScanOrchestrationService {
 		const parsed = await this.readTranslationJson(match);
 		setNestedTranslationKey(parsed, key, value);
 		const serialized = `${JSON.stringify(parsed, null, 2)}\n`;
-		this.electronService.fs.writeFileSync(match, serialized, 'utf8');
+		await this.electronService.writeFile(match, serialized);
 		this.updateMatrixWithAddedKey(locale, key, value);
 		this.projectHistoryService.addEvent({
 			projectPath: projectRoot,
@@ -229,7 +229,7 @@ export class ScanOrchestrationService {
 		this.stateSubject.next({ state: 'running', stage: 'Loading scanner configuration...' });
 
 		try {
-			const loadedConfig = this.desktopScannerConfigService.load(normalizedProjectRoot);
+			const loadedConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot);
 			this.activeScannerConfig = loadedConfig.config;
 			const rawResult = await runScan({
 				projectRoot: normalizedProjectRoot,

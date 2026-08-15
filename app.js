@@ -1,11 +1,12 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain } = require('electron')
 const url = require('url');
 const path = require('path');
-const remoteMain = require('@electron/remote/main');
+const fs = require('fs/promises');
 const { autoUpdater } = require('electron-updater');
+const { registerIpcHandlers } = require('./electron/ipc-handlers');
 
 let mainWindow
-remoteMain.initialize();
+registerIpcHandlers({ ipcMain, dialog, app, fs });
 
 function createWindow() {
 	mainWindow = new BrowserWindow({
@@ -13,12 +14,12 @@ function createWindow() {
 		height: 800,
 		icon: path.join(__dirname, 'build', 'icon.png'),
 		webPreferences: {
-			nodeIntegration: true,
-			enableRemoteModule: true,
-			contextIsolation: false
+			preload: path.join(__dirname, 'preload.js'),
+			nodeIntegration: false,
+			contextIsolation: true,
+			sandbox: true
 		}
 	})
-	remoteMain.enable(mainWindow.webContents);
 
 	const startUrl = process.env.ELECTRON_START_URL;
 	if (startUrl) {

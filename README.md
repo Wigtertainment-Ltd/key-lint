@@ -229,6 +229,11 @@ The desktop app and the CLI run the exact same engine. `npm run build:core` has 
 run before the Angular build; the `build`, `start` and `test` scripts do that
 automatically.
 
+The Electron renderer is isolated and sandboxed: `nodeIntegration` is disabled,
+`contextIsolation` is enabled, and `preload.js` exposes only allowlisted dialog
+and filesystem operations through `window.keyLint`. Filesystem IPC validates
+absolute paths; renderer writes are additionally limited to JSON files and 2 MB.
+
 ## Development server
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.

@@ -33,7 +33,8 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 
 ## Architecture
 ### Runtime Structure
-- Main process: `app.js` (BrowserWindow 1200x800, `@electron/remote`, menu disabled)
+- Main process: `app.js` (BrowserWindow 1200x800, validated IPC handlers, menu disabled)
+- Sandboxed preload: `preload.js` exposes the narrow `window.keyLint` API through `contextBridge`
 - Renderer process (Angular standalone app): `src/main.ts`
 - Root component: `src/app/app.component.ts` (router outlet shell + theme initialization)
 - Routing: `src/app/app.routes.ts`
@@ -50,7 +51,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `packages/cli/` — `@key-lint/cli`, argument parsing, reporters (text/json/markdown), exit codes
 - `packages/action/` — GitHub Action wrapping the CLI
 - `src/app/shared/services/` — desktop runtime services
-  - `electron.service.ts` (Electron/Node bridge)
+  - `electron.service.ts` (typed client for the isolated preload bridge)
   - `electron-file-system.adapter.ts` (FileSystemAdapter for the renderer)
   - `desktop-scanner-config.service.ts` (Electron config loading through the shared core resolver)
   - `scan-orchestration.service.ts` (thin wrapper around `runScan`, state stream, translation writes)
@@ -114,7 +115,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 
 ## Technology Stack
 - Angular 18 (standalone bootstrap, standalone components, router)
-- Electron 31 + `@electron/remote`
+- Electron 43 with `contextIsolation`, renderer sandbox and IPC/preload bridge
 - TypeScript 5.5
 - SCSS with centralized design tokens in `src/styles.scss`
 - PrimeNG + PrimeFlex (UI styling framework)
@@ -130,11 +131,12 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Build CLI: `npm run build:cli`
 - Build frontend: `npm run build`
 - Run desktop unit tests: `npm test`
-- Run engine and CLI tests (Vitest): `npm run test:packages`
+- Run engine, CLI and Electron main/preload tests: `npm run test:packages`
 - Lint: `npm run lint`
 
 ## Project Structure (Key Files)
-- `app.js`: Electron main process and BrowserWindow setup
+- `app.js`: Electron main process and hardened BrowserWindow setup
+- `preload.js`, `electron/ipc-handlers.js`: allowlisted renderer bridge and validated IPC operations
 - `src/main.ts`: Angular app bootstrap
 - `src/app/app.config.ts`: Provider and translation module setup
 - `src/app/app.routes.ts`: Router configuration for selection, scan and analysis pages
@@ -146,7 +148,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `packages/cli/src/cli.ts`: CLI entry logic, reporter selection and exit codes
 - `src/app/shared/services/scan-orchestration.service.ts`: Desktop state wrapper and translation writes
 - `src/app/shared/services/project-history.service.ts`: Persisted project history events
-- `src/app/shared/services/electron.service.ts`: Access to Electron and Node APIs from Angular
+- `src/app/shared/services/electron.service.ts`: Typed access to the isolated `window.keyLint` preload API
 - `src/assets/i18n/en.json`: Base English translation resource for the app UI
 
 ## Current Status and Limitations

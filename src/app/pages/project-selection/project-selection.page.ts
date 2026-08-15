@@ -18,6 +18,7 @@ export class ProjectSelectionPage implements OnInit {
 	private readonly projectNameSignal = signal<string | undefined>(undefined);
 	private readonly isDragOverSignal = signal(false);
 	private readonly recentProjectsSignal = signal<IRecentProjectViewModel[]>([]);
+	private recentProjectsLoadId = 0;
 
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly recentProjectsService: RecentProjectsService = inject(RecentProjectsService);
@@ -57,7 +58,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	ngOnInit(): void {
-		this.loadRecentProjects();
+		void this.loadRecentProjects();
 	}
 
 	toggleTheme(): void {
@@ -75,10 +76,7 @@ export class ProjectSelectionPage implements OnInit {
 		}
 
 		try {
-			const result: Electron.OpenDialogReturnValue = await this.electronService.remote.dialog.showOpenDialog({
-				properties: ['openDirectory']
-			});
-			const selected = result.filePaths?.[0];
+			const selected = await this.electronService.selectProjectDirectory();
 			if (!selected) {
 				return;
 			}
@@ -114,7 +112,7 @@ export class ProjectSelectionPage implements OnInit {
 		}
 
 		const first = files[0] as ElectronFile;
-		const droppedPath = first.path || this.extractRootFromWebkitPath(first.webkitRelativePath);
+		const droppedPath = this.resolveSelectedFilePath(first);
 		if (!droppedPath) {
 			return;
 		}
@@ -130,7 +128,7 @@ export class ProjectSelectionPage implements OnInit {
 		}
 
 		const first = files[0] as ElectronFile;
-		const selectedPath = first.path || this.extractRootFromWebkitPath(first.webkitRelativePath);
+		const selectedPath = this.resolveSelectedFilePath(first);
 		if (!selectedPath) {
 			return;
 		}
@@ -157,7 +155,7 @@ export class ProjectSelectionPage implements OnInit {
 	onRemoveRecentProject(project: IRecentProjectViewModel, event: Event): void {
 		event.stopPropagation();
 		this.recentProjectsService.removeRecentProject(project.path);
-		this.loadRecentProjects();
+		void this.loadRecentProjects();
 
 		const selectedPath = this.projectPathSignal();
 		if (selectedPath && this.isSamePath(selectedPath, project.path)) {
@@ -188,9 +186,14 @@ export class ProjectSelectionPage implements OnInit {
 		this.scanOrchestrationService.reset();
 	}
 
-	private loadRecentProjects(): void {
+	private async loadRecentProjects(): Promise<void> {
 		this.loggerService.debug('ProjectSelectionPage', 'Loading recent projects...');
-		this.recentProjectsSignal.set(this.recentProjectsService.getRecentProjects().map((project) => ({
+		const loadId = ++this.recentProjectsLoadId;
+		const recentProjects = await this.recentProjectsService.getRecentProjects();
+		if (loadId !== this.recentProjectsLoadId) {
+			return;
+		}
+		this.recentProjectsSignal.set(recentProjects.map((project) => ({
 			...project,
 			name: this.getProjectName(project.path)
 		})));
@@ -200,6 +203,17 @@ export class ProjectSelectionPage implements OnInit {
 		const normalized = path.replaceAll('\\', '/');
 		const parts = normalized.split('/').filter(Boolean);
 		return parts.at(-1) ?? path;
+	}
+
+	private resolveSelectedFilePath(file: ElectronFile): string | undefined {
+		if (this.electronService.isElectron) {
+			const electronPath = this.electronService.getPathForFile(file);
+			if (electronPath) {
+				return electronPath;
+			}
+		}
+
+		return file.path || this.extractRootFromWebkitPath(file.webkitRelativePath);
 	}
 
 	private extractRootFromWebkitPath(webkitRelativePath?: string): string | undefined {

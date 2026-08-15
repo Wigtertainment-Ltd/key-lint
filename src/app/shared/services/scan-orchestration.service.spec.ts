@@ -57,19 +57,17 @@ describe('ScanOrchestrationService translation updates', () => {
 		};
 		const electronService = {
 			isElectron: true,
-			fs: {
-				readdirSync: (path: string) => (tree[path] ?? []).map((entry) => ({
-					name: entry.name,
-					isDirectory: () => entry.type === 'directory',
-					isFile: () => entry.type === 'file'
-				})),
-				readFileSync: (path: string) => contents[path],
-				writeFileSync: (path: string, content: string) => {
-					writtenPath = path;
-					writtenContent = content;
-				},
-				existsSync: (path: string) => path in tree || path in contents
-			}
+			readDirectory: async (path: string) => (tree[path] ?? []).map((entry) => ({
+				name: entry.name,
+				isDirectory: entry.type === 'directory',
+				isFile: entry.type === 'file'
+			})),
+			readFile: async (path: string) => contents[path],
+			writeFile: async (path: string, content: string) => {
+				writtenPath = path;
+				writtenContent = content;
+			},
+			pathExists: async (path: string) => path in tree || path in contents
 		} as unknown as ElectronService;
 		historyService = jasmine.createSpyObj<ProjectHistoryService>('ProjectHistoryService', ['addEvent']);
 

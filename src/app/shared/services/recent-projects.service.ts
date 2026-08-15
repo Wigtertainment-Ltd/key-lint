@@ -28,12 +28,12 @@ function dedupeKey(path: string): string {
 export class RecentProjectsService {
 	constructor(private readonly electronService: ElectronService) {}
 
-	getRecentProjects(): IRecentProjectItem[] {
+	async getRecentProjects(): Promise<IRecentProjectItem[]> {
 		const recentPaths = this.readStoredPaths();
-		return recentPaths.map((path) => ({
+		return Promise.all(recentPaths.map(async (path) => ({
 			path,
-			exists: this.pathExists(path)
-		}));
+			exists: await this.pathExists(path)
+		})));
 	}
 
 	addRecentProject(path: string): void {
@@ -89,13 +89,13 @@ export class RecentProjectsService {
 		}
 	}
 
-	private pathExists(path: string): boolean {
+	private async pathExists(path: string): Promise<boolean> {
 		if (!this.electronService.isElectron) {
 			return true;
 		}
 
 		try {
-			return this.electronService.fs.existsSync(path);
+			return await this.electronService.pathExists(path);
 		} catch {
 			return false;
 		}

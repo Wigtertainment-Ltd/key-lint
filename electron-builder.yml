@@ -9,6 +9,8 @@ directories:
 # node_modules of production dependencies are added automatically by electron-builder.
 files:
   - app.js
+  - preload.js
+  - electron/**/*
   - package.json
   - build/icon.png
   - dist/key-lint/browser/**/*

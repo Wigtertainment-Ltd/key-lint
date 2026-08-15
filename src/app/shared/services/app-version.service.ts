@@ -1,4 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+
+import { ElectronService } from './electron.service';
 
 const APP_VERSION_FALLBACK = '1.2.0';
 
@@ -6,30 +8,28 @@ const APP_VERSION_FALLBACK = '1.2.0';
 	providedIn: 'root'
 })
 export class AppVersionService {
-	private _version?: string;
+	private readonly versionSignal = signal(APP_VERSION_FALLBACK);
 
-	get version(): string {
-		if (this._version === undefined) {
-			this._version = this.loadVersion();
-		}
-		return this._version;
+	constructor(private readonly electronService: ElectronService) {
+		void this.loadVersion();
 	}
 
-	private loadVersion(): string {
-		const isElectron = !!(window && (window as any).process && (window as any).process.type);
+	get version(): string {
+		return this.versionSignal();
+	}
 
-		if (isElectron) {
-			try {
-				const fs = window.require('fs');
-				const path = window.require('path');
-				const packagePath = path.join(__dirname, '..', 'package.json');
-				const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
-				return pkg.version ?? APP_VERSION_FALLBACK;
-			} catch {
-				return APP_VERSION_FALLBACK;
-			}
+	private async loadVersion(): Promise<void> {
+		if (!this.electronService.isElectron) {
+			return;
 		}
 
-		return APP_VERSION_FALLBACK;
+		try {
+			const version = await this.electronService.getAppVersion();
+			if (version) {
+				this.versionSignal.set(version);
+			}
+		} catch {
+			// Keep the bundled fallback when the desktop bridge cannot provide a version.
+		}
 	}
 }

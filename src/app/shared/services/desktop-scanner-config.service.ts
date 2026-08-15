@@ -19,7 +19,7 @@ export interface IDesktopLoadedScannerConfig {
 export class DesktopScannerConfigService {
 	constructor(private readonly electronService: ElectronService) {}
 
-	load(projectRoot: string): IDesktopLoadedScannerConfig {
+	async load(projectRoot: string): Promise<IDesktopLoadedScannerConfig> {
 		const normalizedRoot = normalizePath(projectRoot).replace(/\/$/, '');
 		if (!this.electronService.isElectron) {
 			const resolved = resolveScannerConfigSources({});
@@ -31,8 +31,8 @@ export class DesktopScannerConfigService {
 
 		const packageJsonPath = `${normalizedRoot}/package.json`;
 		const configFilePath = `${normalizedRoot}/${CONFIG_FILE_NAME}`;
-		const packageJson = this.readJsonFileIfPresent(packageJsonPath);
-		const configFile = this.readJsonFileIfPresent(configFilePath);
+		const packageJson = await this.readJsonFileIfPresent(packageJsonPath);
+		const configFile = await this.readJsonFileIfPresent(configFilePath);
 		const resolved = resolveScannerConfigSources({ packageJson, configFile });
 
 		return {
@@ -42,14 +42,14 @@ export class DesktopScannerConfigService {
 		};
 	}
 
-	private readJsonFileIfPresent(filePath: string): unknown {
-		if (!this.electronService.fs.existsSync(filePath)) {
+	private async readJsonFileIfPresent(filePath: string): Promise<unknown> {
+		if (!await this.electronService.pathExists(filePath)) {
 			return undefined;
 		}
 
 		let raw: string;
 		try {
-			raw = this.electronService.fs.readFileSync(filePath, 'utf8');
+			raw = await this.electronService.readFile(filePath);
 		} catch (error) {
 			throw new ScannerConfigError(
 				`Could not read "${filePath}": ${error instanceof Error ? error.message : 'unknown error'}`
