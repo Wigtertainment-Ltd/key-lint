@@ -113,6 +113,24 @@
 			</div>
 		</header>
 
+		@if (fileSystemWarnings.length > 0) {
+			<aside class="app-status-bar" role="status" aria-live="polite">
+				<span class="material-symbols-outlined status-icon" aria-hidden="true">warning</span>
+				<div class="status-summary">
+					<strong>Scan completed with {{ fileSystemWarnings.length }} filesystem warning{{ fileSystemWarnings.length === 1 ? '' : 's' }}.</strong>
+					<span>Some files were skipped, so metrics and findings may be incomplete.</span>
+				</div>
+				<details class="status-details">
+					<summary>Show details</summary>
+					<ul>
+						@for (warning of fileSystemWarnings; track warning.code + ':' + (warning.filePath ?? warning.message)) {
+							<li>{{ warning.filePath ? warning.filePath + ': ' : '' }}{{ warning.message }}</li>
+						}
+					</ul>
+				</details>
+			</aside>
+		}
+
 		<section class="content-shell" [class.edge-to-edge]="isEdgeToEdgeContent">
 			<router-outlet></router-outlet>
 		</section>

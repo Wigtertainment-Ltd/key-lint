@@ -3,20 +3,11 @@ import { resolve } from 'node:path';
 
 import { IFileSystemAdapter } from '../adapters/scan-adapter.interface.js';
 import { DEFAULT_SCANNER_CONFIG, IScannerGuardrails } from '../config/scanner-defaults.js';
+import type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-system-warning.model.js';
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
 
-export type FileSystemWarningCode =
-	| 'file-too-large'
-	| 'max-files-reached'
-	| 'unreadable-directory'
-	| 'symlink-skipped';
-
-export interface IFileSystemWarning {
-	code: FileSystemWarningCode;
-	message: string;
-	filePath?: string;
-}
+export type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-system-warning.model.js';
 
 /**
  * Filesystem adapter for headless Node runtimes (CLI, CI).

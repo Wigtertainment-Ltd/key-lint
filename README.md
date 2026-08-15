@@ -99,6 +99,12 @@ unreadable or invalid file stops the scan and reports its path instead of being
 silently omitted. The desktop editor applies the same validation before writing,
 so malformed files are never replaced with newly generated content.
 
+The configured filesystem guardrails apply equally to desktop and CLI scans.
+Both skip oversized files and symbolic links, stop collecting after `maxFiles`,
+and report unreadable directories as warnings. Desktop warnings are shown above
+every analysis page in the shared app status bar and are also available in the
+scan metadata.
+
 ---
 
 ## 🖥️ Command line

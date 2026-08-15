@@ -41,6 +41,11 @@ Every discovered translation file must be readable, contain valid JSON and use
 an object as its root value. A violation rejects `runScan` with a
 `TranslationFileError`; no partial result is returned.
 
+Filesystem adapters can expose structured `IFileSystemWarning` values for
+oversized files, file-count limits, unreadable directories and skipped symbolic
+links. The Node CLI and Electron desktop adapters enforce the same configured
+guardrail values.
+
 ## Usage (Node / CLI)
 
 The Node subpath export exposes `NodeFileSystemAdapter` and config loading:

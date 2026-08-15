@@ -5,6 +5,8 @@ declare global {
 		name: string;
 		isDirectory: boolean;
 		isFile: boolean;
+		isSymbolicLink: boolean;
+		sizeBytes?: number;
 	}
 
 	interface IKeyLintDesktopApi {

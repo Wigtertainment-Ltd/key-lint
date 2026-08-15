@@ -4,18 +4,32 @@ import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 interface IFakeEntry {
 	name: string;
 	type: 'directory' | 'file';
+	sizeBytes?: number;
+	symbolicLink?: boolean;
 }
 
-function electronWithTree(tree: Record<string, IFakeEntry[]>, files: Record<string, string> = {}): ElectronService {
+function electronWithTree(
+	tree: Record<string, IFakeEntry[]>,
+	files: Record<string, string> = {},
+	unreadablePaths: string[] = []
+): ElectronService {
 	return {
 		isElectron: true,
 		pathExists: async (path: string) => path in tree || path in files,
 		readFile: async (path: string) => files[path],
-		readDirectory: async (path: string) => (tree[path] ?? []).map((entry) => ({
+		readDirectory: async (path: string) => {
+			if (unreadablePaths.includes(path)) {
+				throw new Error('Access denied');
+			}
+
+			return (tree[path] ?? []).map((entry) => ({
 				name: entry.name,
 				isDirectory: entry.type === 'directory',
-				isFile: entry.type === 'file'
-			}))
+				isFile: entry.type === 'file',
+				isSymbolicLink: entry.symbolicLink ?? false,
+				sizeBytes: entry.sizeBytes
+			}));
+		}
 	} as unknown as ElectronService;
 }
 
@@ -74,5 +88,45 @@ describe('ElectronFileSystemAdapter', () => {
 		await expectAsync(adapter.readFile('/project/file.ts')).toBeRejectedWithError(
 			'Electron runtime is required for filesystem access.'
 		);
+	});
+
+	it('enforces file count, file size, and symlink guardrails', async () => {
+		const guardedTree: Record<string, IFakeEntry[]> = {
+			'C:/project': [
+				{ name: 'large.json', type: 'file', sizeBytes: 20 },
+				{ name: 'linked.json', type: 'file', symbolicLink: true },
+				{ name: 'first.json', type: 'file', sizeBytes: 2 },
+				{ name: 'second.json', type: 'file', sizeBytes: 2 }
+			]
+		};
+		const adapter = new ElectronFileSystemAdapter(
+			electronWithTree(guardedTree),
+			{ maxFiles: 1, maxFileSizeBytes: 10 }
+		);
+
+		expect(await adapter.listFiles('C:/project', ['**/*.json'], [])).toEqual([
+			'C:/project/first.json'
+		]);
+		expect(adapter.warnings.map((warning) => warning.code)).toEqual([
+			'file-too-large',
+			'symlink-skipped',
+			'max-files-reached'
+		]);
+	});
+
+	it('continues the scan with a structured warning for unreadable directories', async () => {
+		const guardedTree: Record<string, IFakeEntry[]> = {
+			'C:/project': [{ name: 'restricted', type: 'directory' }]
+		};
+		const adapter = new ElectronFileSystemAdapter(
+			electronWithTree(guardedTree, {}, ['C:/project/restricted'])
+		);
+
+		expect(await adapter.listFiles('C:/project', ['**/*.json'], [])).toEqual([]);
+		expect(adapter.warnings).toEqual([jasmine.objectContaining({
+			code: 'unreadable-directory',
+			filePath: 'C:/project/restricted',
+			message: jasmine.stringContaining('Access denied')
+		})]);
 	});
 });

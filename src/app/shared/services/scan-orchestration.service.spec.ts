@@ -16,11 +16,13 @@ describe('ScanOrchestrationService translation updates', () => {
 	let writtenPath: string | undefined;
 	let writtenContent: string | undefined;
 	let contents: Record<string, string>;
+	let unreadablePaths: Set<string>;
 	let historyService: jasmine.SpyObj<ProjectHistoryService>;
 
 	beforeEach(() => {
 		writtenPath = undefined;
 		writtenContent = undefined;
+		unreadablePaths = new Set<string>();
 		const tree: Record<string, IFakeEntry[]> = {
 			'C:/project': [
 				{ name: 'angular.json', type: 'file' },
@@ -57,11 +59,19 @@ describe('ScanOrchestrationService translation updates', () => {
 		};
 		const electronService = {
 			isElectron: true,
-			readDirectory: async (path: string) => (tree[path] ?? []).map((entry) => ({
-				name: entry.name,
-				isDirectory: entry.type === 'directory',
-				isFile: entry.type === 'file'
-			})),
+			readDirectory: async (path: string) => {
+				if (unreadablePaths.has(path)) {
+					throw new Error('Access denied');
+				}
+
+				return (tree[path] ?? []).map((entry) => ({
+					name: entry.name,
+					isDirectory: entry.type === 'directory',
+					isFile: entry.type === 'file',
+					isSymbolicLink: false,
+					sizeBytes: contents[`${path}/${entry.name}`]?.length
+				}));
+			},
 			readFile: async (path: string) => contents[path],
 			writeFile: async (path: string, content: string) => {
 				writtenPath = path;
@@ -89,6 +99,8 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(result.metadata?.['configFilePath']).toBe('C:/project/keylint.config.json');
 		expect(result.metadata?.['packageJsonConfigApplied']).toBeFalse();
 		expect(result.metadata?.['translationFileCount']).toBe(2);
+		expect(result.metadata?.['fileSystemWarningCount']).toBe(0);
+		expect(result.metadata?.['fileSystemWarnings']).toEqual([]);
 		expect(result.translationMatrix?.rows[0].values['en']).toBe('Configured title');
 		expect(result.findings).toContain(jasmine.objectContaining({
 			id: 'missing:APP.TITLE:de',
@@ -101,6 +113,41 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(JSON.parse(writtenContent ?? '{}')).toEqual({
 			APP: { TITLE: 'Konfigurierter Titel' }
 		});
+	});
+
+	it('keeps scanning and exposes filesystem guardrail warnings in metadata', async () => {
+		unreadablePaths.add('C:/project/src/assets');
+		const service = TestBed.inject(ScanOrchestrationService);
+
+		const result = await service.scanProject('C:/project');
+		const warnings = result.metadata?.['fileSystemWarnings'] as Array<{
+			code: string;
+			filePath?: string;
+		}>;
+
+		expect(result.metadata?.['fileSystemWarningCount']).toBeGreaterThan(0);
+		expect(warnings).toContain(jasmine.objectContaining({
+			code: 'unreadable-directory',
+			filePath: 'C:/project/src/assets'
+		}));
+	});
+
+	it('applies guardrails loaded from the desktop project configuration', async () => {
+		contents['C:/project/keylint.config.json'] = JSON.stringify({
+			includeTranslationGlobs: ['translations/*.json'],
+			includeSourceGlobs: ['src/*.html'],
+			guardrails: {
+				maxFiles: 1,
+				maxFileSizeBytes: 2_097_152
+			}
+		});
+		const service = TestBed.inject(ScanOrchestrationService);
+
+		const result = await service.scanProject('C:/project');
+		const warnings = result.metadata?.['fileSystemWarnings'] as Array<{ code: string }>;
+
+		expect(result.metadata?.['translationFileCount']).toBe(1);
+		expect(warnings).toContain(jasmine.objectContaining({ code: 'max-files-reached' }));
 	});
 
 	it('writes nested JSON and resolves only the matching locale finding', async () => {

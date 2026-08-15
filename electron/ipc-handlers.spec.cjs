@@ -16,11 +16,21 @@ function createHarness() {
 		},
 		readFile: async (filePath, encoding) => `${filePath}:${encoding}`,
 		writeFile: async (...args) => void writes.push(args),
-		readdir: async () => [{
-			name: 'en.json',
-			isDirectory: () => false,
-			isFile: () => true
-		}]
+		stat: async () => ({ size: 42 }),
+		readdir: async () => [
+			{
+				name: 'en.json',
+				isDirectory: () => false,
+				isFile: () => true,
+				isSymbolicLink: () => false
+			},
+			{
+				name: 'linked',
+				isDirectory: () => false,
+				isFile: () => false,
+				isSymbolicLink: () => true
+			}
+		]
 	};
 	registerIpcHandlers({
 		ipcMain,
@@ -41,7 +51,10 @@ test('registers the fixed IPC surface and returns serializable values', async ()
 	assert.equal(await handlers.get(IPC_CHANNELS.pathExists)(null, 'C:\\missing'), false);
 	assert.deepEqual(
 		await handlers.get(IPC_CHANNELS.readDirectory)(null, 'C:\\project'),
-		[{ name: 'en.json', isDirectory: false, isFile: true }]
+		[
+			{ name: 'en.json', isDirectory: false, isFile: true, isSymbolicLink: false, sizeBytes: 42 },
+			{ name: 'linked', isDirectory: false, isFile: false, isSymbolicLink: true, sizeBytes: undefined }
+		]
 	);
 });
 

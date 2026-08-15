@@ -2,7 +2,6 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
-	IFileSystemAdapter,
 	IScannerConfig,
 	inferLocaleFromTranslationFile,
 	normalizePath,
@@ -34,7 +33,7 @@ export class ScanOrchestrationService {
 	private readonly stateSubject = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'idle' });
 	readonly state$ = this.stateSubject.asObservable();
 
-	private readonly fsAdapter: IFileSystemAdapter;
+	private readonly fsAdapter: ElectronFileSystemAdapter;
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly projectHistoryService: ProjectHistoryService = inject(ProjectHistoryService);
 	private readonly loggerService: LoggerService = inject(LoggerService);
@@ -72,6 +71,7 @@ export class ScanOrchestrationService {
 
 	reset(): void {
 		this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
+		this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
 		this.stateSubject.next({ state: 'idle' });
 	}
 
@@ -231,6 +231,7 @@ export class ScanOrchestrationService {
 		try {
 			const loadedConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot);
 			this.activeScannerConfig = loadedConfig.config;
+			this.fsAdapter.configureGuardrails(loadedConfig.config.guardrails);
 			const rawResult = await runScan({
 				projectRoot: normalizedProjectRoot,
 				fs: this.fsAdapter,
@@ -249,7 +250,9 @@ export class ScanOrchestrationService {
 				metadata: {
 					...rawResult.metadata,
 					configFilePath: loadedConfig.configFilePath ?? null,
-					packageJsonConfigApplied: loadedConfig.packageJsonConfigApplied
+					packageJsonConfigApplied: loadedConfig.packageJsonConfigApplied,
+					fileSystemWarningCount: this.fsAdapter.warnings.length,
+					fileSystemWarnings: this.fsAdapter.warnings
 				}
 			});
 
@@ -278,6 +281,7 @@ export class ScanOrchestrationService {
 			return result;
 		} catch (error) {
 			this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
+			this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
 			this.loggerService.error('ScanOrchestrationService', 'Scan failed for project root:', normalizedProjectRoot, error);
 			const message = error instanceof Error ? error.message : 'Unknown scan error';
 			this.stateSubject.next({

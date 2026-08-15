@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { IFileSystemWarning } from '@key-lint/core';
 import { Subscription } from 'rxjs';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
@@ -20,6 +21,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	projectPath = '';
 	lastScanText = 'Running now';
 	isSidebarCollapsed = false;
+	private readonly fileSystemWarningsSignal = signal<IFileSystemWarning[]>([]);
 
 	readonly themeService = inject(ThemeService);
 	readonly appVersionService = inject(AppVersionService);
@@ -40,6 +42,10 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 			if (snapshot.result?.finishedAt) {
 				this.lastScanText = snapshot.result.finishedAt;
 			}
+
+			this.fileSystemWarningsSignal.set(this.readFileSystemWarnings(
+				snapshot.result?.metadata?.['fileSystemWarnings']
+			));
 		});
 	}
 
@@ -73,6 +79,23 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 			this.router.url.includes('/analysis/dashboard') ||
 			this.router.url.includes('/analysis/results') ||
 			this.router.url.includes('/analysis/translation-keys')
+		);
+	}
+
+	get fileSystemWarnings(): IFileSystemWarning[] {
+		return this.fileSystemWarningsSignal();
+	}
+
+	private readFileSystemWarnings(value: unknown): IFileSystemWarning[] {
+		if (!Array.isArray(value)) {
+			return [];
+		}
+
+		return value.filter((warning): warning is IFileSystemWarning =>
+			warning !== null &&
+			typeof warning === 'object' &&
+			typeof (warning as IFileSystemWarning).code === 'string' &&
+			typeof (warning as IFileSystemWarning).message === 'string'
 		);
 	}
 

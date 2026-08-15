@@ -27,6 +27,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
   - History page based on persisted project events
   - Documentation page
 - Direct editing: missing translation values can be written back into the locale JSON file (nested keys are created correctly)
+- Desktop and CLI filesystem adapters enforce the same file-count, file-size and symlink guardrails
 - Persisted project history (`scan-started`, `scan-completed`, `translation-key-added`), max. 500 events per project
 - Light/dark theme with `prefers-color-scheme` fallback and `localStorage` persistence
 - ngx-translate configuration for the app's own UI language (default `en`)
@@ -156,6 +157,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Persistence for recent projects and history relies on `localStorage`, not on files on disk.
 - The desktop UI has no dedicated report export flow yet; JSON/Markdown reporting is available via `@key-lint/cli` and the GitHub Action in `packages/action`.
 - Scanning requires the Electron runtime; in a plain browser context the filesystem adapter returns no files.
+- Desktop filesystem warnings are attached to scan metadata and shown in the shared analysis-layout status bar.
 - Automated coverage includes core adapter/config integration, CLI thresholds/reporting, and desktop persistence, filesystem, configuration and translation-write services.
 - `strict: true` is not enabled in the TypeScript configuration.
 

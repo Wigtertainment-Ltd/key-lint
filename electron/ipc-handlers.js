@@ -50,13 +50,25 @@ function registerIpcHandlers({ ipcMain, dialog, app, fs }) {
 	});
 
 	ipcMain.handle(IPC_CHANNELS.readDirectory, async (_event, directoryPath) => {
-		const entries = await fs.readdir(assertAbsolutePath(directoryPath, 'Directory path'), {
+		const resolvedDirectoryPath = assertAbsolutePath(directoryPath, 'Directory path');
+		const entries = await fs.readdir(resolvedDirectoryPath, {
 			withFileTypes: true
 		});
-		return entries.map((entry) => ({
-			name: entry.name,
-			isDirectory: entry.isDirectory(),
-			isFile: entry.isFile()
+		return Promise.all(entries.map(async (entry) => {
+			const isSymbolicLink = entry.isSymbolicLink();
+			let sizeBytes;
+			if (entry.isFile() && !isSymbolicLink) {
+				const stats = await fs.stat(path.join(resolvedDirectoryPath, entry.name));
+				sizeBytes = stats.size;
+			}
+
+			return {
+				name: entry.name,
+				isDirectory: entry.isDirectory(),
+				isFile: entry.isFile(),
+				isSymbolicLink,
+				sizeBytes
+			};
 		}));
 	});
 }

@@ -1,4 +1,11 @@
-import { IFileSystemAdapter, matchesAny, normalizePath } from '@key-lint/core';
+import {
+	DEFAULT_SCANNER_CONFIG,
+	IFileSystemAdapter,
+	IFileSystemWarning,
+	IScannerGuardrails,
+	matchesAny,
+	normalizePath
+} from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
 /**
@@ -6,7 +13,24 @@ import { ElectronService } from './electron.service';
  * The CLI uses its own Node based adapter from `@key-lint/core`.
  */
 export class ElectronFileSystemAdapter implements IFileSystemAdapter {
-	constructor(private readonly electronService: ElectronService) { }
+	private collectedWarnings: IFileSystemWarning[] = [];
+	private guardrails: IScannerGuardrails;
+
+	constructor(
+		private readonly electronService: ElectronService,
+		guardrails: IScannerGuardrails = DEFAULT_SCANNER_CONFIG.guardrails
+	) {
+		this.guardrails = { ...guardrails };
+	}
+
+	get warnings(): IFileSystemWarning[] {
+		return [...this.collectedWarnings];
+	}
+
+	configureGuardrails(guardrails: IScannerGuardrails): void {
+		this.guardrails = { ...guardrails };
+		this.collectedWarnings = [];
+	}
 
 	async fileExists(filePath: string): Promise<boolean> {
 		if (!this.electronService.isElectron) {
@@ -40,15 +64,36 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 				continue;
 			}
 
-			const entries = await this.electronService.readDirectory(current);
+			let entries: IKeyLintDirectoryEntry[];
+			try {
+				entries = await this.electronService.readDirectory(current);
+			} catch (error) {
+				this.collectedWarnings.push({
+					code: 'unreadable-directory',
+					filePath: normalizePath(current),
+					message: `Directory could not be read: ${error instanceof Error ? error.message : 'unknown error'}`
+				});
+				continue;
+			}
 
 			for (const entry of entries) {
 				const fullPath = `${current.replace(/[\\/]$/, '')}/${entry.name}`;
 				const normalizedFullPath = normalizePath(fullPath);
+				const relativePath = normalizedFullPath.startsWith(`${normalizedRoot}/`)
+					? normalizedFullPath.slice(normalizedRoot.length + 1)
+					: normalizedFullPath;
+
+				if (entry.isSymbolicLink) {
+					this.collectedWarnings.push({
+						code: 'symlink-skipped',
+						filePath: normalizedFullPath,
+						message: 'Symbolic links are not followed during a scan.'
+					});
+					continue;
+				}
 
 				if (entry.isDirectory) {
-					const relativeDir = normalizedFullPath.replace(`${normalizedRoot}/`, '');
-					if (matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativeDir, excludeGlobs)) {
+					if (matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativePath, excludeGlobs)) {
 						continue;
 					}
 
@@ -60,15 +105,33 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 					continue;
 				}
 
-				const relativeFile = normalizedFullPath.replace(`${normalizedRoot}/`, '');
 				const included =
-					matchesAny(normalizedFullPath, includeGlobs) || matchesAny(relativeFile, includeGlobs);
+					matchesAny(normalizedFullPath, includeGlobs) || matchesAny(relativePath, includeGlobs);
 				const excluded =
-					matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativeFile, excludeGlobs);
+					matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativePath, excludeGlobs);
 
-				if (included && !excluded) {
-					results.push(normalizedFullPath);
+				if (!included || excluded) {
+					continue;
 				}
+
+				if (results.length >= this.guardrails.maxFiles) {
+					this.collectedWarnings.push({
+						code: 'max-files-reached',
+						message: `Stopped after ${this.guardrails.maxFiles} files. Narrow the include globs or raise guardrails.maxFiles.`
+					});
+					return results;
+				}
+
+				if ((entry.sizeBytes ?? 0) > this.guardrails.maxFileSizeBytes) {
+					this.collectedWarnings.push({
+						code: 'file-too-large',
+						filePath: normalizedFullPath,
+						message: `Skipped because it exceeds guardrails.maxFileSizeBytes (${this.guardrails.maxFileSizeBytes} bytes).`
+					});
+					continue;
+				}
+
+				results.push(normalizedFullPath);
 			}
 		}
 
