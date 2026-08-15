@@ -222,6 +222,133 @@
 	}
 }
 
+.scan-settings {
+	display: flex;
+	flex-direction: column;
+	gap: 0.85rem;
+	padding: 1rem;
+	border: 1px solid var(--outline-variant);
+	border-radius: 0.5rem;
+	background: var(--surface-container-low);
+}
+
+.scan-settings-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 1rem;
+
+	h3 {
+		margin: 0;
+		font-size: 14px;
+		line-height: 20px;
+	}
+
+	p {
+		margin: 0.15rem 0 0;
+		font-size: 12px;
+		line-height: 17px;
+		color: var(--on-surface-variant);
+	}
+}
+
+.reset-settings-btn {
+	border: 1px solid var(--outline-variant);
+	border-radius: 0.4rem;
+	background: var(--surface);
+	color: var(--primary);
+	padding: 0.35rem 0.65rem;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+
+	&:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+}
+
+.settings-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.85rem;
+}
+
+.setting-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+
+	.setting-label {
+		font-size: 12px;
+		font-weight: 700;
+		color: var(--on-surface);
+	}
+
+	input {
+		width: 100%;
+		box-sizing: border-box;
+		border: 1px solid var(--outline-variant);
+		border-radius: 0.4rem;
+		background: var(--surface-container-lowest);
+		color: var(--on-surface);
+		padding: 0.55rem 0.65rem;
+		font: inherit;
+		font-size: 13px;
+
+		&:focus {
+			outline: 2px solid var(--primary-container);
+			outline-offset: 1px;
+		}
+	}
+
+	small {
+		font-size: 10px;
+		font-weight: 700;
+		color: var(--on-surface-variant);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+}
+
+.input-with-unit {
+	display: flex;
+	align-items: center;
+
+	input {
+		border-radius: 0.4rem 0 0 0.4rem;
+	}
+
+	> span {
+		align-self: stretch;
+		display: inline-flex;
+		align-items: center;
+		padding: 0 0.65rem;
+		border: 1px solid var(--outline-variant);
+		border-left: 0;
+		border-radius: 0 0.4rem 0.4rem 0;
+		background: var(--surface-container-high);
+		font-size: 11px;
+		font-weight: 700;
+		color: var(--on-surface-variant);
+	}
+}
+
+.settings-state {
+	margin: 0;
+	font-size: 12px;
+	line-height: 17px;
+	color: var(--on-surface-variant);
+
+	&.error {
+		color: var(--error);
+	}
+
+	&.warning {
+		color: var(--on-warning-container, #6b4d00);
+	}
+}
+
 .recent-projects {
 	display: flex;
 	flex-direction: column;
@@ -474,5 +601,9 @@
 @media (max-width: 640px) {
 	.card {
 		padding: 1rem;
+	}
+
+	.settings-grid {
+		grid-template-columns: 1fr;
 	}
 }

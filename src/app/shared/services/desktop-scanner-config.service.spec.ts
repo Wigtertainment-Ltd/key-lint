@@ -58,4 +58,25 @@ describe('DesktopScannerConfigService', () => {
 		expect(loaded.config.ignoreKeys).toEqual([]);
 		expect(loaded.packageJsonConfigApplied).toBeFalse();
 	});
+
+	it('applies temporary overrides last and reports guardrail value sources', async () => {
+		const service = new DesktopScannerConfigService(electronWithFiles({
+			'C:/project/package.json': JSON.stringify({
+				keylint: { guardrails: { maxFiles: 500 } }
+			}),
+			'C:/project/keylint.config.json': JSON.stringify({
+				guardrails: { maxFileSizeBytes: 4096 }
+			})
+		}));
+
+		const loaded = await service.load('C:/project', {
+			guardrails: { maxFiles: 25 }
+		});
+
+		expect(loaded.config.guardrails).toEqual({ maxFiles: 25, maxFileSizeBytes: 4096 });
+		expect(loaded.guardrailSources).toEqual({
+			maxFiles: 'override',
+			maxFileSizeBytes: 'config-file'
+		});
+	});
 });

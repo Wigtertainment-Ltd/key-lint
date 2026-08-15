@@ -150,6 +150,24 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(warnings).toContain(jasmine.objectContaining({ code: 'max-files-reached' }));
 	});
 
+	it('applies temporary desktop overrides and records their effective source', async () => {
+		const service = TestBed.inject(ScanOrchestrationService);
+		service.setNextScanConfigOverrides({
+			guardrails: { maxFiles: 50, maxFileSizeBytes: 1_048_576 }
+		});
+
+		const result = await service.scanProject('C:/project');
+
+		expect(result.metadata?.['guardrails']).toEqual({
+			maxFiles: 50,
+			maxFileSizeBytes: 1_048_576
+		});
+		expect(result.metadata?.['guardrailSources']).toEqual({
+			maxFiles: 'override',
+			maxFileSizeBytes: 'override'
+		});
+	});
+
 	it('writes nested JSON and resolves only the matching locale finding', async () => {
 		const service = TestBed.inject(ScanOrchestrationService);
 		const result: IProjectScanResult = {

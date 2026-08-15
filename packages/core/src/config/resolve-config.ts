@@ -1,4 +1,4 @@
-import { DEFAULT_SCANNER_CONFIG, IScannerConfig } from './scanner-defaults.js';
+import { DEFAULT_SCANNER_CONFIG, IScannerConfig, IScannerGuardrails } from './scanner-defaults.js';
 import {
 	IScannerConfigOverrides,
 	mergeScannerConfig,
@@ -18,6 +18,22 @@ export interface IResolvedScannerConfig {
 	config: IScannerConfig;
 	packageJsonConfigApplied: boolean;
 	configFileApplied: boolean;
+	guardrailSources: Record<keyof IScannerGuardrails, ScannerConfigValueSource>;
+}
+
+export type ScannerConfigValueSource = 'default' | 'package-json' | 'config-file' | 'override';
+
+function updateGuardrailSources(
+	sources: Record<keyof IScannerGuardrails, ScannerConfigValueSource>,
+	overrides: IScannerConfigOverrides,
+	source: ScannerConfigValueSource
+): void {
+	if (overrides.guardrails?.maxFiles !== undefined) {
+		sources.maxFiles = source;
+	}
+	if (overrides.guardrails?.maxFileSizeBytes !== undefined) {
+		sources.maxFileSizeBytes = source;
+	}
 }
 
 /**
@@ -29,21 +45,31 @@ export function resolveScannerConfigSources(sources: IScannerConfigSources): IRe
 	let config = DEFAULT_SCANNER_CONFIG;
 	let packageJsonConfigApplied = false;
 	let configFileApplied = false;
+	const guardrailSources: Record<keyof IScannerGuardrails, ScannerConfigValueSource> = {
+		maxFiles: 'default',
+		maxFileSizeBytes: 'default'
+	};
 
 	if (sources.packageJson && typeof sources.packageJson === 'object' && !Array.isArray(sources.packageJson)) {
 		const embedded = (sources.packageJson as Record<string, unknown>)[PACKAGE_JSON_CONFIG_KEY];
 		if (embedded !== undefined) {
-			config = mergeScannerConfig(config, parseScannerConfigOverrides(embedded));
+			const packageOverrides = parseScannerConfigOverrides(embedded);
+			config = mergeScannerConfig(config, packageOverrides);
+			updateGuardrailSources(guardrailSources, packageOverrides, 'package-json');
 			packageJsonConfigApplied = true;
 		}
 	}
 
 	if (sources.configFile !== undefined) {
-		config = mergeScannerConfig(config, parseScannerConfigOverrides(sources.configFile));
+		const configFileOverrides = parseScannerConfigOverrides(sources.configFile);
+		config = mergeScannerConfig(config, configFileOverrides);
+		updateGuardrailSources(guardrailSources, configFileOverrides, 'config-file');
 		configFileApplied = true;
 	}
 
-	config = mergeScannerConfig(config, sources.overrides ?? {});
+	const finalOverrides = sources.overrides ?? {};
+	config = mergeScannerConfig(config, finalOverrides);
+	updateGuardrailSources(guardrailSources, finalOverrides, 'override');
 
-	return { config, packageJsonConfigApplied, configFileApplied };
+	return { config, packageJsonConfigApplied, configFileApplied, guardrailSources };
 }

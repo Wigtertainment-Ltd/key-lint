@@ -44,4 +44,21 @@ describe('resolveScannerConfigSources', () => {
 			/non-empty string/
 		);
 	});
+
+	it('tracks the winning source for each guardrail value', () => {
+		const resolved = resolveScannerConfigSources({
+			packageJson: { keylint: { guardrails: { maxFiles: 500 } } },
+			configFile: { guardrails: { maxFileSizeBytes: 4096 } },
+			overrides: { guardrails: { maxFiles: 25 } }
+		});
+
+		expect(resolved.config.guardrails).toEqual({
+			maxFiles: 25,
+			maxFileSizeBytes: 4096
+		});
+		expect(resolved.guardrailSources).toEqual({
+			maxFiles: 'override',
+			maxFileSizeBytes: 'config-file'
+		});
+	});
 });

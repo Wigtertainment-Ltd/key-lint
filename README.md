@@ -94,6 +94,11 @@ The desktop app reloads `package.json` and `keylint.config.json` before every
 scan and uses the same validation and merge rules as the CLI. CLI flags remain
 the only CLI-specific precedence level.
 
+After selecting a project, the desktop app shows the effective file-count and
+file-size guardrails together with their source. Values changed there apply only
+to the next analysis and do not modify project files. Desktop precedence is:
+built-in defaults < `package.json` < `keylint.config.json` < pre-scan override.
+
 Translation files must contain valid JSON with an object at the root. An
 unreadable or invalid file stops the scan and reports its path instead of being
 silently omitted. The desktop editor applies the same validation before writing,

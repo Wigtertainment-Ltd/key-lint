@@ -28,6 +28,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
   - Documentation page
 - Direct editing: missing translation values can be written back into the locale JSON file (nested keys are created correctly)
 - Desktop and CLI filesystem adapters enforce the same file-count, file-size and symlink guardrails
+- The project-selection page previews effective guardrails and accepts validated, one-scan desktop overrides without modifying project files
 - Persisted project history (`scan-started`, `scan-completed`, `translation-key-added`), max. 500 events per project
 - Light/dark theme with `prefers-color-scheme` fallback and `localStorage` persistence
 - ngx-translate configuration for the app's own UI language (default `en`)

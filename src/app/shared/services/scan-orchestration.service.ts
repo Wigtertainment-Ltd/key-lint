@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
 	IScannerConfig,
+	IScannerConfigOverrides,
 	inferLocaleFromTranslationFile,
 	normalizePath,
 	IProjectScanResult,
@@ -39,6 +40,7 @@ export class ScanOrchestrationService {
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	private readonly desktopScannerConfigService: DesktopScannerConfigService = inject(DesktopScannerConfigService);
 	private activeScannerConfig: IScannerConfig = DEFAULT_SCANNER_CONFIG;
+	private nextScanConfigOverrides: IScannerConfigOverrides = {};
 
 	private withNormalizedSummary(result: IProjectScanResult): IProjectScanResult {
 		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
@@ -71,8 +73,16 @@ export class ScanOrchestrationService {
 
 	reset(): void {
 		this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
+		this.nextScanConfigOverrides = {};
 		this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
 		this.stateSubject.next({ state: 'idle' });
+	}
+
+	setNextScanConfigOverrides(overrides: IScannerConfigOverrides): void {
+		this.nextScanConfigOverrides = {
+			...overrides,
+			guardrails: overrides.guardrails ? { ...overrides.guardrails } : undefined
+		};
 	}
 
 	async addTranslationKeyForLocale(
@@ -229,7 +239,10 @@ export class ScanOrchestrationService {
 		this.stateSubject.next({ state: 'running', stage: 'Loading scanner configuration...' });
 
 		try {
-			const loadedConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot);
+			const loadedConfig = await this.desktopScannerConfigService.load(
+				normalizedProjectRoot,
+				this.nextScanConfigOverrides
+			);
 			this.activeScannerConfig = loadedConfig.config;
 			this.fsAdapter.configureGuardrails(loadedConfig.config.guardrails);
 			const rawResult = await runScan({
@@ -251,6 +264,8 @@ export class ScanOrchestrationService {
 					...rawResult.metadata,
 					configFilePath: loadedConfig.configFilePath ?? null,
 					packageJsonConfigApplied: loadedConfig.packageJsonConfigApplied,
+					guardrails: { ...loadedConfig.config.guardrails },
+					guardrailSources: { ...loadedConfig.guardrailSources },
 					fileSystemWarningCount: this.fsAdapter.warnings.length,
 					fileSystemWarnings: this.fsAdapter.warnings
 				}

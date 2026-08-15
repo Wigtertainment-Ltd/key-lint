@@ -46,6 +46,10 @@ oversized files, file-count limits, unreadable directories and skipped symbolic
 links. The Node CLI and Electron desktop adapters enforce the same configured
 guardrail values.
 
+`resolveScannerConfigSources` also returns `guardrailSources`, identifying the
+winning source (`default`, `package-json`, `config-file` or `override`) for each
+effective guardrail.
+
 ## Usage (Node / CLI)
 
 The Node subpath export exposes `NodeFileSystemAdapter` and config loading:

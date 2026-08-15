@@ -57,6 +57,61 @@
 				</div>
 			</div>
 
+			@if (hasSelection) {
+				<section class="scan-settings" aria-labelledby="scan-settings-title">
+					<div class="scan-settings-header">
+						<div>
+							<h3 id="scan-settings-title">Scan settings</h3>
+							<p>Temporary limits for the next scan. Project files are not changed.</p>
+						</div>
+						<button type="button" class="reset-settings-btn" (click)="resetScanSettings()" [disabled]="scanSettingsLoading || !!scanSettingsError">
+							Reset
+						</button>
+					</div>
+
+					@if (scanSettingsLoading) {
+						<p class="settings-state">Loading effective project configuration...</p>
+					} @else if (scanSettingsError) {
+						<p class="settings-state error" role="alert">{{ scanSettingsError }}</p>
+					} @else {
+						<div class="settings-grid">
+							<label class="setting-field">
+								<span class="setting-label">Maximum files</span>
+								<input
+									type="number"
+									min="1"
+									step="1"
+									[value]="maxFilesInput"
+									(input)="onMaxFilesInput(($any($event.target).value ?? '').toString())"
+								/>
+								<small>{{ guardrailSourceLabel('maxFiles') }}</small>
+							</label>
+
+							<label class="setting-field">
+								<span class="setting-label">Maximum file size</span>
+								<span class="input-with-unit">
+									<input
+										type="number"
+										min="0.000001"
+										step="any"
+										[value]="maxFileSizeMbInput"
+										(input)="onMaxFileSizeMbInput(($any($event.target).value ?? '').toString())"
+									/>
+									<span>MB</span>
+								</span>
+								<small>{{ guardrailSourceLabel('maxFileSizeBytes') }}</small>
+							</label>
+						</div>
+
+						@if (scanSettingsValidationError) {
+							<p class="settings-state error" role="alert">{{ scanSettingsValidationError }}</p>
+						} @else if (scanSettingsHighLimitWarning) {
+							<p class="settings-state warning">{{ scanSettingsHighLimitWarning }}</p>
+						}
+					}
+				</section>
+			}
+
 			@if (hasRecentProjects) {
 				<section class="recent-projects" aria-label="Recently opened projects">
 					<div class="recent-header">
@@ -94,7 +149,7 @@
 				</section>
 			}
 
-			<button type="button" class="start-btn" [disabled]="!hasSelection" (click)="startAnalysis()">
+			<button type="button" class="start-btn" [disabled]="!canStartAnalysis" (click)="startAnalysis()">
 				<span>Start Analysis</span>
 				<span class="material-symbols-outlined">arrow_forward</span>
 			</button>
