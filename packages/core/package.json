@@ -1,6 +1,6 @@
 {
 	"name": "@key-lint/core",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"description": "Framework-agnostic i18n scan engine used by the KeyLint desktop app and CLI.",
 	"author": "Wigtertainment Ltd",
 	"license": "MIT",
@@ -53,8 +53,8 @@
 		"publish:pkg": "npm run build && npm publish"
 	},
 	"devDependencies": {
-		"@types/node": "^20.14.0",
-		"typescript": "~5.5.2",
-		"vitest": "^2.1.8"
+		"@types/node": "^26.2.0",
+		"typescript": "~6.0.3",
+		"vitest": "^4.1.10"
 	}
 }
