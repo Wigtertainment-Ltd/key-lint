@@ -16,21 +16,56 @@ files:
   - dist/key-lint/browser/**/*
 
 asar: true
-forceCodeSigning: true
 
 win:
+  forceCodeSigning: true
   # Multi-size icon (16-256px) generated from build/logo.png by build/generate-icons.ps1.
   icon: build/icon.ico
-  # electron-builder 25 passes file paths unquoted to Invoke-TrustedSigning, so the executable
+  # electron-builder passes file paths unquoted to Invoke-TrustedSigning, so the executable
   # name must not contain spaces ("Check i18n.exe" breaks Azure Trusted Signing).
   executableName: key-lint
-  # Azure Trusted Signing (Microsoft) is configured by .github/workflows/release-windows.yml via
-  # `-c.win.sign.*`. The values come from GitHub secrets and cannot live here.
+  # Azure Trusted Signing (Microsoft) is configured by .github/workflows/release-desktop.yml via
+  # `--config.win.azureSignOptions.*`. The values come from GitHub secrets and cannot live here.
   target:
     - target: nsis
       arch:
         - x64
     - target: portable
+      arch:
+        - x64
+
+mac:
+  forceCodeSigning: true
+  icon: build/icon.png
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  notarize: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  artifactName: KeyLint-${version}-macos-${arch}.${ext}
+  target:
+    - target: dmg
+      arch:
+        - universal
+    # The ZIP is required by electron-updater to generate latest-mac.yml.
+    - target: zip
+      arch:
+        - universal
+
+linux:
+  icon: build/icon.png
+  executableName: key-lint
+  category: Development
+  maintainer: Wigtertainment Ltd <keylint@wigtertainment.ltd>
+  vendor: Wigtertainment Ltd
+  synopsis: Audit Angular translation keys
+  description: Desktop tool for auditing i18n translation keys in Angular projects.
+  artifactName: KeyLint-${version}-linux-${arch}.${ext}
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
       arch:
         - x64
 
@@ -43,10 +78,10 @@ nsis:
   shortcutName: KeyLint
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
-  artifactName: KeyLint-Setup-${version}.${ext}
+  artifactName: KeyLint-Setup-${version}-windows-${arch}.${ext}
 
 portable:
-  artifactName: KeyLint-Portable-${version}.${ext}
+  artifactName: KeyLint-Portable-${version}-windows-${arch}.${ext}
 
 # Releases are published to this repository as drafts.
 # Assets become reachable for electron-updater once the draft is published.

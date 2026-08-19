@@ -1,0 +1,393 @@
+name: Release Desktop
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            signingProfile:
+                description: "Trusted Signing profile to use for manual runs"
+                required: true
+                default: test
+                type: choice
+                options:
+                    - test
+                    - prod
+            runTests:
+                description: "Run unit tests before build on manual runs"
+                required: true
+                default: false
+                type: boolean
+
+permissions:
+    contents: read
+
+concurrency:
+    group: desktop-release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    validate:
+        runs-on: ubuntu-24.04
+        outputs:
+            version: ${{ steps.release_meta.outputs.version }}
+            release_tag: ${{ steps.release_meta.outputs.release_tag }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Resolve and validate release version
+              id: release_meta
+              shell: bash
+              run: |
+                  version="$(node -p "require('./package.json').version")"
+                  release_tag="v${version}"
+
+                  if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${release_tag}" ]]; then
+                    echo "Tag '${GITHUB_REF_NAME}' does not match package.json version '${version}'." >&2
+                    exit 1
+                  fi
+
+                  echo "version=${version}" >> "${GITHUB_OUTPUT}"
+                  echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+
+            - name: Test packages and Electron bridge
+              if: github.event_name != 'workflow_dispatch' || inputs.runTests
+              run: npm run test:packages
+
+            - name: Test desktop renderer
+              if: github.event_name != 'workflow_dispatch' || inputs.runTests
+              run: npm test -- --watch=false --browsers=ChromeHeadless
+
+    build_windows:
+        name: Build Windows x64
+        needs: validate
+        runs-on: windows-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Validate Trusted Signing environment
+              id: trusted_signing
+              shell: pwsh
+              env:
+                  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+                  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+                  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+                  AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+                  AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+                  AZURE_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+                  AZURE_CERTIFICATE_PROFILE_NAME_TEST: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME_TEST }}
+              run: |
+                  $selectedProfile = 'prod'
+                  if ("${{ github.event_name }}" -eq 'workflow_dispatch') {
+                    $selectedProfile = "${{ inputs.signingProfile }}"
+                  }
+
+                  $profileName = ($env:AZURE_CERTIFICATE_PROFILE_NAME ?? '').Trim()
+                  if ($selectedProfile -eq 'test') {
+                    $profileName = ($env:AZURE_CERTIFICATE_PROFILE_NAME_TEST ?? '').Trim()
+                  }
+
+                  $missing = @(
+                    'AZURE_TENANT_ID',
+                    'AZURE_CLIENT_ID',
+                    'AZURE_CLIENT_SECRET',
+                    'AZURE_TRUSTED_SIGNING_ENDPOINT',
+                    'AZURE_CODE_SIGNING_ACCOUNT_NAME'
+                  ) | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
+
+                  if ([string]::IsNullOrWhiteSpace($profileName)) {
+                    $missing += if ($selectedProfile -eq 'test') { 'AZURE_CERTIFICATE_PROFILE_NAME_TEST' } else { 'AZURE_CERTIFICATE_PROFILE_NAME' }
+                  }
+                  if ($missing.Count -gt 0) {
+                    Write-Error ("Missing GitHub Action secrets for Trusted Signing: " + ($missing -join ', '))
+                    exit 1
+                  }
+
+                  "selected_profile=$selectedProfile" >> $env:GITHUB_OUTPUT
+
+            - name: Build signed Windows artifacts
+              shell: pwsh
+              env:
+                  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+                  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+                  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+                  AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+                  AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+                  AZURE_CERTIFICATE_PROFILE_NAME: ${{ steps.trusted_signing.outputs.selected_profile == 'test' && secrets.AZURE_CERTIFICATE_PROFILE_NAME_TEST || secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+              run: |
+                  npm run dist:win -- `
+                    "--config.win.azureSignOptions.publisherName=Wigtertainment Ltd" `
+                    "--config.win.azureSignOptions.endpoint=$env:AZURE_TRUSTED_SIGNING_ENDPOINT" `
+                    "--config.win.azureSignOptions.codeSigningAccountName=$env:AZURE_CODE_SIGNING_ACCOUNT_NAME" `
+                    "--config.win.azureSignOptions.certificateProfileName=$env:AZURE_CERTIFICATE_PROFILE_NAME" `
+                    "--config.win.azureSignOptions.timestampRfc3161=http://timestamp.acs.microsoft.com" `
+                    "--config.win.azureSignOptions.timestampDigest=SHA256"
+
+            - name: Smoke test packaged app
+              shell: pwsh
+              env:
+                  KEYLINT_SMOKE_TEST: "1"
+              run: .\release\win-unpacked\key-lint.exe
+
+            - name: Verify Windows signatures and artifacts
+              shell: pwsh
+              run: |
+                  $setupFiles = @(Get-ChildItem release\KeyLint-Setup-*-windows-x64.exe -File -ErrorAction Stop)
+                  $portableFiles = @(Get-ChildItem release\KeyLint-Portable-*-windows-x64.exe -File -ErrorAction Stop)
+                  if ($setupFiles.Count -ne 1 -or $portableFiles.Count -ne 1) {
+                    Write-Error 'Expected exactly one Windows installer and one portable executable.'
+                    exit 1
+                  }
+
+                  $files = $setupFiles + $portableFiles
+                  foreach ($file in $files) {
+                    $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
+                    if ($null -eq $signature.SignerCertificate) {
+                      Write-Error "No Authenticode signature found on $($file.Name)."
+                      exit 1
+                    }
+                  }
+                  if (-not (Test-Path release\latest.yml)) {
+                    Write-Error 'Missing Windows update metadata.'
+                    exit 1
+                  }
+
+            - name: Upload Windows artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: desktop-windows
+                  if-no-files-found: error
+                  path: |
+                      release/KeyLint-Setup-*-windows-x64.exe
+                      release/KeyLint-Portable-*-windows-x64.exe
+                      release/latest.yml
+                      release/*.blockmap
+
+    build_macos:
+        name: Build macOS Universal
+        needs: validate
+        runs-on: macos-15
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Validate Apple signing environment
+              shell: bash
+              env:
+                  CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+                  CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+                  APPLE_ID: ${{ secrets.APPLE_ID }}
+                  APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+                  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+              run: |
+                  for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+                    if [[ -z "${!name}" ]]; then
+                      echo "Missing GitHub Action secret for ${name}." >&2
+                      exit 1
+                    fi
+                  done
+
+            - name: Build, sign and notarize macOS artifacts
+              env:
+                  CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+                  CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+                  APPLE_ID: ${{ secrets.APPLE_ID }}
+                  APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+                  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+              run: npm run dist:mac
+
+            - name: Smoke test packaged app
+              env:
+                  KEYLINT_SMOKE_TEST: "1"
+              run: release/mac-universal/KeyLint.app/Contents/MacOS/KeyLint
+
+            - name: Verify macOS signature, architectures and notarization
+              shell: bash
+              run: |
+                  app_path="release/mac-universal/KeyLint.app"
+                  executable_path="${app_path}/Contents/MacOS/KeyLint"
+                  codesign --verify --deep --strict --verbose=2 "${app_path}"
+                  spctl --assess --type execute --verbose=2 "${app_path}"
+
+                  architectures="$(lipo -archs "${executable_path}")"
+                  [[ " ${architectures} " == *" arm64 "* ]]
+                  [[ " ${architectures} " == *" x86_64 "* ]]
+
+                  dmg_path="$(find release -maxdepth 1 -name 'KeyLint-*-macos-universal.dmg' -print -quit)"
+                  [[ -n "${dmg_path}" ]]
+                  xcrun stapler validate "${app_path}"
+                  test -f release/latest-mac.yml
+
+            - name: Upload macOS artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: desktop-macos
+                  if-no-files-found: error
+                  path: |
+                      release/KeyLint-*-macos-universal.dmg
+                      release/KeyLint-*-macos-universal.zip
+                      release/latest-mac.yml
+                      release/*.blockmap
+
+    build_linux:
+        name: Build Linux x64
+        needs: validate
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build Linux artifacts
+              run: npm run dist:linux
+
+            - name: Smoke test packaged app
+              env:
+                  KEYLINT_SMOKE_TEST: "1"
+              run: xvfb-run -a release/linux-unpacked/key-lint --no-sandbox
+
+            - name: Verify Linux artifacts
+              shell: bash
+              run: |
+                  appimage_path="$(find release -maxdepth 1 -name 'KeyLint-*-linux-x64.AppImage' -print -quit)"
+                  deb_path="$(find release -maxdepth 1 -name 'KeyLint-*-linux-x64.deb' -print -quit)"
+                  [[ -n "${appimage_path}" && -x "${appimage_path}" ]]
+                  [[ -n "${deb_path}" ]]
+                  "${appimage_path}" --appimage-extract >/dev/null
+                  test -x squashfs-root/AppRun
+                  dpkg-deb --info "${deb_path}" >/dev/null
+                  dpkg-deb --contents "${deb_path}" | grep -q 'applications/.*\.desktop'
+                  dpkg-deb --contents "${deb_path}" | grep -q 'icons/hicolor/'
+                  test -f release/latest-linux.yml
+
+            - name: Upload Linux artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: desktop-linux
+                  if-no-files-found: error
+                  path: |
+                      release/KeyLint-*-linux-x64.AppImage
+                      release/KeyLint-*-linux-x64.deb
+                      release/latest-linux.yml
+                      release/*.blockmap
+                      release/*.zsync
+
+    publish:
+        name: Attest and create draft release
+        needs:
+            - validate
+            - build_windows
+            - build_macos
+            - build_linux
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: write
+            id-token: write
+            attestations: write
+        steps:
+            - name: Download release artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: desktop-*
+                  path: release-assets
+                  merge-multiple: true
+
+            - name: Validate complete artifact set
+              shell: bash
+              run: |
+                  require_one() {
+                    local pattern="$1"
+                    mapfile -t matches < <(compgen -G "${pattern}" || true)
+                    if [[ "${#matches[@]}" -ne 1 ]]; then
+                      echo "Expected exactly one file matching ${pattern}, found ${#matches[@]}." >&2
+                      exit 1
+                    fi
+                  }
+
+                  require_one 'release-assets/KeyLint-Setup-*-windows-x64.exe'
+                  require_one 'release-assets/KeyLint-Portable-*-windows-x64.exe'
+                  require_one 'release-assets/KeyLint-*-macos-universal.dmg'
+                  require_one 'release-assets/KeyLint-*-macos-universal.zip'
+                  require_one 'release-assets/KeyLint-*-linux-x64.AppImage'
+                  require_one 'release-assets/KeyLint-*-linux-x64.deb'
+                  require_one 'release-assets/latest.yml'
+                  require_one 'release-assets/latest-mac.yml'
+                  require_one 'release-assets/latest-linux.yml'
+
+            - name: Generate SHA-256 checksums
+              shell: bash
+              run: |
+                  cd release-assets
+                  find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+                    | sort -z \
+                    | xargs -0 sha256sum > SHA256SUMS.txt
+
+            - name: Attest release artifacts
+              uses: actions/attest-build-provenance@v3
+              with:
+                  subject-path: release-assets/*
+
+            - name: Create or update draft release
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+                    is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq '.isDraft')"
+                    if [[ "${is_draft}" != 'true' ]]; then
+                      echo "Release ${RELEASE_TAG} is already published; refusing to replace its assets." >&2
+                      exit 1
+                    fi
+                  else
+                    gh release create "${RELEASE_TAG}" \
+                      --draft \
+                      --target "${GITHUB_SHA}" \
+                      --title "KeyLint ${VERSION}"
+                  fi
+
+                  while IFS= read -r asset_name; do
+                    [[ -z "${asset_name}" ]] && continue
+                    gh release delete-asset "${RELEASE_TAG}" "${asset_name}" --yes
+                  done < <(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name')
+
+                  gh release upload "${RELEASE_TAG}" release-assets/* --clobber

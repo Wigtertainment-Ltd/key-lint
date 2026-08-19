@@ -20,7 +20,8 @@ Requirements:
 
 - Node.js >= 20
 - npm >= 10 (the repository uses npm workspaces)
-- Windows is required only for building the Electron installer
+- The native target OS is recommended for packaging desktop releases: Windows for NSIS/portable,
+  macOS for the universal signed/notarized DMG and Linux for AppImage/DEB
 
 ```bash
 npm install
@@ -67,6 +68,11 @@ the actual change.
 Releases are cut by the maintainers. Version bumps and tags (`v*`) trigger the
 workflows in `.github/workflows/`, so please do not bump versions in a pull request
 unless you were asked to.
+
+The desktop release workflow builds all three operating systems independently and publishes their
+verified artifacts together as one draft GitHub release. Production packaging requires the
+maintainer-managed Azure Trusted Signing and Apple Developer secrets; contributors do not need
+access to them.
 
 ## License
 

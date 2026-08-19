@@ -37,7 +37,7 @@ while developing is what your pipeline enforces.
 
 The fastest way to audit a project. No config required.
 
-1. Download the latest Windows installer or portable build from the
+1. Download the latest build for Windows, macOS or Linux from the
    [Releases](https://github.com/Wigtertainment-Ltd/key-lint/releases) page.
 2. Launch KeyLint and pick your project folder - the framework is detected
    automatically.
@@ -211,7 +211,7 @@ npx @key-lint/cli scan . --max-errors 0 --output markdown=keylint.md
 | --- | --- |
 | Framework | Angular (ngx-translate style usage) |
 | Translation format | JSON |
-| Platforms (desktop) | Windows |
+| Platforms (desktop) | Windows x64, macOS (Apple Silicon + Intel), Linux x64 |
 
 More framework adapters (React/i18next, Vue/vue-i18n) and formats (YAML, XLIFF,
 PO) are on the roadmap. Contributions welcome - see
@@ -257,33 +257,52 @@ Run `ng generate component component-name` to generate a new component. You can 
 
 Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
 
-## Production build (Windows)
+## Production desktop builds
 
 | Script | Purpose |
 | --- | --- |
-| `npm run build:electron` | Angular production build with `--base-href ./` (required for the `file://` load in Electron) |
+| `npm run build:electron` | Angular production build with `--base-href ./` for Electron's local renderer |
 | `npm run pack:win` | Unpacked app in `release/win-unpacked/` – fast smoke test, no installer |
 | `npm run dist:win` | NSIS installer + portable `.exe` + `latest.yml` in `release/` |
-| `npm run publish:win` | Same as `dist:win`, but uploads the artifacts as a draft release (used by CI) |
+| `npm run pack:mac` | Unpacked universal app in `release/mac-universal/` |
+| `npm run dist:mac` | Universal DMG + ZIP + `latest-mac.yml` in `release/` |
+| `npm run pack:linux` | Unpacked x64 app in `release/linux-unpacked/` |
+| `npm run dist:linux` | x64 AppImage + DEB + `latest-linux.yml` in `release/` |
 
-Packaging is configured in `electron-builder.yml`.
+Packaging is configured in `electron-builder.yml`. Build macOS artifacts on macOS and Linux
+artifacts on Linux. Production Windows and macOS builds require their signing credentials.
 
 ### Releasing
 
 1. Bump `version` in `package.json`.
-2. Push a matching tag, e.g. `v1.0.1`. This triggers `.github/workflows/release-windows.yml`.
-3. The workflow builds on `windows-latest` and uploads the artifacts as a **draft** release in this
-  repository.
-4. Review the draft and publish it. Only then do the assets become downloadable and does auto-update
+2. Push a matching tag, e.g. `v1.0.1`. This triggers `.github/workflows/release-desktop.yml`.
+3. The workflow tests once, builds on native Windows, macOS and Linux runners, verifies the
+   packages, generates `SHA256SUMS.txt` and attests the release assets.
+4. A final job collects every platform into one **draft** release in this repository.
+5. Review the draft and publish it. Only then do the assets become downloadable and does auto-update
    start serving the new version.
 
 Release publishing and signing are handled by maintainers via repository secrets and the release
 workflow configuration. Contributor pull requests do not need access to publishing credentials.
 
+Windows continues to use Azure Trusted Signing. macOS uses a `Developer ID Application`
+certificate plus Apple's notarization service. The workflow expects these additional secrets:
+
+- `MAC_CSC_LINK` – base64-encoded `.p12` containing the Developer ID certificate and private key
+- `MAC_CSC_KEY_PASSWORD` – password used when exporting the `.p12`
+- `APPLE_ID` – Apple Developer account email
+- `APPLE_APP_SPECIFIC_PASSWORD` – app-specific password for notarization
+- `APPLE_TEAM_ID` – ten-character Apple Developer team ID
+
+Linux release files have SHA-256 checksums and GitHub build provenance attestations. Linux does not
+have a platform-wide code-signing trust system equivalent to Windows Authenticode or macOS
+Gatekeeper.
+
 ### Auto-update
 
-`electron-updater` checks for updates on startup, but only when the app is packaged and installed.
-It is skipped for the dev server and for the portable executable (which cannot update itself).
+`electron-updater` checks for updates on startup in packaged Windows, macOS and Linux builds. It is
+skipped for the dev server and for the Windows portable executable (which cannot update itself).
+macOS needs both the downloadable DMG and the ZIP/update metadata produced by the release workflow.
 A failing check is logged and never blocks startup. No token is embedded in the app – the release
 repository is public.
 
@@ -295,8 +314,10 @@ repository is public.
   (256x256 or larger); electron-builder converts it to a multi-size `.ico`.
 - **Local build on Windows may fail while extracting `winCodeSign`** with
   `Cannot create symbolic link`. Enabling Windows Developer Mode typically resolves this.
-
-Linux and macOS builds are not configured yet.
+- **Linux ARM64 and additional repositories are not included yet.** The first Linux release is x64
+  AppImage/DEB only; Snap, Flatpak, RPM and distro repositories are outside the current scope.
+- **No store distribution.** The desktop packages are not submitted to the Microsoft Store, Mac
+  App Store, Homebrew or Linux stores.
 
 ## Running unit tests
 
