@@ -62,6 +62,16 @@ class InMemoryFsAdapter implements IFileSystemAdapter {
 	}
 }
 
+function runRules(definedKeys: string[], usedKeys: IKeyUsage[], context: IProjectContext) {
+	return angularScanAdapter.runRules({
+		definedKeys,
+		usedKeys,
+		translationMatrix: { locales: [], rows: [], totalKeys: 0 },
+		baseLocaleSelectionSource: 'none',
+		context
+	});
+}
+
 describe('angularScanAdapter', () => {
 	const projectRoot = 'workspace/project';
 	let context: IProjectContext;
@@ -112,11 +122,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(translationFiles).toHaveLength(1);
 		expect(definedKeys).toContain('GENERIC.HELLO');
@@ -139,11 +145,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.key === 'administration.groups.deactivate.success')).toBeTrue();
 		expect(
@@ -169,11 +171,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.key === 'administration.groups.deactivate.error')).toBeTrue();
 		expect(
@@ -200,11 +198,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.key === 'administration.groups.membership.active')).toBeTrue();
 		expect(usedKeys.some((item) => item.key === 'administration.groups.membership.inactive')).toBeTrue();
@@ -231,11 +225,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.key === 'administration.groups.archived')).toBeTrue();
 		expect(
@@ -261,11 +251,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.key === 'APP.TITLE')).toBeTrue();
 		expect(usedKeys.some((item) => item.key === 'APP.SUBTITLE')).toBeTrue();
@@ -286,11 +272,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.matchType === 'html-transloco-structural-call')).toBeTrue();
 		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
@@ -310,11 +292,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.isDynamic && item.matchType === 'ts-dynamic-translate-call')).toBeTrue();
 		expect(
@@ -353,11 +331,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.matchType === 'ts-indirect-key-literal')).toBeTrue();
 		expect(
@@ -385,11 +359,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(usedKeys.some((item) => item.isDynamic && item.matchType === 'html-dynamic-pipe-concat-binding')).toBeTrue();
 		expect(
@@ -417,11 +387,7 @@ describe('angularScanAdapter', () => {
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await angularScanAdapter.runRules({
-			definedKeys,
-			usedKeys,
-			context
-		});
+		const findings = await runRules(definedKeys, usedKeys, context);
 
 		expect(
 			usedKeys.some(
