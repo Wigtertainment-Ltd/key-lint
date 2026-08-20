@@ -12,9 +12,11 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": {
+            // Match any output, including an empty line, to mark the background build as active.
             "regexp": "(.*?)"
           },
           "endsPattern": {
+            // Match Angular's stable completion phrase to mark the background build as ready.
             "regexp": "bundle generation complete"
           }
         }
@@ -30,9 +32,11 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": {
+            // Match any output, including an empty line, to mark the background test task as active.
             "regexp": "(.*?)"
           },
           "endsPattern": {
+            // Match Angular's stable completion phrase to mark the background test task as ready.
             "regexp": "bundle generation complete"
           }
         }

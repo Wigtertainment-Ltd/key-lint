@@ -12,7 +12,9 @@ describe('scanner baseLocale config', () => {
 	});
 
 	it('rejects empty and non-string baseLocale values', () => {
+		// Match the stable validation phrase shared by both invalid base-locale inputs.
 		expect(() => parseScannerConfigOverrides({ baseLocale: '   ' })).toThrowError(/non-empty string/);
+		// Match the same stable phrase without coupling the test to the full error message.
 		expect(() => parseScannerConfigOverrides({ baseLocale: 42 })).toThrowError(/non-empty string/);
 	});
 });

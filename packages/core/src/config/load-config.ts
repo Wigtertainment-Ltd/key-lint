@@ -1,29 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
-import { ScannerConfigError, IScannerConfigOverrides } from './scanner-config.js';
-import { IScannerConfig } from './scanner-defaults.js';
-import {
-	CONFIG_FILE_NAME,
-	resolveScannerConfigSources
-} from './resolve-config.js';
+import { CONFIG_FILE_NAME, resolveScannerConfigSources } from './resolve-config.js';
 import { normalizePath } from '../util/path.util.js';
+import { ILoadedScannerConfig, ILoadScannerConfigOptions, ScannerConfigError } from './config.interfaces.js';
 
 export { CONFIG_FILE_NAME, PACKAGE_JSON_CONFIG_KEY } from './resolve-config.js';
-
-export interface ILoadScannerConfigOptions {
-	/** Directory the implicit config lookup starts from. */
-	projectRoot: string;
-	/** Explicit config file path. When set, a missing file is an error. */
-	configPath?: string;
-	/** Highest precedence overrides, typically parsed from CLI flags. */
-	overrides?: IScannerConfigOverrides;
-}
-
-export interface ILoadedScannerConfig {
-	config: IScannerConfig;
-	/** Normalized path of the config file that was applied, if any. */
-	configFilePath?: string;
-}
 
 async function readJsonFile(filePath: string): Promise<unknown> {
 	let raw: string;

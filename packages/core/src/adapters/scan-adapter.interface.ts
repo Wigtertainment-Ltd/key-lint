@@ -1,7 +1,7 @@
-import { IScannerConfig } from '../config/scanner-defaults.js';
 import { IFinding } from '../models/finding.model.js';
 import { BaseLocaleSelectionSource } from '../util/translation-matrix.util.js';
 import { ITranslationMatrix } from '../models/scan-result.model.js';
+import { IScannerConfig } from '../config/config.interfaces.js';
 
 export type TranslationFormat = 'json' | 'yaml' | 'xliff' | 'po';
 

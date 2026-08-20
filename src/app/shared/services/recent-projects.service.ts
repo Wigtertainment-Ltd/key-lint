@@ -10,11 +10,14 @@ const RECENT_PROJECTS_STORAGE_KEY = 'key-lint.recent-projects';
 const MAX_RECENT_PROJECTS = 5;
 
 function normalizePath(path: string): string {
+	// Collapse consecutive forward slashes after converting Windows separators.
 	const normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
+	// Match a Windows drive root with its trailing slash, for example "C:/".
 	if (/^[A-Za-z]:\/$/.test(normalized) || normalized === '/') {
 		return normalized;
 	}
 
+	// Remove one trailing slash from paths that are not filesystem roots.
 	return normalized.replace(/\/$/, '');
 }
 

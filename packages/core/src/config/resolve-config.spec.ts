@@ -37,9 +37,11 @@ describe('resolveScannerConfigSources', () => {
 	});
 
 	it('validates embedded and file configuration through the shared parser', () => {
+		// Match the stable error prefix for unsupported configuration properties.
 		expect(() => resolveScannerConfigSources({
 			packageJson: { keylint: { unknownOption: true } }
 		})).toThrowError(/Unknown configuration key/);
+		// Match the stable validation phrase for an empty base-locale value.
 		expect(() => resolveScannerConfigSources({ configFile: { baseLocale: '' } })).toThrowError(
 			/non-empty string/
 		);

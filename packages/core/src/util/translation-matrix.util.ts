@@ -1,4 +1,4 @@
-import { ScannerConfigError } from '../config/scanner-config.js';
+import { ScannerConfigError } from '../config/config.interfaces.js';
 import { ITranslationMatrix, ITranslationMatrixRow } from '../models/scan-result.model.js';
 
 export type BaseLocaleSelectionSource =
@@ -59,6 +59,7 @@ export function resolveBaseLocale(
 		return { locale: exactEnglish, source: 'exact-en' };
 	}
 
+	// Match locale identifiers that begin with "en-" or "en_", case-insensitively.
 	const englishVariants = matrix.locales.filter((locale) => /^en[-_]/i.test(locale));
 	if (englishVariants.length > 0) {
 		return { locale: mostCompleteLocale(matrix, englishVariants), source: 'english-variant' };

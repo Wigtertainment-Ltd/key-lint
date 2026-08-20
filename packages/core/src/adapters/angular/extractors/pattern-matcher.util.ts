@@ -30,6 +30,7 @@ export function extractSnippet(source: string, index: number): string {
 
 	const from = Math.max(0, index - 80);
 	const to = Math.min(source.length, index + 120);
+	// Collapse each whitespace run so a multi-line fallback snippet remains compact.
 	return source.slice(from, to).replace(/\s+/g, ' ').trim();
 }
 
@@ -110,6 +111,7 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 	const matches: IKeyUsage[] = [];
 
 	for (const descriptor of descriptors) {
+		// Clone the documented expression so each extraction run starts with lastIndex zero.
 		const regex = new RegExp(descriptor.regex.source, descriptor.regex.flags);
 		let match: RegExpExecArray | null = regex.exec(source);
 
@@ -124,9 +126,11 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 					openParenIndex === -1 ? '' : extractCallArgumentList(source, openParenIndex) ?? '';
 				const argumentSource = firstCallArgument(argumentList);
 				const lineCol = getLineColumn(source, match.index);
+				// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
 				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
 
 				if (isDynamicArgument) {
+					// Remove an optional pair of surrounding backticks while retaining the dynamic expression.
 					const cleanedKey = argumentSource.replace(/^`|`$/g, '').trim();
 					matches.push({
 						key: cleanedKey,
@@ -142,6 +146,7 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 					continue;
 				}
 
+				// Capture every quoted static translation key in the first call argument.
 				const literalRegex = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
 				let literalMatch: RegExpExecArray | null = literalRegex.exec(argumentSource);
 
@@ -167,6 +172,7 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 			}
 
 			if (rawKey) {
+				// Remove an optional pair of surrounding backticks from a captured dynamic key.
 				const cleanedKey = rawKey.replace(/^`|`$/g, '').trim();
 				const lineCol = getLineColumn(source, match.index);
 				matches.push({

@@ -252,6 +252,7 @@ describe('ScanOrchestrationService translation updates', () => {
 		contents['C:/project/translations/de.json'] = '{"APP":';
 		const service = TestBed.inject(ScanOrchestrationService);
 
+		// Match the complete invalid translation path while escaping regex-significant slashes and dots.
 		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(
 			/Invalid JSON in translation file "C:\/project\/translations\/de\.json"/
 		);
@@ -307,6 +308,7 @@ describe('ScanOrchestrationService translation updates', () => {
 
 		await expectAsync(
 			service.addTranslationKeyForLocale('de', 'APP.TITLE', 'Titel')
+		// Match the stable error prefix without coupling the test to the full file path.
 		).toBeRejectedWithError(/Invalid JSON in translation file/);
 
 		expect(writtenPath).toBeUndefined();

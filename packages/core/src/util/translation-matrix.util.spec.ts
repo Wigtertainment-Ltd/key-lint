@@ -54,6 +54,7 @@ describe('resolveBaseLocale', () => {
 	});
 
 	it('fails when a configured locale was not discovered', () => {
+		// Match the stable error fragment naming the missing configured locale.
 		expect(() => resolveBaseLocale(matrix(['en'], { en: ['A'] }), 'de')).toThrowError(
 			/Configured baseLocale "de" was not found/
 		);

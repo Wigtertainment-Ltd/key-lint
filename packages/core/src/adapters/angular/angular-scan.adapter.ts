@@ -9,22 +9,33 @@ import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/transla
 import { readTranslationJson } from '../../util/translation-json.util.js';
 
 function normalizePath(value: string): string {
-	return value.replace(/\\/g, '/').replace(/\/+/g, '/');
+	return value
+		// Convert every Windows path separator to the cross-platform forward-slash form.
+		.replace(/\\/g, '/')
+		// Collapse consecutive forward slashes into one separator.
+		.replace(/\/+/g, '/');
 }
 
 function escapeRegex(text: string): string {
+	// Match every regular-expression metacharacter that must be escaped when inserting literal text.
 	return text.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
 }
 
 function globToRegex(glob: string): RegExp {
 	const normalized = normalizePath(glob);
 	const escaped = escapeRegex(normalized)
+		// Preserve "**/" before processing single stars because it may match zero directory segments.
 		.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
+		// Preserve remaining globstars before converting single stars.
 		.replace(/\*\*/g, '__DOUBLE_STAR__')
+		// A single star matches characters only within one path segment.
 		.replace(/\*/g, '[^/]*')
+		// A globstar followed by a slash matches zero or more complete directory segments.
 		.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
+		// A remaining globstar may match across directory boundaries.
 		.replace(/__DOUBLE_STAR__/g, '.*');
 
+	// Anchor the generated expression so the glob must match the complete normalized path.
 	return new RegExp(`^${escaped}$`);
 }
 
@@ -68,6 +79,7 @@ function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 
 
 function leadingLiteralPrefix(expression: string): string | null {
+	// Capture the first quoted translation-key fragment, allowing an empty fragment before concatenation.
 	const match = /['"`]([A-Za-z0-9_.-]*)['"`]/.exec(expression);
 	if (!match) {
 		return null;
@@ -128,6 +140,7 @@ function flattenTranslationValueObject(value: unknown, prefix = '', collector: R
 function inferLocaleFromTranslationFile(filePath: string): string {
 	const normalized = normalizePath(filePath);
 	const fileName = normalized.split('/').at(-1) ?? normalized;
+	// Remove the final extension while preserving earlier dots used before a locale suffix.
 	const withoutExtension = fileName.replace(/\.[^.]+$/, '');
 	const dottedParts = withoutExtension.split('.').filter(Boolean);
 
@@ -139,6 +152,7 @@ function inferLocaleFromTranslationFile(filePath: string): string {
 }
 
 function getParentDirectory(path: string): string {
+	// Remove one trailing forward slash before locating the parent directory.
 	const normalized = normalizePath(path).replace(/\/$/, '');
 	const lastSlash = normalized.lastIndexOf('/');
 	if (lastSlash <= 0) {
@@ -149,20 +163,24 @@ function getParentDirectory(path: string): string {
 }
 
 function isRootDirectory(path: string): boolean {
+	// Remove one trailing forward slash so Unix and Windows roots can be compared consistently.
 	const normalized = normalizePath(path).replace(/\/$/, '');
 	if (normalized === '/') {
 		return true;
 	}
 
+	// Match a Windows drive root after its trailing slash has been removed, for example "C:".
 	return /^[A-Za-z]:$/.test(normalized);
 }
 
 function joinPath(base: string, fileName: string): string {
+	// Remove one trailing slash from the base to avoid creating a doubled separator.
 	return normalizePath(`${base.replace(/\/$/, '')}/${fileName}`);
 }
 
 function collectCandidateRoots(startPath: string): string[] {
 	const candidates: string[] = [];
+	// Remove one trailing slash before walking upward through candidate roots.
 	let current = normalizePath(startPath).replace(/\/$/, '');
 
 	while (true) {
@@ -318,7 +336,7 @@ export const angularScanAdapter: IScanAdapter = {
 			context.config.excludeGlobs
 		);
 
-		const extensions = new Set(context.config.supportedTranslationExtensions.map((value) => value.toLowerCase()));
+		const extensions = new Set(context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase()));
 
 		return listedFiles
 			.map((file) => normalizePath(file))

@@ -15,6 +15,7 @@ describe('translation JSON validation', () => {
 	});
 
 	it('rejects malformed JSON with its normalized file path', () => {
+		// Match the complete normalized path while escaping regex-significant slashes and dots.
 		expect(() => parseTranslationJson('{"APP":', 'translations\\de.json')).toThrowError(
 			/Invalid JSON in translation file "translations\/de\.json"/
 		);

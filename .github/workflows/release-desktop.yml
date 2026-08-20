@@ -294,7 +294,9 @@ jobs:
                   "${appimage_path}" --appimage-extract >/dev/null
                   test -x squashfs-root/AppRun
                   dpkg-deb --info "${deb_path}" >/dev/null
+                  # Match any desktop-entry path below applications/ and require a literal .desktop suffix.
                   dpkg-deb --contents "${deb_path}" | grep -q 'applications/.*\.desktop'
+                  # Match the literal icon-theme directory path in the package contents.
                   dpkg-deb --contents "${deb_path}" | grep -q 'icons/hicolor/'
                   test -f release/latest-linux.yml
 

@@ -2,18 +2,21 @@ import { IKeyUsage } from '../../../scan-adapter.interface.js';
 import { extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
 
 function escapeRegex(text: string): string {
+	// Match every regular-expression metacharacter that must be escaped when inserting an alias literally.
 	return text.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
 }
 
 export function extractTranslocoStructuralMatches(source: string, filePath: string): IKeyUsage[] {
 	const matches: IKeyUsage[] = [];
 	const aliasNames = new Set<string>();
-	const structuralDirectiveRegex = /\*transloco\s*=\s*['"]([^'"]*)['"]/g;
+	// Capture the complete quoted expression of each *transloco structural directive in group 1.
+	const structuralDirectiveRegex: RegExp = /\*transloco\s*=\s*['"]([^'"]*)['"]/g;
 	let directiveMatch: RegExpExecArray | null = structuralDirectiveRegex.exec(source);
 
 	while (directiveMatch) {
-		const directiveExpression = directiveMatch[1] ?? '';
-		const letAliasRegex = /\blet\s+([A-Za-z_$][\w$]*)\b/g;
+		const directiveExpression: string = directiveMatch[1] ?? '';
+		// Capture every valid JavaScript identifier declared after "let" in group 1.
+		const letAliasRegex: RegExp = /\blet\s+([A-Za-z_$][\w$]*)\b/g;
 		let aliasMatch: RegExpExecArray | null = letAliasRegex.exec(directiveExpression);
 
 		while (aliasMatch) {
@@ -29,18 +32,21 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 	}
 
 	for (const alias of aliasNames) {
-		const aliasCallRegex = new RegExp(`\\b${escapeRegex(alias)}\\s*\\(([^)]*)\\)`, 'g');
+		// Match calls to this escaped alias and capture the complete argument list in group 1.
+		const aliasCallRegex: RegExp = new RegExp(`\\b${escapeRegex(alias)}\\s*\\(([^)]*)\\)`, 'g');
 		let aliasCallMatch: RegExpExecArray | null = aliasCallRegex.exec(source);
 
 		while (aliasCallMatch) {
-			const callArgs = aliasCallMatch[1] ?? '';
-			const firstArg = firstCallArgument(callArgs);
+			const callArgs: string = aliasCallMatch[1] ?? '';
+			const firstArg: string = firstCallArgument(callArgs);
 			const lineCol = getLineColumn(source, aliasCallMatch.index);
-			const snippet = extractSnippet(source, aliasCallMatch.index);
-			const isDynamicArgument = /\+/.test(firstArg) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(firstArg);
+			const snippet: string = extractSnippet(source, aliasCallMatch.index);
+			// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
+			const isDynamicArgument: boolean = /\+/.test(firstArg) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(firstArg);
 
 			if (isDynamicArgument) {
 				matches.push({
+					// Remove an optional pair of surrounding backticks while retaining the dynamic expression.
 					key: firstArg.replace(/^`|`$/g, '').trim(),
 					filePath,
 					line: lineCol.line,
@@ -53,7 +59,8 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 				continue;
 			}
 
-			const literalRegex = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
+			// Capture every quoted static translation key in the alias call's first argument.
+			const literalRegex: RegExp = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
 			let literalMatch: RegExpExecArray | null = literalRegex.exec(firstArg);
 
 			while (literalMatch) {

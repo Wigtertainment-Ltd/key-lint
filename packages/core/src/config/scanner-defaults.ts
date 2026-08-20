@@ -1,19 +1,4 @@
-export interface IScannerGuardrails {
-	maxFiles: number;
-	maxFileSizeBytes: number;
-}
-
-export interface IScannerConfig {
-	/** Canonical locale used for cross-locale consistency checks. Auto-detected when omitted. */
-	baseLocale?: string;
-	includeTranslationGlobs: string[];
-	includeSourceGlobs: string[];
-	excludeGlobs: string[];
-	supportedTranslationExtensions: string[];
-	/** Glob patterns matched against translation keys; matching findings are dropped. */
-	ignoreKeys: string[];
-	guardrails: IScannerGuardrails;
-}
+import { IScannerConfig } from "./config.interfaces.js";
 
 export const DEFAULT_SCANNER_CONFIG: IScannerConfig = {
 	baseLocale: undefined,

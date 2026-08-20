@@ -77,6 +77,7 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 			}
 
 			for (const entry of entries) {
+				// Remove one trailing Windows or Unix separator before appending the entry name.
 				const fullPath = `${current.replace(/[\\/]$/, '')}/${entry.name}`;
 				const normalizedFullPath = normalizePath(fullPath);
 				const relativePath = normalizedFullPath.startsWith(`${normalizedRoot}/`)

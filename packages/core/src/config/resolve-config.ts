@@ -1,33 +1,11 @@
-import { DEFAULT_SCANNER_CONFIG, IScannerConfig, IScannerGuardrails } from './scanner-defaults.js';
-import {
-	IScannerConfigOverrides,
-	mergeScannerConfig,
-	parseScannerConfigOverrides
-} from './scanner-config.js';
+import { DEFAULT_SCANNER_CONFIG } from './scanner-defaults.js';
+import { mergeScannerConfig, parseScannerConfigOverrides } from './scanner-config.js';
+import { IResolvedScannerConfig, IScannerConfigOverrides, IScannerConfigSources, IScannerGuardrails, ScannerConfigValueSource } from './config.interfaces.js';
 
 export const CONFIG_FILE_NAME = 'keylint.config.json';
 export const PACKAGE_JSON_CONFIG_KEY = 'keylint';
 
-export interface IScannerConfigSources {
-	packageJson?: unknown;
-	configFile?: unknown;
-	overrides?: IScannerConfigOverrides;
-}
-
-export interface IResolvedScannerConfig {
-	config: IScannerConfig;
-	packageJsonConfigApplied: boolean;
-	configFileApplied: boolean;
-	guardrailSources: Record<keyof IScannerGuardrails, ScannerConfigValueSource>;
-}
-
-export type ScannerConfigValueSource = 'default' | 'package-json' | 'config-file' | 'override';
-
-function updateGuardrailSources(
-	sources: Record<keyof IScannerGuardrails, ScannerConfigValueSource>,
-	overrides: IScannerConfigOverrides,
-	source: ScannerConfigValueSource
-): void {
+function updateGuardrailSources(sources: Record<keyof IScannerGuardrails, ScannerConfigValueSource>, overrides: IScannerConfigOverrides, source: ScannerConfigValueSource): void {
 	if (overrides.guardrails?.maxFiles !== undefined) {
 		sources.maxFiles = source;
 	}

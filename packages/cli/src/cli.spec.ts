@@ -225,10 +225,12 @@ describe('parseCliArgs', () => {
 	});
 
 	it('rejects malformed --output values', () => {
+		// Match the documented reporter-to-file assignment syntax in the validation error.
 		expect(() => parseCliArgs(['scan', '.', '--output', 'summary.md'])).toThrowError(/<reporter>=<file>/);
 	});
 
 	it('rejects negative thresholds', () => {
+		// Match the stable validation phrase requiring a threshold of zero or greater.
 		expect(() => parseCliArgs(['scan', '.', '--max-errors=-1'])).toThrowError(/non-negative/);
 	});
 });

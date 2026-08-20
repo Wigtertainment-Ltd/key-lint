@@ -353,6 +353,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	private parsePositiveInteger(value: string): number | undefined {
+		// Accept only a non-empty sequence of ASCII digits before numeric range validation.
 		if (!/^\d+$/.test(value)) {
 			return undefined;
 		}

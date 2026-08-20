@@ -52,6 +52,14 @@ npm run lint
 Every bug fix should come with a regression test, every new rule or adapter with unit
 tests in the corresponding package.
 
+Every regular expression must have an English explanation directly at its definition,
+including small validation and replacement patterns. Use a semantic constant with a
+short JSDoc comment for reusable expressions and an adjacent comment for local ones.
+Complex recognition patterns must additionally document representative examples,
+capture groups, dynamic portions and intentional boundaries, with positive and negative
+tests where applicable. Take care when sharing expressions with the `g` flag because
+`exec()` and `test()` mutate their `lastIndex` state.
+
 ## Pull requests
 
 1. Fork the repository and create a branch off `main`.

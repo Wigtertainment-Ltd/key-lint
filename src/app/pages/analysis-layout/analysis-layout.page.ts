@@ -70,6 +70,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 			return this.projectPath;
 		}
 
+		// Split on one or more Windows or Unix path separators and discard empty segments.
 		const segments = normalizedPath.split(/[\\/]+/).filter(Boolean);
 		return segments.at(-1) ?? this.projectPath;
 	}

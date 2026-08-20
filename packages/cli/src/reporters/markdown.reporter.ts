@@ -5,7 +5,11 @@ import { IReporter, IReporterContext } from './reporter.js';
 const MAX_LISTED_FINDINGS = 50;
 
 function escapeCell(value: string): string {
-	return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+	return value
+		// Escape every pipe so it cannot terminate the current Markdown table cell.
+		.replace(/\|/g, '\\|')
+		// Replace both Unix and Windows line endings so one value stays on a single table row.
+		.replace(/\r?\n/g, ' ');
 }
 
 function locationOf(finding: IFinding): string {

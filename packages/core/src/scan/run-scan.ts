@@ -1,7 +1,8 @@
 import { AdapterRegistry } from '../adapters/adapter-registry.js';
 import { defaultAdapterRegistry } from '../adapters/default-adapter-registry.js';
 import { IFileSystemAdapter, IProjectContext } from '../adapters/scan-adapter.interface.js';
-import { DEFAULT_SCANNER_CONFIG, IScannerConfig } from '../config/scanner-defaults.js';
+import { IScannerConfig } from '../config/config.interfaces.js';
+import { DEFAULT_SCANNER_CONFIG } from '../config/scanner-defaults.js';
 import { buildSummary, IProjectScanResult, ITranslationMatrix } from '../models/scan-result.model.js';
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';

@@ -2,10 +2,11 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { IFileSystemAdapter } from '../adapters/scan-adapter.interface.js';
-import { DEFAULT_SCANNER_CONFIG, IScannerGuardrails } from '../config/scanner-defaults.js';
-import type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-system-warning.model.js';
+import { DEFAULT_SCANNER_CONFIG } from '../config/scanner-defaults.js';
+import type { IFileSystemWarning } from '../models/file-system-warning.model.js';
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
+import { IScannerGuardrails } from '../config/config.interfaces.js';
 
 export type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-system-warning.model.js';
 

@@ -1,30 +1,7 @@
-import { DEFAULT_SCANNER_CONFIG, IScannerConfig, IScannerGuardrails } from './scanner-defaults.js';
+import { IScannerConfig, IScannerConfigOverrides, IScannerGuardrails, ScannerConfigError } from './config.interfaces.js';
+import { DEFAULT_SCANNER_CONFIG } from './scanner-defaults.js';
 
-export interface IScannerConfigOverrides {
-	baseLocale?: string;
-	includeTranslationGlobs?: string[];
-	includeSourceGlobs?: string[];
-	excludeGlobs?: string[];
-	supportedTranslationExtensions?: string[];
-	ignoreKeys?: string[];
-	guardrails?: Partial<IScannerGuardrails>;
-}
-
-export class ScannerConfigError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'ScannerConfigError';
-	}
-}
-
-const STRING_ARRAY_KEYS = [
-	'includeTranslationGlobs',
-	'includeSourceGlobs',
-	'excludeGlobs',
-	'supportedTranslationExtensions',
-	'ignoreKeys'
-] as const;
-
+const STRING_ARRAY_KEYS = ['includeTranslationGlobs', 'includeSourceGlobs', 'excludeGlobs', 'supportedTranslationExtensions', 'ignoreKeys'] as const;
 const GUARDRAIL_KEYS = ['maxFiles', 'maxFileSizeBytes'] as const;
 
 function assertStringArray(value: unknown, key: string): string[] {

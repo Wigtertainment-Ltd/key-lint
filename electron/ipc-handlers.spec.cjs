@@ -68,14 +68,17 @@ test('rejects relative paths and unsafe writes before accessing the filesystem',
 	const { handlers, writes } = createHarness();
 	await assert.rejects(
 		handlers.get(IPC_CHANNELS.readFile)(null, 'relative/en.json'),
+		// Match the stable error fragment explaining that relative paths are rejected.
 		/absolute path/
 	);
 	await assert.rejects(
 		handlers.get(IPC_CHANNELS.writeFile)(null, TEXT_FILE_PATH, 'text'),
+		// Match the stable error fragment restricting writes to JSON translation files.
 		/Only JSON translation files/
 	);
 	await assert.rejects(
 		handlers.get(IPC_CHANNELS.writeFile)(null, TRANSLATION_FILE_PATH, 'x'.repeat(MAX_WRITE_BYTES + 1)),
+		// Match the stable error fragment emitted when the configured write-size limit is exceeded.
 		/write limit/
 	);
 	assert.equal(writes.length, 0);

@@ -25,18 +25,27 @@ class InMemoryFsAdapter implements IFileSystemAdapter {
 	}
 
 	async listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
+		// Convert every Windows path separator to the forward-slash form used by fixture paths.
 		const normalizedRoot = projectRoot.replace(/\\/g, '/');
 		const all = Object.keys(this.files).filter((file) => file.startsWith(normalizedRoot));
 
 		const matchesPattern = (filePath: string, pattern: string): boolean => {
 			const escaped = pattern
+				// Convert every Windows path separator before translating the glob.
 				.replace(/\\/g, '/')
+				// Escape regex metacharacters that are literal in a glob.
 				.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')
+				// Preserve "**/" before processing single stars because it may match zero directories.
 				.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
+				// Preserve remaining globstars before converting single stars.
 				.replace(/\*\*/g, '__DOUBLE_STAR__')
+				// A single star matches characters only within one path segment.
 				.replace(/\*/g, '[^/]*')
+				// A globstar followed by a slash matches zero or more complete directory segments.
 				.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
+				// A remaining globstar may match across directory boundaries.
 				.replace(/__DOUBLE_STAR__/g, '.*');
+			// Anchor the generated expression so the glob must match the complete fixture path.
 			return new RegExp(`^${escaped}$`).test(filePath);
 		};
 
@@ -497,6 +506,7 @@ describe('angularScanAdapter', () => {
 		});
 		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
 
+		// Match the complete normalized fixture path while escaping regex-significant slashes and dots.
 		await expect(angularScanAdapter.extractDefinedKeys(translationFiles, fs)).rejects.toThrowError(
 			/Invalid JSON in translation file "workspace\/project\/src\/assets\/i18n\/de\.json"/
 		);

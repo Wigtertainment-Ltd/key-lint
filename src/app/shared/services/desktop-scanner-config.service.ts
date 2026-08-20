@@ -27,6 +27,7 @@ export class DesktopScannerConfigService {
 		projectRoot: string,
 		overrides: IScannerConfigOverrides = {}
 	): Promise<IDesktopLoadedScannerConfig> {
+		// Remove one trailing forward slash before appending configuration filenames.
 		const normalizedRoot = normalizePath(projectRoot).replace(/\/$/, '');
 		if (!this.electronService.isElectron) {
 			const resolved = resolveScannerConfigSources({ overrides });

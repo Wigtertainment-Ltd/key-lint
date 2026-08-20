@@ -43,10 +43,12 @@ describe('DesktopScannerConfigService', () => {
 	});
 
 	it('fails clearly for malformed JSON and unknown options', async () => {
+		// Match both the parse-error prefix and the configuration filename later in the message.
 		await expectAsync(new DesktopScannerConfigService(electronWithFiles({
 			'C:/project/keylint.config.json': '{invalid'
 		})).load('C:/project')).toBeRejectedWithError(/Could not parse.*keylint\.config\.json/);
 
+		// Match the stable validation message naming the unsupported configuration property.
 		await expectAsync(new DesktopScannerConfigService(electronWithFiles({
 			'C:/project/keylint.config.json': JSON.stringify({ typoOption: true })
 		})).load('C:/project')).toBeRejectedWithError(/Unknown configuration key "typoOption"/);

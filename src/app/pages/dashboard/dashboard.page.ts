@@ -379,12 +379,15 @@ export class DashboardPage implements OnInit {
 	}
 
 	private normalizePath(path: string): string {
+		// Collapse consecutive forward slashes after converting Windows separators.
 		let normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
 		if (!normalized) {
 			return normalized;
 		}
 
+		// Match a Windows drive root with its trailing slash, for example "C:/".
 		if (normalized !== '/' && !/^[A-Za-z]:\/$/.test(normalized)) {
+			// Remove one trailing slash from paths that are not filesystem roots.
 			normalized = normalized.replace(/\/$/, '');
 		}
 
