@@ -1,6 +1,6 @@
 import { IFinding, IProjectScanResult } from '@key-lint/core';
-
-import { IReporter, IReporterContext, severityRank } from './reporter.js';
+import type { IReporter, IReporterContext } from './reporter.interfaces.js';
+import { severityRank } from './reporter.js';
 
 const ANSI = {
 	reset: '\u001B[0m',

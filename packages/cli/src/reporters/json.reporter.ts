@@ -1,6 +1,5 @@
 import { IProjectScanResult } from '@key-lint/core';
-
-import { IReporter, IReporterContext } from './reporter.js';
+import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
 export const JSON_REPORT_SCHEMA_VERSION = 1;
 

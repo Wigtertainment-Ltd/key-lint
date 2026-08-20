@@ -1,7 +1,7 @@
 import { jsonReporter } from './json.reporter.js';
 import { markdownReporter } from './markdown.reporter.js';
-import { IReporter, ReporterName } from './reporter.js';
 import { textReporter } from './text.reporter.js';
+import type { IReporter, ReporterName } from './reporter.interfaces.js';
 
 export const REPORTERS: Record<ReporterName, IReporter> = {
 	text: textReporter,
@@ -19,3 +19,4 @@ export * from './json.reporter.js';
 export * from './markdown.reporter.js';
 export * from './reporter.js';
 export * from './text.reporter.js';
+export * from './reporter.interfaces.js';

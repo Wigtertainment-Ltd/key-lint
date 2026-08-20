@@ -4,15 +4,10 @@ import { dirname, resolve } from 'node:path';
 import { normalizePath, IProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
 import { loadScannerConfig, NodeFileSystemAdapter } from '@key-lint/core/node';
 
-import { ICliOptions, CliUsageError, parseCliArgs, USAGE } from './args.js';
+import { parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
 import { countSeverities, REPORTERS, IReporterContext } from './reporters/index.js';
-
-export interface ICliIo {
-	stdout(text: string): void;
-	stderr(text: string): void;
-	writeFile(filePath: string, content: string): Promise<void>;
-}
+import { ICliIo, ICliOptions, CliUsageError } from './cli.interfaces.js';
 
 const defaultIo: ICliIo = {
 	stdout: (text) => process.stdout.write(text),

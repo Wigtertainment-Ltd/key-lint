@@ -1,6 +1,5 @@
 import { IFinding, IProjectScanResult } from '@key-lint/core';
-
-import { IReporter, IReporterContext } from './reporter.js';
+import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
 const MAX_LISTED_FINDINGS = 50;
 
