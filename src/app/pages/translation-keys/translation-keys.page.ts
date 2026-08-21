@@ -1,5 +1,6 @@
-import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { IProjectScanResult, ITranslationMatrix, ITranslationMatrixRow } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
@@ -7,10 +8,12 @@ import { ToastService } from '../../shared/services/toast.service';
 
 @Component({
 	selector: 'app-translation-keys-page',
+	imports: [ScrollingModule],
 	templateUrl: './translation-keys.page.html',
 	styleUrl: './translation-keys.page.scss'
 })
 export class TranslationKeysPage implements OnInit, OnDestroy {
+	@ViewChild(CdkVirtualScrollViewport) private tableViewport?: CdkVirtualScrollViewport;
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
 	private readonly toastService: ToastService = inject(ToastService);
@@ -21,8 +24,8 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private readonly localScanResult = signal<IProjectScanResult | undefined>(undefined);
 	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
 
-	activeFilter: 'all' | 'missing-key' | 'empty-value' = 'all';
-	searchTerm = '';
+	private readonly activeFilterSignal = signal<'all' | 'missing-key' | 'empty-value'>('all');
+	private readonly searchTermSignal = signal('');
 	selectedKey?: string;
 	isDetailOpen = false;
 	private readonly keyCopiedSignal = signal(false);
@@ -42,6 +45,43 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private readonly resolvedRowKeys = new Set<string>();
 	private readonly resolvedRowTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly animationStateVersion = signal(0);
+	private readonly filteredRowsSignal = computed(() => {
+		const normalizedSearch = this.searchTermSignal().trim().toLowerCase();
+		const activeFilter = this.activeFilterSignal();
+		return this.matrix.rows.filter((row) => {
+			if (
+				activeFilter === 'missing-key' &&
+				!this.isRowMissingKey(row) &&
+				!this.isRowRecentlyResolved(row.key)
+			) {
+				return false;
+			}
+
+			if (activeFilter === 'empty-value' && !this.isRowEmptyValue(row)) {
+				return false;
+			}
+
+			return !normalizedSearch || row.key.toLowerCase().includes(normalizedSearch);
+		});
+	});
+	private readonly filterCountsSignal = computed(() => {
+		this.animationStateVersion();
+		let missing = 0;
+		let empty = 0;
+		for (const row of this.matrix.rows) {
+			if (this.isRowMissingKey(row)) {
+				missing++;
+			}
+			if (this.isRowEmptyValue(row)) {
+				empty++;
+			}
+		}
+		return { missing, empty };
+	});
+
+	get activeFilter(): ReturnType<typeof this.activeFilterSignal> {
+		return this.activeFilterSignal();
+	}
 
 	get addTranslationError(): string {
 		return this.addTranslationErrorSignal();
@@ -98,18 +138,24 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	onSearchChange(value: string): void {
-		this.searchTerm = value;
+		this.searchTermSignal.set(value);
+		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedRow();
 	}
 
 	onFilterChange(filter: 'all' | 'missing-key' | 'empty-value'): void {
-		this.activeFilter = filter;
+		this.activeFilterSignal.set(filter);
+		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedRow();
 	}
 
 	onSelectRow(row: ITranslationMatrixRow): void {
 		this.selectedKey = row.key;
 		this.isDetailOpen = true;
+	}
+
+	trackRow(_index: number, row: ITranslationMatrixRow): string {
+		return row.key;
 	}
 
 	onRowKeydown(event: KeyboardEvent, row: ITranslationMatrixRow): void {
@@ -141,26 +187,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	get filteredRows(): ITranslationMatrixRow[] {
-		const normalizedSearch = this.searchTerm.trim().toLowerCase();
-		return this.matrix.rows.filter((row) => {
-			if (
-				this.activeFilter === 'missing-key' &&
-				!this.isRowMissingKey(row) &&
-				!this.isRowRecentlyResolved(row.key)
-			) {
-				return false;
-			}
-
-			if (this.activeFilter === 'empty-value' && !this.isRowEmptyValue(row)) {
-				return false;
-			}
-
-			if (!normalizedSearch) {
-				return true;
-			}
-
-			return row.key.toLowerCase().includes(normalizedSearch);
-		});
+		return this.filteredRowsSignal();
 	}
 
 	get selectedRow(): ITranslationMatrixRow | undefined {
@@ -176,11 +203,11 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	get missingFilterCount(): number {
-		return this.matrix.rows.filter((row) => this.isRowMissingKey(row)).length;
+		return this.filterCountsSignal().missing;
 	}
 
 	get emptyValueFilterCount(): number {
-		return this.matrix.rows.filter((row) => this.isRowEmptyValue(row)).length;
+		return this.filterCountsSignal().empty;
 	}
 
 	get totalRowsLabel(): string {

@@ -6,9 +6,7 @@
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-in-language'" (click)="onFilterChange('missing-in-language')">
 					Missing ({{ missingFilterCount }})
 				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'unused'" (click)="onFilterChange('unused')">
-					Unused ({{ unusedFilterCount }})
-				</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'unused'" (click)="onFilterChange('unused')">Unused ({{ unusedFilterCount }})</button>
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
 					Dynamic ({{ dynamicFilterCount }})
 				</button>
@@ -31,28 +29,30 @@
 		</header>
 
 		<div class="table-scroll custom-scrollbar">
-			<table>
-				<thead>
-					<tr>
-						<th>Key Name</th>
-						<th>Status</th>
-						<th>Last Used / File Path</th>
-						<th>Severity</th>
-					</tr>
-				</thead>
-				<tbody>
-					@for (finding of filteredFindings; track finding.id) {
-						<tr
+			<div class="virtual-table" role="table" aria-label="Analysis findings" [attr.aria-rowcount]="filteredFindings.length + 1">
+				<div class="table-head table-grid" role="row" aria-rowindex="1">
+					<div role="columnheader">Key Name</div>
+					<div role="columnheader">Status</div>
+					<div role="columnheader">Last Used / File Path</div>
+					<div role="columnheader">Severity</div>
+				</div>
+				@if (filteredFindings.length) {
+					<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
+						<div
+							*cdkVirtualFor="let finding of filteredFindings; let rowIndex = index; trackBy: trackFinding"
+							class="table-row table-grid"
+							role="row"
+							[attr.aria-rowindex]="rowIndex + 2"
 							(click)="onSelectFinding(finding)"
 							(keydown.enter)="onSelectFinding(finding)"
 							(keydown.space)="onSelectFinding(finding); $event.preventDefault()"
 							tabindex="0"
-							[class.selected]="selectedFinding?.id === finding.id"
+							[class.selected]="isDetailOpen && selectedFindingId === finding.id"
 							[class.resolved-success]="isResolvedFinding(finding)">
-							<td>
+							<div class="table-cell" role="cell">
 								<span class="key-cell">{{ finding.key }}</span>
-							</td>
-							<td>
+							</div>
+							<div class="table-cell" role="cell">
 								<span
 									class="status-pill"
 									[class.used]="finding.status === 'used'"
@@ -62,23 +62,22 @@
 									[class.extra]="finding.status === 'extra-in-language'">
 									{{ statusLabel(finding.status) }}{{ finding.language ? ' · ' + finding.language : '' }}
 								</span>
-							</td>
-							<td class="path-cell">
+							</div>
+							<div class="table-cell path-cell" role="cell">
 								@if (finding.evidence[0]?.filePath) {
 									<span class="path-text" [title]="finding.evidence[0].filePath">{{ getFileName(finding.evidence[0].filePath) }}</span>
 									<button
 										type="button"
 										class="copy-path-btn"
 										(click)="onCopyPath($event, finding.evidence[0].filePath)"
-										[title]="copiedPath === finding.evidence[0].filePath ? 'Copied!' : 'Copy full path'"
-									>
+										[title]="copiedPath === finding.evidence[0].filePath ? 'Copied!' : 'Copy full path'">
 										<span class="material-symbols-outlined">{{ copiedPath === finding.evidence[0].filePath ? 'check' : 'content_copy' }}</span>
 									</button>
 								} @else {
 									<span class="path-text">No evidence path available</span>
 								}
-							</td>
-							<td>
+							</div>
+							<div class="table-cell" role="cell">
 								<div class="severity-meter">
 									<div
 										class="severity-bar"
@@ -87,15 +86,13 @@
 										[class.info]="finding.severity === 'info'"
 										[style.width.%]="severityPercent(finding.severity)"></div>
 								</div>
-							</td>
-						</tr>
-					} @empty {
-						<tr>
-							<td colspan="4" class="empty-state">No keys matched your current filter.</td>
-						</tr>
-					}
-				</tbody>
-			</table>
+							</div>
+						</div>
+					</cdk-virtual-scroll-viewport>
+				} @else {
+					<div class="empty-state">No keys matched your current filter.</div>
+				}
+			</div>
 		</div>
 	</section>
 

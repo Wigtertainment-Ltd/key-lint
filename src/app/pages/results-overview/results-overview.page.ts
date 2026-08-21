@@ -1,5 +1,6 @@
-import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { hasTranslationKey, IFinding, IProjectScanResult } from '@key-lint/core';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
@@ -8,10 +9,12 @@ import { LoggerService } from '../../shared/services/logging/logger.service';
 
 @Component({
 	selector: 'app-results-overview-page',
+	imports: [ScrollingModule],
 	templateUrl: './results-overview.page.html',
 	styleUrl: './results-overview.page.scss'
 })
 export class ResultsOverviewPage implements OnInit, OnDestroy {
+	@ViewChild(CdkVirtualScrollViewport) private tableViewport?: CdkVirtualScrollViewport;
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
 	private readonly toastService: ToastService = inject(ToastService);
@@ -22,15 +25,15 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	});
 	private readonly localScanResult = signal<IProjectScanResult | undefined>(undefined);
 	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
-	activeFilter:
+	private readonly activeFilterSignal = signal<
 		| 'all'
 		| 'missing-in-language'
 		| 'unused'
 		| 'dynamic-uncertain'
 		| 'indirect-uncertain'
 		| 'extra-in-language'
-		| 'used' = 'all';
-	searchTerm = '';
+		| 'used'>('all');
+	private readonly searchTermSignal = signal('');
 	selectedFindingId?: string;
 	isDetailOpen = false;
 	private readonly keyCopiedSignal = signal(false);
@@ -43,6 +46,62 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	private readonly hiddenResolvedMissingFindingIds = new Set<string>();
 	private readonly resolvedRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly animationStateVersion = signal(0);
+	private readonly filteredFindingsSignal = computed(() => {
+		this.animationStateVersion();
+		const normalizedSearch = this.searchTermSignal().trim().toLowerCase();
+		const activeFilter = this.activeFilterSignal();
+		return this.findings.filter((finding) => {
+			if (this.hiddenResolvedMissingFindingIds.has(finding.id)) {
+				return false;
+			}
+
+			if (activeFilter === 'missing-in-language' && this.resolvedFindingIds.has(finding.id)) {
+				return false;
+			}
+
+			if (activeFilter !== 'all' && finding.status !== activeFilter) {
+				return false;
+			}
+
+			if (!normalizedSearch) {
+				return true;
+			}
+
+			const evidencePath = finding.evidence[0]?.filePath?.toLowerCase() ?? '';
+			return (
+				finding.key.toLowerCase().includes(normalizedSearch) ||
+				finding.message.toLowerCase().includes(normalizedSearch) ||
+				evidencePath.includes(normalizedSearch)
+			);
+		});
+	});
+	private readonly filterCountsSignal = computed(() => {
+		const counts = {
+			missing: 0,
+			unused: 0,
+			dynamic: 0,
+			indirect: 0,
+			extra: 0,
+			used: 0
+		};
+
+		for (const finding of this.findings) {
+			switch (finding.status) {
+				case 'missing-in-language': counts.missing++; break;
+				case 'unused': counts.unused++; break;
+				case 'dynamic-uncertain': counts.dynamic++; break;
+				case 'indirect-uncertain': counts.indirect++; break;
+				case 'extra-in-language': counts.extra++; break;
+				case 'used': counts.used++; break;
+			}
+		}
+
+		return counts;
+	});
+
+	get activeFilter(): ReturnType<typeof this.activeFilterSignal> {
+		return this.activeFilterSignal();
+	}
 
 	get addTranslationsError(): string {
 		return this.addTranslationsErrorSignal();
@@ -113,18 +172,24 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			| 'extra-in-language'
 			| 'used'
 	): void {
-		this.activeFilter = filter;
+		this.activeFilterSignal.set(filter);
+		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedFinding();
 	}
 
 	onSearchChange(value: string): void {
-		this.searchTerm = value;
+		this.searchTermSignal.set(value);
+		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedFinding();
 	}
 
 	onSelectFinding(finding: IFinding): void {
 		this.selectedFindingId = finding.id;
 		this.isDetailOpen = true;
+	}
+
+	trackFinding(_index: number, finding: IFinding): string {
+		return finding.id;
 	}
 
 	closeDetailPanel(): void {
@@ -238,32 +303,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get filteredFindings(): IFinding[] {
-		this.animationStateVersion();
-		const normalizedSearch = this.searchTerm.trim().toLowerCase();
-		return this.findings.filter((finding) => {
-			if (this.hiddenResolvedMissingFindingIds.has(finding.id)) {
-				return false;
-			}
-
-			if (this.activeFilter === 'missing-in-language' && this.resolvedFindingIds.has(finding.id)) {
-				return false;
-			}
-
-			if (this.activeFilter !== 'all' && finding.status !== this.activeFilter) {
-				return false;
-			}
-
-			if (!normalizedSearch) {
-				return true;
-			}
-
-			const evidencePath = finding.evidence[0]?.filePath?.toLowerCase() ?? '';
-			return (
-				finding.key.toLowerCase().includes(normalizedSearch) ||
-				finding.message.toLowerCase().includes(normalizedSearch) ||
-				evidencePath.includes(normalizedSearch)
-			);
-		});
+		return this.filteredFindingsSignal();
 	}
 
 	get selectedFinding(): IFinding | undefined {
@@ -283,23 +323,23 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get missingFilterCount(): number {
-		return this.findings.filter((finding) => finding.status === 'missing-in-language').length;
+		return this.filterCountsSignal().missing;
 	}
 
 	get unusedFilterCount(): number {
-		return this.findings.filter((finding) => finding.status === 'unused').length;
+		return this.filterCountsSignal().unused;
 	}
 
 	get dynamicFilterCount(): number {
-		return this.findings.filter((finding) => finding.status === 'dynamic-uncertain').length;
+		return this.filterCountsSignal().dynamic;
 	}
 
 	get indirectFilterCount(): number {
-		return this.findings.filter((finding) => finding.status === 'indirect-uncertain').length;
+		return this.filterCountsSignal().indirect;
 	}
 
 	get usedFilterCount(): number {
-		return this.findings.filter((finding) => finding.status === 'used').length;
+		return this.filterCountsSignal().used;
 	}
 
 	get selectedEvidencePath(): string {
@@ -409,7 +449,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get extraFilterCount(): number {
-		return this.findings.filter((finding) => finding.status === 'extra-in-language').length;
+		return this.filterCountsSignal().extra;
 	}
 
 	private finalizeResolvedMissingFindings(findingIds: string[], resolutionId: string): void {

@@ -140,37 +140,51 @@
 	min-height: 0;
 	min-width: 0;
 	overflow-x: auto;
-	overflow-y: auto;
+	overflow-y: hidden;
 }
 
-table {
-	width: 100%;
+.virtual-table {
+	height: 100%;
 	min-width: 100%;
 	min-width: 980px;
-	border-collapse: collapse;
+	display: flex;
+	flex-direction: column;
 }
 
-th,
-td {
-	padding: 0.85rem 1rem;
-	border-bottom: 1px solid var(--outline-variant);
-	text-align: left;
-	color: var(--on-surface);
+.table-grid {
+	display: grid;
+	grid-template-columns: minmax(300px, 2fr) minmax(160px, 1fr) minmax(360px, 2fr);
+	align-items: center;
 }
 
-thead th {
-	position: sticky;
-	top: 0;
+.table-head {
+	flex: 0 0 43px;
 	background: var(--surface-container-high);
-	z-index: 2;
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--on-surface-variant);
+	border-bottom: 1px solid var(--outline-variant);
 }
 
-tbody tr {
+.table-head > div,
+.table-cell {
+	min-width: 0;
+	padding: 0 1rem;
+	color: var(--on-surface);
+}
+
+.table-viewport {
+	flex: 1;
+	min-height: 0;
+	width: 100%;
+	background: var(--surface-container-lowest);
+}
+
+.table-row {
+	height: 52px;
+	box-sizing: border-box;
 	background: var(--surface-container-lowest);
 	cursor: pointer;
 	border-left: 4px solid transparent;
@@ -208,16 +222,19 @@ tbody tr {
 }
 
 .key-cell {
+	display: block;
 	font-family: var(--mono);
 	font-size: 13px;
 	line-height: 20px;
 	font-weight: 600;
 	color: var(--on-surface);
-	word-break: break-all;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
-tbody tr:hover .key-cell,
-tbody tr.selected .key-cell {
+.table-row:hover .key-cell,
+.table-row.selected .key-cell {
 	color: var(--on-surface);
 }
 
@@ -725,7 +742,7 @@ tbody tr.selected .key-cell {
 		width: 220px;
 	}
 
-	table {
+	.virtual-table {
 		min-width: 720px;
 	}
 }

@@ -47,38 +47,38 @@
 					No translation data available yet. Run an analysis to populate this table.
 				</div>
 			} @else {
-				<table>
-					<thead>
-						<tr>
-							<th>Key Name</th>
-							<th>Locales</th>
-							<th>Issues</th>
-						</tr>
-					</thead>
-					<tbody>
-						@for (row of filteredRows; track row.key) {
-							<tr
+				<div class="virtual-table" role="table" aria-label="Translation keys" [attr.aria-rowcount]="filteredRows.length + 1">
+					<div class="table-head table-grid" role="row" aria-rowindex="1">
+						<div role="columnheader">Key Name</div>
+						<div role="columnheader">Locales</div>
+						<div role="columnheader">Issues</div>
+					</div>
+					@if (filteredRows.length) {
+						<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
+							<div
+								*cdkVirtualFor="let row of filteredRows; let rowIndex = index; trackBy: trackRow"
+								class="table-row table-grid"
+								role="row"
+								[attr.aria-rowindex]="rowIndex + 2"
 								(click)="onSelectRow(row)"
 								(keydown)="onRowKeydown($event, row)"
-								[class.selected]="selectedRow?.key === row.key"
+								[class.selected]="isDetailOpen && selectedKey === row.key"
 								[class.resolved-success]="isResolvedRow(row)"
 								tabindex="0"
 							>
-								<td><span class="key-cell">{{ row.key }}</span></td>
-								<td>
+								<div class="table-cell" role="cell"><span class="key-cell">{{ row.key }}</span></div>
+								<div class="table-cell" role="cell">
 									<span class="status-pill" [class.missing]="isRowMissing(row)" [class.used]="!isRowMissing(row)">
 										{{ localeStatusLabel(row) }}
 									</span>
-								</td>
-								<td class="path-cell">{{ missingLocalesLabel(row) }}</td>
-							</tr>
-						} @empty {
-							<tr>
-								<td colspan="3" class="empty-state">No keys matched your current filter.</td>
-							</tr>
-						}
-					</tbody>
-				</table>
+								</div>
+								<div class="table-cell path-cell" role="cell" [title]="missingLocalesLabel(row)">{{ missingLocalesLabel(row) }}</div>
+							</div>
+						</cdk-virtual-scroll-viewport>
+					} @else {
+						<div class="empty-state">No keys matched your current filter.</div>
+					}
+				</div>
 			}
 		</div>
 	</section>
