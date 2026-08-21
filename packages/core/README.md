@@ -9,6 +9,7 @@ Framework-agnostic i18n scan engine. Detects missing, unused and dynamically res
 - **`ignoreKeys`** glob patterns to suppress known false positives
 - **Progress callbacks** for live UI updates or CI logging
 - **Per-locale consistency checks** with configurable or automatic base locale selection
+- **Mustache placeholder contracts** across locales and Angular usage sites
 - **Fail-fast translation validation** with file-specific errors for unreadable JSON, malformed JSON and non-object roots
 - **Node-only APIs** (`@key-lint/core/node`) for CLI and pipeline usage
 
@@ -36,6 +37,13 @@ console.log(result.summary.totalFindings); // → 37
 Set `config.baseLocale` to make one locale canonical. When omitted, the engine
 prefers exact `en`, then the most complete English variant, then the most complete
 discovered locale. Missing and extra findings carry the affected `language`.
+
+For JSON translations, `{{name}}` placeholders in the base locale form a contract.
+The Angular adapter validates parameters supplied to translation service methods,
+ngx-translate/Transloco pipes, ngx-translate directives and Transloco structural
+calls. Definite omissions and locale placeholder mismatches are errors. Dynamic
+parameter expressions produce `placeholder-uncertain` warnings; extra parameters
+are accepted. Matrix rows expose placeholder names through `placeholders[locale]`.
 
 Every discovered translation file must be readable, contain valid JSON and use
 an object as its root value. A violation rejects `runScan` with a

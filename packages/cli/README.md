@@ -29,7 +29,7 @@ keylint scan /path/to/project \
 | `--config <file>` | Path to a `keylint.config.json`. Missing file is an error. |
 | `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
-| `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
+| `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited (`-1`). |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Overrides config file `ignoreKeys`. |
 | `--quiet` | Suppress progress output on stderr. |
@@ -50,6 +50,8 @@ Progress goes to **stderr**, reports go to **stdout** — so JSON output can be 
 | Finding status | Severity |
 | --- | --- |
 | `missing-in-language` | `error` |
+| `placeholder-missing`, `placeholder-mismatch` | `error` |
+| `placeholder-uncertain` | `warning` |
 | `unused`, `dynamic-uncertain`, `indirect-uncertain`, `extra-in-language` | `warning` |
 | `used` | `info` (never counted against thresholds) |
 
@@ -91,13 +93,18 @@ Outputs a structured report with schema version, adapter ID, severity counts, fi
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "adapterId": "angular",
   "summary": { "totalFindings": 37 },
   "severityCounts": { "error": 7, "warning": 30 },
   "findings": [ ... ]
 }
 ```
+
+Schema version 2 adds placeholder summary counters and structured
+`placeholderDetails` on placeholder findings. Mustache placeholders are checked
+automatically; `ignoreKeys` suppresses their findings in the same way as other
+key-specific findings.
 
 ### Markdown reporter
 

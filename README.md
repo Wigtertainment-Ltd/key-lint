@@ -26,6 +26,7 @@ files and tells you exactly what is wrong:
 - 🟡 **Unused keys** - defined in a locale file but never referenced
 - 🟡 **Extra keys** - present in one locale but missing in the base language
 - 🟡 **Dynamic / indirect keys** - resolved at runtime, flagged so you can review them
+- 🔴 **Placeholder contracts** - detects missing `{{name}}` parameters and locale drift
 - ✅ **Used keys** - confirmed and safe
 
 The desktop app and the CLI run the **exact same scan engine**, so what you see
@@ -86,6 +87,16 @@ complete `en-*` locale, and finally the most complete discovered locale. Missing
 and extra findings are emitted per affected locale. An explicitly configured
 locale that cannot be found is a configuration error.
 
+### Placeholder contracts
+
+Mustache placeholders such as `{{name}}` are extracted from every JSON locale.
+The base locale defines the required parameter names. KeyLint checks parameters
+passed to ngx-translate and Transloco methods, pipes, directives and structural
+calls. Missing static parameters and locale mismatches are errors; variables,
+spreads and computed parameter objects that cannot be resolved statically are
+warnings. Additional parameters are allowed. The check is enabled by default and
+can be suppressed per key with the existing `ignoreKeys` patterns.
+
 Precedence is: built-in defaults < `package.json` < config file < CLI flags.
 Arrays are replaced (never merged), and the config file is pure JSON - it can
 never execute code.
@@ -140,7 +151,7 @@ keylint scan . \
 | `--config <file>` | Path to a `keylint.config.json`. |
 | `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file (also enables it). |
-| `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
+| `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings. Default unlimited. |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. |
 | `--quiet` | No progress output on stderr. |

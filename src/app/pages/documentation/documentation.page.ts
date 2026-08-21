@@ -38,6 +38,8 @@ import { Component } from '@angular/core';
 						<li><strong>Unused key:</strong> A key exists in translations but is not referenced in source code.</li>
 						<li><strong>Empty value:</strong> A key exists but has no translated text for a locale.</li>
 						<li><strong>Inconsistent locale:</strong> A key is available only in a subset of locales.</li>
+						<li><strong>Placeholder error:</strong> A <code>{{ placeholderExample }}</code> parameter is missing at a usage site or differs from the base locale.</li>
+						<li><strong>Uncertain parameters:</strong> A variable, spread, or computed parameter object cannot be verified statically.</li>
 					</ul>
 				</article>
 			</section>
@@ -49,6 +51,7 @@ import { Component } from '@angular/core';
 					<li>Require every feature PR to pass an i18n scan before merge.</li>
 					<li>Keep locale files sorted to reduce merge conflicts.</li>
 					<li>Review scan history after large refactors to catch accidental key removals early.</li>
+					<li>Keep placeholder names identical across locales and pass every base-locale placeholder at each translation call.</li>
 				</ul>
 			</section>
 
@@ -183,4 +186,6 @@ import { Component } from '@angular/core';
 		`
 	]
 })
-export class DocumentationPage {}
+export class DocumentationPage {
+	readonly placeholderExample = '{{name}}';
+}
