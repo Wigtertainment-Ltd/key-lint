@@ -28,56 +28,57 @@ export class DashboardPage implements OnInit {
 	private readonly selectedTrendDayKey = signal<string | undefined>(undefined);
 
 	ngOnInit(): void {
-		effect((onCleanup) => {
-			const normalizedProjectRoot = this.resolveProjectRoot();
-			if (!normalizedProjectRoot || normalizedProjectRoot === this.watchedProjectPath) {
-				return;
-			}
-
-			this.watchedProjectPath = normalizedProjectRoot;
-			const subscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events) => {
-				const selected: ITrendBar[] = [];
-				for (const event of events) {
-					if (event.type !== 'scan-completed') {
-						continue;
-					}
-
-					const eventTime = new Date(event.timestamp);
-					if (Number.isNaN(eventTime.getTime())) {
-						continue;
-					}
-
-					const dayKey = this.toDayKey(eventTime);
-					const payload = event.payload as IScanCompletedHistoryPayload;
-					const hasDetailedIssueCounts =
-						typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
-					const missingCount = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
-					const unusedCount = typeof payload.unusedCount === 'number' ? payload.unusedCount : 0;
-					const issues = hasDetailedIssueCounts
-						? Math.max(0, missingCount + unusedCount)
-						: Math.max(0, payload.totalFindings);
-
-					selected.push({
-						id: event.id,
-						label: this.formatTrendLabel(event.timestamp),
-						keys: payload.totalKeys,
-						issues,
-						dayKey,
-						timestamp: event.timestamp
-					});
+		effect(
+			(onCleanup) => {
+				const normalizedProjectRoot = this.resolveProjectRoot();
+				if (!normalizedProjectRoot || normalizedProjectRoot === this.watchedProjectPath) {
+					return;
 				}
 
-				selected.sort((left, right) => this.timestampToMillis(right.timestamp) - this.timestampToMillis(left.timestamp));
-				this.scanTrendEvents.set(selected);
+				this.watchedProjectPath = normalizedProjectRoot;
+				const subscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events) => {
+					const selected: ITrendBar[] = [];
+					for (const event of events) {
+						if (event.type !== 'scan-completed') {
+							continue;
+						}
 
-				const activeDay = this.selectedTrendDayKey();
-				if (activeDay && !selected.some((scan) => scan.dayKey === activeDay)) {
-					this.selectedTrendDayKey.set(undefined);
-				}
-			});
+						const eventTime = new Date(event.timestamp);
+						if (Number.isNaN(eventTime.getTime())) {
+							continue;
+						}
 
-			onCleanup(() => subscription.unsubscribe());
-		}, { injector: this.injector });
+						const dayKey = this.toDayKey(eventTime);
+						const payload = event.payload as IScanCompletedHistoryPayload;
+						const hasDetailedIssueCounts = typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
+						const missingCount = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
+						const unusedCount = typeof payload.unusedCount === 'number' ? payload.unusedCount : 0;
+						const placeholderIssueCount = typeof payload.placeholderIssueCount === 'number' ? payload.placeholderIssueCount : 0;
+						const issues = hasDetailedIssueCounts ? Math.max(0, missingCount + unusedCount + placeholderIssueCount) : Math.max(0, payload.totalFindings);
+
+						selected.push({
+							id: event.id,
+							label: this.formatTrendLabel(event.timestamp),
+							keys: payload.totalKeys,
+							issues,
+							dayKey,
+							timestamp: event.timestamp
+						});
+					}
+
+					selected.sort((left, right) => this.timestampToMillis(right.timestamp) - this.timestampToMillis(left.timestamp));
+					this.scanTrendEvents.set(selected);
+
+					const activeDay = this.selectedTrendDayKey();
+					if (activeDay && !selected.some((scan) => scan.dayKey === activeDay)) {
+						this.selectedTrendDayKey.set(undefined);
+					}
+				});
+
+				onCleanup(() => subscription.unsubscribe());
+			},
+			{ injector: this.injector }
+		);
 
 		if (!this.scanResultSignal()) {
 			void this.router.navigate(['/scan-progress']);
@@ -120,12 +121,16 @@ export class DashboardPage implements OnInit {
 		return this.scanResult?.summary.dynamicOrUncertain ?? 0;
 	}
 
+	get placeholderIssues(): number {
+		return (this.scanResult?.summary.placeholderMissing ?? 0) + (this.scanResult?.summary.placeholderMismatch ?? 0);
+	}
+
 	get issueCount(): number {
-		return this.missingKeys + this.unusedKeys;
+		return this.missingKeys + this.unusedKeys + this.placeholderIssues;
 	}
 
 	get criticalTitle(): string {
-		if (this.missingKeys > 0) {
+		if (this.missingKeys > 0 || this.placeholderIssues > 0) {
 			return 'Critical Issues Detected';
 		}
 
@@ -133,11 +138,11 @@ export class DashboardPage implements OnInit {
 	}
 
 	get criticalDescription(): string {
-		if (this.missingKeys === 0) {
-			return 'No missing translations found in the current scan. Locale coverage is consistent.';
+		if (this.missingKeys === 0 && this.placeholderIssues === 0) {
+			return 'No missing translations or placeholder contract errors found in the current scan.';
 		}
 
-		return `${this.missingKeys} missing translation(s) found across the discovered locales.`;
+		return `${this.missingKeys} missing translation(s) and ${this.placeholderIssues} placeholder contract error(s) found.`;
 	}
 
 	get optimizationDescription(): string {
@@ -275,9 +280,7 @@ export class DashboardPage implements OnInit {
 		}
 
 		const dayScans = this.scanTrendEvents().filter((item) => item.dayKey === selectedDayKey);
-		const chronologicallySorted = [...dayScans].sort(
-			(left, right) => this.timestampToMillis(left.timestamp) - this.timestampToMillis(right.timestamp)
-		);
+		const chronologicallySorted = [...dayScans].sort((left, right) => this.timestampToMillis(left.timestamp) - this.timestampToMillis(right.timestamp));
 
 		if (chronologicallySorted.length === 0) {
 			this.selectedTrendDayKey.set(undefined);
@@ -339,7 +342,7 @@ export class DashboardPage implements OnInit {
 				id: `fallback-${scanTimestamp}`,
 				label: this.formatTrendLabel(scanTimestamp),
 				keys: this.totalKeys,
-				issues: this.missingKeys + this.unusedKeys,
+				issues: this.issueCount,
 				dayKey: this.toDayKey(new Date(scanTimestamp)),
 				timestamp: scanTimestamp,
 				isLatest: true

@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
+	extractMustachePlaceholders,
 	IScannerConfig,
 	IScannerConfigOverrides,
 	inferLocaleFromTranslationFile,
@@ -46,19 +47,25 @@ export class ScanOrchestrationService {
 		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
 			indirectUncertain?: number;
 		};
-		if (typeof summaryWithOptionalIndirect.indirectUncertain === 'number') {
+		if (
+			typeof summaryWithOptionalIndirect.indirectUncertain === 'number' &&
+			typeof result.summary.placeholderMissing === 'number' &&
+			typeof result.summary.placeholderUncertain === 'number' &&
+			typeof result.summary.placeholderMismatch === 'number'
+		) {
 			return result;
 		}
 
-		const indirectUncertain = result.findings.filter(
-			(finding) => finding.status === 'indirect-uncertain'
-		).length;
+		const indirectUncertain = result.findings.filter((finding) => finding.status === 'indirect-uncertain').length;
 
 		return {
 			...result,
 			summary: {
 				...result.summary,
-				indirectUncertain
+				indirectUncertain,
+				placeholderMissing: result.summary.placeholderMissing ?? result.findings.filter((finding) => finding.status === 'placeholder-missing').length,
+				placeholderUncertain: result.summary.placeholderUncertain ?? result.findings.filter((finding) => finding.status === 'placeholder-uncertain').length,
+				placeholderMismatch: result.summary.placeholderMismatch ?? result.findings.filter((finding) => finding.status === 'placeholder-mismatch').length
 			}
 		};
 	}
@@ -85,12 +92,7 @@ export class ScanOrchestrationService {
 		};
 	}
 
-	async addTranslationKeyForLocale(
-		locale: string,
-		key: string,
-		value: string,
-		source: TranslationEventSource = 'unknown'
-	): Promise<string> {
+	async addTranslationKeyForLocale(locale: string, key: string, value: string, source: TranslationEventSource = 'unknown'): Promise<string> {
 		if (!this.electronService.isElectron) {
 			throw new Error('Adding translation keys requires the Electron app runtime.');
 		}
@@ -123,11 +125,7 @@ export class ScanOrchestrationService {
 	}
 
 	private async resolveLocaleTranslationFile(projectRoot: string, locale: string): Promise<string> {
-		const translationFiles = await this.fsAdapter.listFiles(
-			projectRoot,
-			this.activeScannerConfig.includeTranslationGlobs,
-			this.activeScannerConfig.excludeGlobs
-		);
+		const translationFiles = await this.fsAdapter.listFiles(projectRoot, this.activeScannerConfig.includeTranslationGlobs, this.activeScannerConfig.excludeGlobs);
 
 		const normalizedLocale = locale.trim().toLowerCase();
 		const match = translationFiles
@@ -164,7 +162,8 @@ export class ScanOrchestrationService {
 			...existingMatrix.rows.map((row) => ({
 				...row,
 				values: { ...row.values },
-				keyPresence: row.keyPresence ? { ...row.keyPresence } : undefined
+				keyPresence: row.keyPresence ? { ...row.keyPresence } : undefined,
+				placeholders: row.placeholders ? { ...row.placeholders } : undefined
 			}))
 		];
 		const row = updatedRows.find((entry) => entry.key === key);
@@ -172,6 +171,7 @@ export class ScanOrchestrationService {
 		if (row) {
 			row.values[locale] = value;
 			row.keyPresence = row.keyPresence ? { ...row.keyPresence, [locale]: true } : { [locale]: true };
+			row.placeholders = { ...(row.placeholders ?? {}), [locale]: extractMustachePlaceholders(value) };
 		} else {
 			const values: Record<string, string> = {};
 			const keyPresence: Record<string, boolean> = {};
@@ -182,39 +182,23 @@ export class ScanOrchestrationService {
 			values[locale] = value;
 			keyPresence[locale] = true;
 
-			updatedRows.push({ key, values, keyPresence });
+			updatedRows.push({ key, values, keyPresence, placeholders: { [locale]: extractMustachePlaceholders(value) } });
 			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
 		}
 
 		const resolvedFindingCount = existingResult.findings.filter(
-			(finding) =>
-				finding.status === 'missing-in-language' &&
-				finding.key === key &&
-				finding.language === locale
+			(finding) => finding.status === 'missing-in-language' && finding.key === key && finding.language === locale
 		).length;
 
 		this.stateSubject.next({
 			...snapshot,
 			result: {
 				...existingResult,
-				findings: existingResult.findings.filter(
-					(finding) =>
-						!(
-							finding.status === 'missing-in-language' &&
-							finding.key === key &&
-							finding.language === locale
-						)
-				),
+				findings: existingResult.findings.filter((finding) => !(finding.status === 'missing-in-language' && finding.key === key && finding.language === locale)),
 				summary: {
 					...existingResult.summary,
-					missingInLanguage: Math.max(
-						0,
-						existingResult.summary.missingInLanguage - resolvedFindingCount
-					),
-					totalFindings: Math.max(
-						0,
-						existingResult.summary.totalFindings - resolvedFindingCount
-					)
+					missingInLanguage: Math.max(0, existingResult.summary.missingInLanguage - resolvedFindingCount),
+					totalFindings: Math.max(0, existingResult.summary.totalFindings - resolvedFindingCount)
 				},
 				translationMatrix: {
 					locales,
@@ -239,10 +223,7 @@ export class ScanOrchestrationService {
 		this.stateSubject.next({ state: 'running', stage: 'Loading scanner configuration...' });
 
 		try {
-			const loadedConfig = await this.desktopScannerConfigService.load(
-				normalizedProjectRoot,
-				this.nextScanConfigOverrides
-			);
+			const loadedConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot, this.nextScanConfigOverrides);
 			this.activeScannerConfig = loadedConfig.config;
 			this.fsAdapter.configureGuardrails(loadedConfig.config.guardrails);
 			const rawResult = await runScan({
@@ -254,7 +235,7 @@ export class ScanOrchestrationService {
 						return;
 					}
 
-			this.stateSubject.next({ state: 'running', stage: progress.message });
+					this.stateSubject.next({ state: 'running', stage: progress.message });
 				}
 			});
 
@@ -289,7 +270,8 @@ export class ScanOrchestrationService {
 					missingCount: result.summary.missingInLanguage,
 					unusedCount: result.summary.unused,
 					dynamicCount: result.summary.dynamicOrUncertain,
-					extraCount: result.summary.extraInLanguage
+					extraCount: result.summary.extraInLanguage,
+					placeholderIssueCount: (result.summary.placeholderMissing ?? 0) + (result.summary.placeholderMismatch ?? 0)
 				}
 			});
 
