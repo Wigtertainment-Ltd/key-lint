@@ -1,5 +1,6 @@
 import { IKeyUsage } from '../../../scan-adapter.interface.js';
-import { extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
+import { extractCallArgumentList, extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
+import { parsePlaceholderParameters, splitTopLevel } from '../../../../util/placeholder.util.js';
 
 function escapeRegex(text: string): string {
 	// Match every regular-expression metacharacter that must be escaped when inserting an alias literally.
@@ -33,12 +34,15 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 
 	for (const alias of aliasNames) {
 		// Match calls to this escaped alias and capture the complete argument list in group 1.
-		const aliasCallRegex: RegExp = new RegExp(`\\b${escapeRegex(alias)}\\s*\\(([^)]*)\\)`, 'g');
+		const aliasCallRegex: RegExp = new RegExp(`\\b${escapeRegex(alias)}\\s*\\(`, 'g');
 		let aliasCallMatch: RegExpExecArray | null = aliasCallRegex.exec(source);
 
 		while (aliasCallMatch) {
-			const callArgs: string = aliasCallMatch[1] ?? '';
+			const openParenIndex = source.indexOf('(', aliasCallMatch.index);
+			const callArgs: string = extractCallArgumentList(source, openParenIndex) ?? '';
+			const args = splitTopLevel(callArgs);
 			const firstArg: string = firstCallArgument(callArgs);
+			const placeholderParameters = parsePlaceholderParameters(args[1]);
 			const lineCol = getLineColumn(source, aliasCallMatch.index);
 			const snippet: string = extractSnippet(source, aliasCallMatch.index);
 			// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
@@ -53,7 +57,9 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 					column: lineCol.column,
 					snippet,
 					matchType: 'html-dynamic-transloco-structural-call',
-					isDynamic: true
+					isDynamic: true,
+					sourceIndex: openParenIndex,
+					placeholderParameters
 				});
 				aliasCallMatch = aliasCallRegex.exec(source);
 				continue;
@@ -73,7 +79,9 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 						column: lineCol.column,
 						snippet,
 						matchType: 'html-transloco-structural-call',
-						isDynamic: false
+						isDynamic: false,
+						sourceIndex: openParenIndex,
+						placeholderParameters
 					});
 				}
 

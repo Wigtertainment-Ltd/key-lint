@@ -4,6 +4,7 @@ export interface ITranslationMatrixRow {
 	key: string;
 	values: Record<string, string>;
 	keyPresence?: Record<string, boolean>;
+	placeholders?: Record<string, string[]>;
 }
 
 export interface ITranslationMatrix {
@@ -20,6 +21,9 @@ export interface IScanSummary {
 	indirectUncertain: number;
 	missingInLanguage: number;
 	extraInLanguage: number;
+	placeholderMissing?: number;
+	placeholderUncertain?: number;
+	placeholderMismatch?: number;
 	totalFindings: number;
 }
 
@@ -51,6 +55,9 @@ export function createEmptyScanSummary(): IScanSummary {
 		indirectUncertain: 0,
 		missingInLanguage: 0,
 		extraInLanguage: 0,
+		placeholderMissing: 0,
+		placeholderUncertain: 0,
+		placeholderMismatch: 0,
 		totalFindings: 0
 	};
 }
@@ -91,6 +98,21 @@ export function buildSummary(findings: IFinding[], totalKeys: number): IScanSumm
 
 		if (status === 'extra-in-language') {
 			summary.extraInLanguage += 1;
+			continue;
+		}
+
+		if (status === 'placeholder-missing') {
+			summary.placeholderMissing = (summary.placeholderMissing ?? 0) + 1;
+			continue;
+		}
+
+		if (status === 'placeholder-uncertain') {
+			summary.placeholderUncertain = (summary.placeholderUncertain ?? 0) + 1;
+			continue;
+		}
+
+		if (status === 'placeholder-mismatch') {
+			summary.placeholderMismatch = (summary.placeholderMismatch ?? 0) + 1;
 		}
 	}
 

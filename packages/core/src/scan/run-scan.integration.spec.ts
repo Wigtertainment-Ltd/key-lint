@@ -32,6 +32,15 @@ const FIXTURE_CASES: IFixtureCase[] = [
 		)
 	},
 	{
+		name: 'angular ngx-translate placeholder contracts',
+		fixtureRoot: fileURLToPath(
+			new URL('../../test/fixtures/angular/ngx-translate-json/placeholders', import.meta.url)
+		),
+		expectedFile: fileURLToPath(
+			new URL('../../test/fixtures/angular/ngx-translate-json/placeholders/_expected.json', import.meta.url)
+		)
+	},
+	{
 		name: 'angular transloco json basic',
 		fixtureRoot: fileURLToPath(
 			new URL('../../test/fixtures/angular/transloco-json/basic', import.meta.url)
@@ -79,6 +88,9 @@ interface IExpectedScan {
 		indirectUncertain: number;
 		missingInLanguage: number;
 		extraInLanguage: number;
+		placeholderMissing: number;
+		placeholderUncertain: number;
+		placeholderMismatch: number;
 		totalFindings: number;
 	};
 	findings: Array<{
@@ -107,9 +119,11 @@ describe('runScan integration fixtures', () => {
 					status: finding.status,
 					severity: finding.severity
 				}))
-				.sort((a, b) => a.key.localeCompare(b.key));
+				.sort((a, b) => a.key.localeCompare(b.key) || a.status.localeCompare(b.status));
 
-			const expectedFindings = [...expected.findings].sort((a, b) => a.key.localeCompare(b.key));
+			const expectedFindings = [...expected.findings].sort(
+				(a, b) => a.key.localeCompare(b.key) || a.status.localeCompare(b.status)
+			);
 
 			expect(result.summary).toEqual(expected.summary);
 			expect(normalizedFindings).toEqual(expectedFindings);

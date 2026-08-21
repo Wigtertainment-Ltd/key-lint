@@ -6,6 +6,7 @@ export * from './config/scanner-config.js';
 export * from './config/scanner-defaults.js';
 export * from './config/resolve-config.js';
 export * from './models/finding.model.js';
+export * from './util/placeholder.util.js';
 export * from './models/file-system-warning.model.js';
 export * from './models/history-event.model.js';
 export * from './models/scan-result.model.js';

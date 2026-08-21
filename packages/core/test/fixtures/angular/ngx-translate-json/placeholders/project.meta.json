@@ -1,0 +1,11 @@
+{
+	"framework": "angular",
+	"translationFormat": "ngx-translate-json",
+	"scenario": "placeholder-contracts",
+	"covers": [
+		"placeholder-static-valid",
+		"placeholder-missing",
+		"placeholder-uncertain",
+		"placeholder-mismatch"
+	]
+}

@@ -1,0 +1,9 @@
+{
+	"version": 1,
+	"projects": {
+		"fixture-angular-placeholders": {
+			"root": "",
+			"sourceRoot": "src"
+		}
+	}
+}

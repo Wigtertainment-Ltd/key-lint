@@ -7,13 +7,16 @@ import { extractMatches } from './extractors/pattern-matcher.util.js';
 import { extractTranslocoStructuralMatches } from './extractors/transloco/transloco-structural.extractor.js';
 import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/translation-matrix.util.js';
 import { readTranslationJson } from '../../util/translation-json.util.js';
+import { extractMustachePlaceholders, parsePlaceholderParameters } from '../../util/placeholder.util.js';
 
 function normalizePath(value: string): string {
-	return value
-		// Convert every Windows path separator to the cross-platform forward-slash form.
-		.replace(/\\/g, '/')
-		// Collapse consecutive forward slashes into one separator.
-		.replace(/\/+/g, '/');
+	return (
+		value
+			// Convert every Windows path separator to the cross-platform forward-slash form.
+			.replace(/\\/g, '/')
+			// Collapse consecutive forward slashes into one separator.
+			.replace(/\/+/g, '/')
+	);
 }
 
 function escapeRegex(text: string): string {
@@ -47,7 +50,6 @@ function matchesAny(path: string, patterns: string[]): boolean {
 	return patterns.some((pattern) => globToRegex(pattern).test(path));
 }
 
-
 function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	if (value === null || value === undefined) {
 		return [];
@@ -76,7 +78,6 @@ function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 
 	return result;
 }
-
 
 function leadingLiteralPrefix(expression: string): string | null {
 	// Capture the first quoted translation-key fragment, allowing an empty fragment before concatenation.
@@ -214,9 +215,7 @@ async function readPackageJsonDependencies(root: string, fs: IFileSystemAdapter)
 			devDependencies?: Record<string, string>;
 		};
 		const hasAngularDependency =
-			Boolean(packageJson.dependencies?.['@angular/core']) ||
-			Boolean(packageJson.devDependencies?.['@angular/cli']) ||
-			Boolean(packageJson.devDependencies?.['@nx/angular']);
+			Boolean(packageJson.dependencies?.['@angular/core']) || Boolean(packageJson.devDependencies?.['@angular/cli']) || Boolean(packageJson.devDependencies?.['@nx/angular']);
 
 		return { hasPackageJson: true, hasAngularDependency };
 	} catch {
@@ -330,11 +329,7 @@ export const angularScanAdapter: IScanAdapter = {
 	},
 
 	async collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter) {
-		const listedFiles = await fs.listFiles(
-			context.projectRoot,
-			context.config.includeTranslationGlobs,
-			context.config.excludeGlobs
-		);
+		const listedFiles = await fs.listFiles(context.projectRoot, context.config.includeTranslationGlobs, context.config.excludeGlobs);
 
 		const extensions = new Set(context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase()));
 
@@ -383,21 +378,21 @@ export const angularScanAdapter: IScanAdapter = {
 		}
 
 		const locales = uniqueSorted([...localeToValues.keys()]);
-		const allKeys = uniqueSorted(
-			locales.flatMap((locale) => Object.keys(localeToValues.get(locale) ?? {}))
-		);
+		const allKeys = uniqueSorted(locales.flatMap((locale) => Object.keys(localeToValues.get(locale) ?? {})));
 
 		const rows = allKeys.map((key) => {
 			const values: Record<string, string> = {};
 			const keyPresence: Record<string, boolean> = {};
+			const placeholders: Record<string, string[]> = {};
 			for (const locale of locales) {
 				const localeValues = localeToValues.get(locale) ?? {};
 				const localePresence = localeToPresence.get(locale) ?? new Set<string>();
 				values[locale] = localeValues[key] ?? '';
 				keyPresence[locale] = localePresence.has(key);
+				placeholders[locale] = extractMustachePlaceholders(values[locale]);
 			}
 
-			return { key, values, keyPresence };
+			return { key, values, keyPresence, placeholders };
 		});
 
 		return {
@@ -408,11 +403,7 @@ export const angularScanAdapter: IScanAdapter = {
 	},
 
 	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter) {
-		const sourceFiles = await fs.listFiles(
-			context.projectRoot,
-			context.config.includeSourceGlobs,
-			context.config.excludeGlobs
-		);
+		const sourceFiles = await fs.listFiles(context.projectRoot, context.config.includeSourceGlobs, context.config.excludeGlobs);
 
 		const used: IKeyUsage[] = [];
 
@@ -422,17 +413,34 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 
 			const source = await fs.readFile(filePath);
-			const descriptors = filePath.endsWith('.html')
-				? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS]
-				: [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
-			used.push(...extractMatches(source, filePath, descriptors));
+			const descriptors = filePath.endsWith('.html') ? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS] : [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
+			const fileUsages = extractMatches(source, filePath, descriptors);
+			for (const usage of fileUsages) {
+				if (usage.matchType === 'html-attribute-translate' || usage.matchType === 'html-bound-translate') {
+					const sourceIndex = usage.sourceIndex ?? 0;
+					const tagStart = source.lastIndexOf('<', sourceIndex);
+					const tagEnd = source.indexOf('>', sourceIndex);
+					const tag = tagStart >= 0 && tagEnd >= 0 ? source.slice(tagStart, tagEnd + 1) : '';
+					// Capture the Angular expression assigned to translateParams in the same start tag.
+					const paramsMatch = /\[?translateParams\]?\s*=\s*(['"])([\s\S]*?)\1/i.exec(tag);
+					usage.placeholderParameters = parsePlaceholderParameters(paramsMatch?.[2]);
+				}
+			}
+			used.push(...fileUsages);
 
 			if (filePath.endsWith('.html')) {
 				used.push(...extractTranslocoStructuralMatches(source, filePath));
 			}
 		}
 
-		return used;
+		const deduplicated = new Map<string, IKeyUsage>();
+		for (const usage of used) {
+			const identity = `${usage.filePath}:${usage.sourceIndex ?? `${usage.line}:${usage.column}`}:${usage.key}:${usage.isDynamic ? 'dynamic' : 'static'}`;
+			if (!deduplicated.has(identity)) {
+				deduplicated.set(identity, usage);
+			}
+		}
+		return [...deduplicated.values()];
 	},
 
 	async runRules(input: {
@@ -450,6 +458,12 @@ export const angularScanAdapter: IScanAdapter = {
 		const indirectLiteralUsage = new Map<string, IKeyUsage>();
 		const allDefined = new Set(input.definedKeys);
 		const translationMatrix = input.translationMatrix ?? { locales: [], rows: [], totalKeys: 0 };
+		const placeholderContractByKey = new Map<string, string[]>();
+		if (input.baseLocale) {
+			for (const row of translationMatrix.rows) {
+				placeholderContractByKey.set(row.key, row.placeholders?.[input.baseLocale] ?? []);
+			}
+		}
 
 		for (const usage of input.usedKeys) {
 			if (usage.matchType === 'ts-indirect-key-literal') {
@@ -472,6 +486,84 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 
 			staticUsage.add(usage.key);
+		}
+
+		for (const [key, required] of placeholderContractByKey) {
+			if (required.length === 0) {
+				continue;
+			}
+
+			const usages = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === key);
+			for (const usage of usages) {
+				const parameterUsage = usage.placeholderParameters ?? { kind: 'absent' as const, names: [] };
+				const missing = required.filter((name) => !parameterUsage.names.includes(name));
+				if (missing.length === 0) {
+					continue;
+				}
+
+				const uncertain =
+					parameterUsage.kind === 'dynamic' || missing.some((name) => (parameterUsage.dynamicPrefixes ?? []).some((prefix) => name.startsWith(`${prefix}.`)));
+				const status = uncertain ? ('placeholder-uncertain' as const) : ('placeholder-missing' as const);
+				const locationId = `${usage.filePath}:${usage.line ?? 0}:${usage.column ?? 0}`;
+				findings.push({
+					id: `${status}:${key}:${locationId}`,
+					adapterId: this.id,
+					key,
+					status,
+					severity: uncertain ? 'warning' : 'error',
+					message: uncertain
+						? `Key "${key}" requires placeholder(s) ${missing.map((name) => `"${name}"`).join(', ')}, but the supplied parameters cannot be resolved statically.`
+						: `Key "${key}" is used without required placeholder(s) ${missing.map((name) => `"${name}"`).join(', ')}.`,
+					evidence: [
+						{
+							filePath: usage.filePath,
+							line: usage.line,
+							column: usage.column,
+							snippet: usage.snippet,
+							matchType: usage.matchType
+						}
+					],
+					placeholderDetails: {
+						required,
+						provided: parameterUsage.names,
+						missing
+					}
+				});
+			}
+		}
+
+		if (input.baseLocale) {
+			for (const row of translationMatrix.rows) {
+				if (row.keyPresence?.[input.baseLocale] === false) {
+					continue;
+				}
+				const expected = row.placeholders?.[input.baseLocale] ?? [];
+				for (const locale of translationMatrix.locales) {
+					if (locale === input.baseLocale || row.keyPresence?.[locale] === false) {
+						continue;
+					}
+					const actual = row.placeholders?.[locale] ?? [];
+					const matches = expected.length === actual.length && expected.every((name) => actual.includes(name));
+					if (matches) {
+						continue;
+					}
+					findings.push({
+						id: `placeholder-mismatch:${row.key}:${locale}`,
+						adapterId: this.id,
+						key: row.key,
+						status: 'placeholder-mismatch',
+						severity: 'error',
+						language: locale,
+						message: `Key "${row.key}" uses placeholder(s) [${actual.join(', ')}] in locale "${locale}", but base locale "${input.baseLocale}" requires [${expected.join(', ')}].`,
+						evidence: [],
+						placeholderDetails: {
+							required: expected,
+							expected,
+							actual
+						}
+					});
+				}
+			}
 		}
 
 		const matchDynamicPrefix = (key: string): IKeyUsage | undefined => {
@@ -582,9 +674,7 @@ export const angularScanAdapter: IScanAdapter = {
 		}
 
 		if (input.baseLocale) {
-			const targetLocales = translationMatrix.locales.filter(
-				(locale) => locale !== input.baseLocale
-			);
+			const targetLocales = translationMatrix.locales.filter((locale) => locale !== input.baseLocale);
 
 			for (const row of translationMatrix.rows) {
 				const isInBaseLocale = hasTranslationKey(row, input.baseLocale);
@@ -595,9 +685,7 @@ export const angularScanAdapter: IScanAdapter = {
 							continue;
 						}
 
-						const evidence = input.usedKeys.filter(
-							(usage) => !usage.isDynamic && usage.key === row.key
-						);
+						const evidence = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === row.key);
 						findings.push({
 							id: `missing:${row.key}:${locale}`,
 							adapterId: this.id,
@@ -644,9 +732,7 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 
 			const evidence = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === usedKey);
-			const missingLocales = translationMatrix.locales.length > 0
-				? translationMatrix.locales
-				: [undefined];
+			const missingLocales = translationMatrix.locales.length > 0 ? translationMatrix.locales : [undefined];
 
 			for (const locale of missingLocales) {
 				findings.push({
@@ -656,9 +742,7 @@ export const angularScanAdapter: IScanAdapter = {
 					status: 'missing-in-language',
 					severity: 'error',
 					language: locale,
-					message: locale
-						? `Key "${usedKey}" is used but missing in locale "${locale}".`
-						: `Key "${usedKey}" is used but not present in discovered translation files.`,
+					message: locale ? `Key "${usedKey}" is used but missing in locale "${locale}".` : `Key "${usedKey}" is used but not present in discovered translation files.`,
 					evidence: evidence.map((usage) => ({
 						filePath: usage.filePath,
 						line: usage.line,
@@ -670,8 +754,6 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 		}
 
-		return findings.sort(
-			(a, b) => a.key.localeCompare(b.key) || (a.language ?? '').localeCompare(b.language ?? '')
-		);
+		return findings.sort((a, b) => a.key.localeCompare(b.key) || (a.language ?? '').localeCompare(b.language ?? ''));
 	}
 };

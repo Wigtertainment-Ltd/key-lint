@@ -8,6 +8,9 @@
 		"indirectUncertain": 0,
 		"missingInLanguage": 1,
 		"extraInLanguage": 0,
+		"placeholderMissing": 0,
+		"placeholderUncertain": 0,
+		"placeholderMismatch": 0,
 		"totalFindings": 7
 	},
 	"findings": [

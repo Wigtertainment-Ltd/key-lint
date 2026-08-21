@@ -37,6 +37,12 @@ export interface IKeyUsage {
 	snippet?: string;
 	matchType?: string;
 	isDynamic?: boolean;
+	sourceIndex?: number;
+	placeholderParameters?: {
+		kind: 'absent' | 'static' | 'dynamic';
+		names: string[];
+		dynamicPrefixes?: string[];
+	};
 }
 
 export interface IScanAdapter {

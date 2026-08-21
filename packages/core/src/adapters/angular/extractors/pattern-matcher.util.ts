@@ -1,5 +1,6 @@
 import { IKeyUsage } from '../../scan-adapter.interface.js';
 import { IPatternDescriptor } from '../../adapter.interfaces.js';
+import { parsePlaceholderParameters, splitTopLevel } from '../../../util/placeholder.util.js';
 
 export function getLineColumn(source: string, index: number): { line: number; column: number } {
 	let line = 1;
@@ -48,7 +49,7 @@ export function firstCallArgument(argumentList: string): string {
 			continue;
 		}
 
-		if (char === '\'' || char === '"' || char === '`') {
+		if (char === "'" || char === '"' || char === '`') {
 			stringDelimiter = char;
 			continue;
 		}
@@ -71,7 +72,7 @@ export function firstCallArgument(argumentList: string): string {
 	return argumentList;
 }
 
-function extractCallArgumentList(source: string, openParenIndex: number): string | null {
+export function extractCallArgumentList(source: string, openParenIndex: number): string | null {
 	let depth = 0;
 	let stringDelimiter: string | null = null;
 
@@ -85,7 +86,7 @@ function extractCallArgumentList(source: string, openParenIndex: number): string
 			continue;
 		}
 
-		if (char === '\'' || char === '"' || char === '`') {
+		if (char === "'" || char === '"' || char === '`') {
 			stringDelimiter = char;
 			continue;
 		}
@@ -107,6 +108,47 @@ function extractCallArgumentList(source: string, openParenIndex: number): string
 	return null;
 }
 
+function placeholderParametersForPipe(matchSource: string): IKeyUsage['placeholderParameters'] {
+	// Capture everything following a supported Angular translation pipe so its first
+	// top-level colon argument can be parsed without confusing object-property colons.
+	const pipeMatch = /\|\s*(?:translate|transloco)\b([\s\S]*)/i.exec(matchSource);
+	if (!pipeMatch) {
+		return undefined;
+	}
+
+	const suffix = pipeMatch[1] ?? '';
+	const parts = splitTopLevel(suffix, ':');
+	let parameterSource = parts.length > 1 ? parts[1]?.trim() : undefined;
+	if (parameterSource?.startsWith('{')) {
+		let depth = 0;
+		let stringDelimiter: string | null = null;
+		for (let index = 0; index < parameterSource.length; index += 1) {
+			const char = parameterSource[index];
+			if (stringDelimiter) {
+				if (char === stringDelimiter && parameterSource[index - 1] !== '\\') {
+					stringDelimiter = null;
+				}
+				continue;
+			}
+			if (char === "'" || char === '"' || char === '`') {
+				stringDelimiter = char;
+				continue;
+			}
+			if (char === '{') {
+				depth += 1;
+			}
+			if (char === '}') {
+				depth -= 1;
+				if (depth === 0) {
+					parameterSource = parameterSource.slice(0, index + 1);
+					break;
+				}
+			}
+		}
+	}
+	return parsePlaceholderParameters(parameterSource);
+}
+
 export function extractMatches(source: string, filePath: string, descriptors: IPatternDescriptor[]): IKeyUsage[] {
 	const matches: IKeyUsage[] = [];
 
@@ -119,12 +161,15 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 			const keyIndex = descriptor.keyCaptureIndex ?? 1;
 			const rawKey = match[keyIndex]?.trim();
 			const snippet = extractSnippet(source, match.index);
+			const isTypeScriptCall = descriptor.matchType.startsWith('ts-') && descriptor.matchType !== 'ts-indirect-key-literal';
+			const openParenIndex = isTypeScriptCall ? source.indexOf('(', match.index) : -1;
+			const argumentList = openParenIndex === -1 ? null : extractCallArgumentList(source, openParenIndex);
+			const callArguments = argumentList === null ? [] : splitTopLevel(argumentList);
+			const callParameters = isTypeScriptCall ? parsePlaceholderParameters(callArguments[1]) : undefined;
+			const pipeParameters = descriptor.matchType.includes('pipe-') ? placeholderParametersForPipe(match[0]) : undefined;
 
 			if (descriptor.literalKeyExtraction) {
-				const openParenIndex = source.indexOf('(', match.index);
-				const argumentList =
-					openParenIndex === -1 ? '' : extractCallArgumentList(source, openParenIndex) ?? '';
-				const argumentSource = firstCallArgument(argumentList);
+				const argumentSource = firstCallArgument(argumentList ?? '');
 				const lineCol = getLineColumn(source, match.index);
 				// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
 				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
@@ -139,7 +184,9 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 						column: lineCol.column,
 						snippet,
 						matchType: 'ts-dynamic-translate-call',
-						isDynamic: true
+						isDynamic: true,
+						sourceIndex: openParenIndex,
+						placeholderParameters: callParameters
 					});
 
 					match = regex.exec(source);
@@ -160,7 +207,9 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 							column: lineCol.column,
 							snippet,
 							matchType: descriptor.matchType,
-							isDynamic: descriptor.dynamic
+							isDynamic: descriptor.dynamic,
+							sourceIndex: openParenIndex,
+							placeholderParameters: callParameters
 						});
 					}
 
@@ -182,7 +231,9 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 					column: lineCol.column,
 					snippet,
 					matchType: descriptor.matchType,
-					isDynamic: descriptor.dynamic
+					isDynamic: descriptor.dynamic,
+					sourceIndex: isTypeScriptCall ? openParenIndex : match.index,
+					placeholderParameters: callParameters ?? pipeParameters
 				});
 			}
 

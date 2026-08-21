@@ -6,7 +6,7 @@ export const NGX_STATIC_HTML_PATTERNS: IPatternDescriptor[] = [
 		description:
 			'Matches a static ngx-translate key in an Angular interpolation and captures the key in group 1.',
 		examples: ["{{ 'APP.TITLE' | translate }}"],
-		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*translate\b[^}]*\}\}/g,
+		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*translate\b[^\n]*?\}\}/g,
 		dynamic: false,
 		keyCaptureIndex: 1
 	},

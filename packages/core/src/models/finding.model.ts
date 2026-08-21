@@ -4,7 +4,10 @@ export type FindingStatus =
 	| 'dynamic-uncertain'
 	| 'indirect-uncertain'
 	| 'missing-in-language'
-	| 'extra-in-language';
+	| 'extra-in-language'
+	| 'placeholder-missing'
+	| 'placeholder-uncertain'
+	| 'placeholder-mismatch';
 
 export type FindingSeverity = 'info' | 'warning' | 'error';
 
@@ -16,6 +19,14 @@ export interface IFileEvidence {
 	matchType?: string;
 }
 
+export interface IPlaceholderFindingDetails {
+	required: string[];
+	provided?: string[];
+	missing?: string[];
+	expected?: string[];
+	actual?: string[];
+}
+
 export interface IFinding {
 	id: string;
 	adapterId: string;
@@ -25,4 +36,5 @@ export interface IFinding {
 	message: string;
 	language?: string;
 	evidence: IFileEvidence[];
+	placeholderDetails?: IPlaceholderFindingDetails;
 }

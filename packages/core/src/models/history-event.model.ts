@@ -1,7 +1,4 @@
-export type ProjectHistoryEventType =
-	| 'scan-started'
-	| 'scan-completed'
-	| 'translation-key-added';
+export type ProjectHistoryEventType = 'scan-started' | 'scan-completed' | 'translation-key-added';
 
 export type TranslationEventSource = 'translation-keys' | 'results-overview' | 'unknown';
 
@@ -20,6 +17,7 @@ export interface IScanCompletedHistoryPayload {
 	usedCount?: number;
 	dynamicCount?: number;
 	extraCount?: number;
+	placeholderIssueCount?: number;
 }
 
 export interface ITranslationKeyAddedHistoryPayload {
@@ -30,10 +28,7 @@ export interface ITranslationKeyAddedHistoryPayload {
 	source: TranslationEventSource;
 }
 
-export type ProjectHistoryPayload =
-	| IScanStartedHistoryPayload
-	| IScanCompletedHistoryPayload
-	| ITranslationKeyAddedHistoryPayload;
+export type ProjectHistoryPayload = IScanStartedHistoryPayload | IScanCompletedHistoryPayload | ITranslationKeyAddedHistoryPayload;
 
 export interface IProjectHistoryEvent {
 	id: string;

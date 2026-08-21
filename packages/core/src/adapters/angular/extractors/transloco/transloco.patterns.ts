@@ -6,7 +6,7 @@ export const TRANSLOCO_STATIC_HTML_PATTERNS: IPatternDescriptor[] = [
 		description:
 			'Matches a static Transloco key in an Angular interpolation and captures the key in group 1.',
 		examples: ["{{ 'APP.TITLE' | transloco }}"],
-		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*transloco\b[^}]*\}\}/g,
+		regex: /\{\{\s*['"`]([A-Za-z0-9_.-]+)['"`]\s*\|\s*transloco\b[^\n]*?\}\}/g,
 		dynamic: false,
 		keyCaptureIndex: 1
 	},

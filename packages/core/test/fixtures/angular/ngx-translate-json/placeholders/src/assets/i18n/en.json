@@ -1,0 +1,8 @@
+{
+	"APP": {
+		"OK": "Hello {{name}}",
+		"MISSING": "Count: {{count}}",
+		"DYNAMIC": "User {{name}} has {{count}} items",
+		"MISMATCH": "Total: {{count}}"
+	}
+}

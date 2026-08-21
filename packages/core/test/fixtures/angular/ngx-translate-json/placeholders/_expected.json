@@ -1,0 +1,53 @@
+{
+	"adapterId": "angular",
+	"summary": {
+		"totalKeys": 4,
+		"used": 4,
+		"unused": 0,
+		"dynamicOrUncertain": 0,
+		"indirectUncertain": 0,
+		"missingInLanguage": 0,
+		"extraInLanguage": 0,
+		"placeholderMissing": 1,
+		"placeholderUncertain": 1,
+		"placeholderMismatch": 1,
+		"totalFindings": 7
+	},
+	"findings": [
+		{
+			"key": "APP.DYNAMIC",
+			"status": "placeholder-uncertain",
+			"severity": "warning"
+		},
+		{
+			"key": "APP.DYNAMIC",
+			"status": "used",
+			"severity": "info"
+		},
+		{
+			"key": "APP.MISMATCH",
+			"status": "placeholder-mismatch",
+			"severity": "error"
+		},
+		{
+			"key": "APP.MISMATCH",
+			"status": "used",
+			"severity": "info"
+		},
+		{
+			"key": "APP.MISSING",
+			"status": "placeholder-missing",
+			"severity": "error"
+		},
+		{
+			"key": "APP.MISSING",
+			"status": "used",
+			"severity": "info"
+		},
+		{
+			"key": "APP.OK",
+			"status": "used",
+			"severity": "info"
+		}
+	]
+}
