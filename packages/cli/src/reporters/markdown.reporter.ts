@@ -4,11 +4,13 @@ import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 const MAX_LISTED_FINDINGS = 50;
 
 function escapeCell(value: string): string {
-	return value
-		// Escape every pipe so it cannot terminate the current Markdown table cell.
-		.replace(/\|/g, '\\|')
-		// Replace both Unix and Windows line endings so one value stays on a single table row.
-		.replace(/\r?\n/g, ' ');
+	return (
+		value
+			// Escape every pipe so it cannot terminate the current Markdown table cell.
+			.replace(/\|/g, '\\|')
+			// Replace both Unix and Windows line endings so one value stays on a single table row.
+			.replace(/\r?\n/g, ' ')
+	);
 }
 
 function locationOf(finding: IFinding): string {
@@ -24,10 +26,8 @@ export const markdownReporter: IReporter = {
 	name: 'markdown',
 	format(result: IProjectScanResult, context: IReporterContext): string {
 		const lines: string[] = [];
-		const warningsExceeded =
-			context.thresholds.maxWarnings >= 0 && context.counts.warning > context.thresholds.maxWarnings;
-		const status =
-			context.counts.error > context.thresholds.maxErrors || warningsExceeded ? 'failed' : 'passed';
+		const warningsExceeded = context.thresholds.maxWarnings >= 0 && context.counts.warning > context.thresholds.maxWarnings;
+		const status = context.counts.error > context.thresholds.maxErrors || warningsExceeded ? 'failed' : 'passed';
 
 		lines.push('## KeyLint');
 		lines.push('');
@@ -45,6 +45,9 @@ export const markdownReporter: IReporter = {
 		lines.push(`| Unused | ${result.summary.unused} |`);
 		lines.push(`| Extra in language | ${result.summary.extraInLanguage} |`);
 		lines.push(`| Dynamic / uncertain | ${result.summary.dynamicOrUncertain} |`);
+		lines.push(`| Missing placeholder parameters | ${result.summary.placeholderMissing ?? 0} |`);
+		lines.push(`| Placeholder locale mismatches | ${result.summary.placeholderMismatch ?? 0} |`);
+		lines.push(`| Uncertain placeholder parameters | ${result.summary.placeholderUncertain ?? 0} |`);
 		lines.push(`| Errors | ${context.counts.error} |`);
 		lines.push(`| Warnings | ${context.counts.warning} |`);
 		lines.push('');
@@ -56,9 +59,7 @@ export const markdownReporter: IReporter = {
 			lines.push('| Key | Locale | Message | Location |');
 			lines.push('| --- | --- | --- | --- |');
 			for (const finding of reportable.slice(0, MAX_LISTED_FINDINGS)) {
-				lines.push(
-					`| \`${escapeCell(finding.key)}\` | ${escapeCell(finding.language ?? '-')} | ${escapeCell(finding.message)} | ${escapeCell(locationOf(finding))} |`
-				);
+				lines.push(`| \`${escapeCell(finding.key)}\` | ${escapeCell(finding.language ?? '-')} | ${escapeCell(finding.message)} | ${escapeCell(locationOf(finding))} |`);
 			}
 
 			if (reportable.length > MAX_LISTED_FINDINGS) {
@@ -76,9 +77,7 @@ export const markdownReporter: IReporter = {
 			lines.push('| Key | Locale | Message | Location |');
 			lines.push('| --- | --- | --- | --- |');
 			for (const finding of warningFindings.slice(0, MAX_LISTED_FINDINGS)) {
-				lines.push(
-					`| \`${escapeCell(finding.key)}\` | ${escapeCell(finding.language ?? '-')} | ${escapeCell(finding.message)} | ${escapeCell(locationOf(finding))} |`
-				);
+				lines.push(`| \`${escapeCell(finding.key)}\` | ${escapeCell(finding.language ?? '-')} | ${escapeCell(finding.message)} | ${escapeCell(locationOf(finding))} |`);
 			}
 			if (warningFindings.length > MAX_LISTED_FINDINGS) {
 				lines.push('');

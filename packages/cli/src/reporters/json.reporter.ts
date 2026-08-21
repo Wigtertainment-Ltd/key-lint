@@ -1,7 +1,7 @@
 import { IProjectScanResult } from '@key-lint/core';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
-export const JSON_REPORT_SCHEMA_VERSION = 1;
+export const JSON_REPORT_SCHEMA_VERSION = 2;
 
 /**
  * Machine readable report. The translation matrix is intentionally omitted:
@@ -32,6 +32,7 @@ export const jsonReporter: IReporter = {
 					severity: finding.severity,
 					message: finding.message,
 					language: finding.language ?? null,
+					placeholderDetails: finding.placeholderDetails ?? null,
 					evidence: finding.evidence.map((entry) => ({
 						filePath: entry.filePath,
 						line: entry.line ?? null,

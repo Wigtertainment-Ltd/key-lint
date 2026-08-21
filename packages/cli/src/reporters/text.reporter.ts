@@ -33,13 +33,7 @@ export const textReporter: IReporter = {
 		const lines: string[] = [];
 
 		lines.push(paint(`KeyLint scan: ${result.projectRoot}`, ANSI.bold, color));
-		lines.push(
-			paint(
-				`adapter=${result.adapterId}  duration=${result.durationMs}ms  keys=${result.summary.totalKeys}`,
-				ANSI.dim,
-				color
-			)
-		);
+		lines.push(paint(`adapter=${result.adapterId}  duration=${result.durationMs}ms  keys=${result.summary.totalKeys}`, ANSI.dim, color));
 		const baseLocale = result.metadata?.['baseLocale'];
 		if (typeof baseLocale === 'string') {
 			lines.push(paint(`base locale: ${baseLocale}`, ANSI.dim, color));
@@ -53,19 +47,14 @@ export const textReporter: IReporter = {
 
 		const reportable = result.findings
 			.filter((finding) => finding.severity !== 'info')
-			.sort(
-				(a, b) => severityRank(a.severity) - severityRank(b.severity) || a.key.localeCompare(b.key)
-			);
+			.sort((a, b) => severityRank(a.severity) - severityRank(b.severity) || a.key.localeCompare(b.key));
 
 		if (reportable.length === 0) {
 			lines.push('No errors or warnings found.');
 		}
 
 		for (const finding of reportable) {
-			const severityLabel =
-				finding.severity === 'error'
-					? paint('error  ', ANSI.red, color)
-					: paint('warning', ANSI.yellow, color);
+			const severityLabel = finding.severity === 'error' ? paint('error  ', ANSI.red, color) : paint('warning', ANSI.yellow, color);
 			const location = formatLocation(finding);
 			const localeLabel = finding.language ? ` [${finding.language}]` : '';
 			lines.push(`  ${severityLabel}${localeLabel}  ${finding.message}`);
@@ -81,13 +70,16 @@ export const textReporter: IReporter = {
 				`unused: ${result.summary.unused}`,
 				`missing: ${result.summary.missingInLanguage}`,
 				`extra: ${result.summary.extraInLanguage}`,
-				`dynamic: ${result.summary.dynamicOrUncertain}`
+				`dynamic: ${result.summary.dynamicOrUncertain}`,
+				`placeholder missing: ${result.summary.placeholderMissing ?? 0}`,
+				`placeholder mismatch: ${result.summary.placeholderMismatch ?? 0}`,
+				`placeholder uncertain: ${result.summary.placeholderUncertain ?? 0}`
 			].join('  |  ')
 		);
 		lines.push(
 			`${context.counts.error} error(s), ${context.counts.warning} warning(s) ` +
-			`(limits: errors=${context.thresholds.maxErrors}, ` +
-			`warnings=${context.thresholds.maxWarnings < 0 ? 'unlimited' : context.thresholds.maxWarnings})`
+				`(limits: errors=${context.thresholds.maxErrors}, ` +
+				`warnings=${context.thresholds.maxWarnings < 0 ? 'unlimited' : context.thresholds.maxWarnings})`
 		);
 
 		for (const warning of context.warnings) {

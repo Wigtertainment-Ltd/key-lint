@@ -61,7 +61,7 @@ describe('runCli', () => {
 		const report = parseJsonReport(io);
 
 		expect(exitCode).toBe(EXIT_THRESHOLD_EXCEEDED);
-		expect(report.schemaVersion).toBe(1);
+		expect(report.schemaVersion).toBe(2);
 		expect(report.severityCounts.error).toBe(1);
 		expect(report.findings.some((f) => f.key === 'APP.MISSING' && f.status === 'missing-in-language')).toBe(true);
 		expect(report.findings.some((f) => f.key === 'APP.TITLE' && f.status === 'used')).toBe(true);
