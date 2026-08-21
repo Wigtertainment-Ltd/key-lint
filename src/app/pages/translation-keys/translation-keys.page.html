@@ -2,29 +2,15 @@
 	<section class="findings-pane">
 		<header class="table-toolbar">
 			<div class="chip-row">
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'all'"
-					(click)="onFilterChange('all')"
-				>
-					All ({{ allFilterCount }})
-				</button>
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'missing-key'"
-					(click)="onFilterChange('missing-key')"
-				>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="onFilterChange('all')">All ({{ allFilterCount }})</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-key'" (click)="onFilterChange('missing-key')">
 					Missing Key ({{ missingFilterCount }})
 				</button>
-				<button
-					type="button"
-					class="filter-chip"
-					[class.active]="activeFilter === 'empty-value'"
-					(click)="onFilterChange('empty-value')"
-				>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'empty-value'" (click)="onFilterChange('empty-value')">
 					Empty Text ({{ emptyValueFilterCount }})
+				</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
+					Placeholders ({{ placeholderFilterCount }})
 				</button>
 			</div>
 
@@ -32,20 +18,14 @@
 				<span class="result-count">{{ totalRowsLabel }}</span>
 				<label class="search-box">
 					<span class="material-symbols-outlined">search</span>
-					<input
-						type="text"
-						placeholder="Search key"
-						(input)="onSearchChange(($any($event.target).value ?? '').toString())"
-					/>
+					<input type="text" placeholder="Search key" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
 				</label>
 			</div>
 		</header>
 
 		<div class="table-scroll custom-scrollbar">
 			@if (!locales.length || !matrix.rows.length) {
-				<div class="empty-state">
-					No translation data available yet. Run an analysis to populate this table.
-				</div>
+				<div class="empty-state">No translation data available yet. Run an analysis to populate this table.</div>
 			} @else {
 				<div class="virtual-table" role="table" aria-label="Translation keys" [attr.aria-rowcount]="filteredRows.length + 1">
 					<div class="table-head table-grid" role="row" aria-rowindex="1">
@@ -64,9 +44,13 @@
 								(keydown)="onRowKeydown($event, row)"
 								[class.selected]="isDetailOpen && selectedKey === row.key"
 								[class.resolved-success]="isResolvedRow(row)"
-								tabindex="0"
-							>
-								<div class="table-cell" role="cell"><span class="key-cell">{{ row.key }}</span></div>
+								tabindex="0">
+								<div class="table-cell key-with-badge" role="cell">
+									<span class="key-cell">{{ row.key }}</span>
+									@if (hasPlaceholders(row)) {
+										<span class="placeholder-badge" [title]="placeholderNames(row).join(', ')">{{ placeholderNames(row).length }} param</span>
+									}
+								</div>
 								<div class="table-cell" role="cell">
 									<span class="status-pill" [class.missing]="isRowMissing(row)" [class.used]="!isRowMissing(row)">
 										{{ localeStatusLabel(row) }}
@@ -84,12 +68,7 @@
 	</section>
 
 	@if (selectedRow) {
-		<button
-			type="button"
-			class="details-backdrop"
-			(click)="closeDetailPanel()"
-			aria-label="Close translation key details"
-		></button>
+		<button type="button" class="details-backdrop" (click)="closeDetailPanel()" aria-label="Close translation key details"></button>
 	}
 
 	<aside class="details-pane" [class.hidden]="!selectedRow">
@@ -110,8 +89,7 @@
 						<span
 							class="status-pill"
 							[class.missing]="selectedMissingLocales.length + selectedEmptyValueLocales.length > 0"
-							[class.used]="selectedMissingLocales.length + selectedEmptyValueLocales.length === 0"
-						>
+							[class.used]="selectedMissingLocales.length + selectedEmptyValueLocales.length === 0">
 							Coverage {{ selectedCoverageLabel }}
 						</span>
 						<span class="severity-label">{{ selectedMissingLocales.length + selectedEmptyValueLocales.length }} locale issue(s)</span>
@@ -137,8 +115,7 @@
 									class="add-missing-button"
 									[class.resolved-success]="isLocaleRecentlyResolved(locale)"
 									(click)="openAddTranslationModal(locale)"
-									[disabled]="isLocaleRecentlyResolved(locale)"
-								>
+									[disabled]="isLocaleRecentlyResolved(locale)">
 									<span class="material-symbols-outlined">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
 									{{ isLocaleRecentlyResolved(locale) ? 'Added to ' + locale + ' file' : 'Add to ' + locale + ' file' }}
 								</button>
@@ -146,6 +123,20 @@
 						</div>
 					}
 				</section>
+
+				@if (hasPlaceholders(selectedRow)) {
+					<section class="detail-section">
+						<h4>Placeholders by Locale</h4>
+						<div class="placeholder-list">
+							@for (locale of locales; track locale) {
+								<div>
+									<strong>{{ locale }}</strong>
+									<span>{{ placeholderNamesForLocale(selectedRow, locale).length ? placeholderNamesForLocale(selectedRow, locale).join(', ') : 'None' }}</span>
+								</div>
+							}
+						</div>
+					</section>
+				}
 
 				<section class="detail-section">
 					<div class="section-head">
@@ -173,46 +164,41 @@
 
 @if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
 	<dialog class="modal-backdrop" open (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
-			<div #modalCard class="modal-card" [style.transform]="modalCardTransform" [class.dragging]="isModalDragging">
-				<header
-					class="modal-header modal-drag-handle"
-					(pointerdown)="onModalHeaderPointerDown($event, modalCard)"
-					(pointermove)="onModalHeaderPointerMove($event, modalCard)"
-					(pointerup)="onModalHeaderPointerUp($event)"
-					(pointercancel)="onModalHeaderPointerUp($event)"
-				>
-					<h4 id="add-translation-title">Add Translation</h4>
-					<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">
-						<span class="material-symbols-outlined">close</span>
-					</button>
-				</header>
-				<p class="modal-context">
-					Key: <span>{{ selectedRow.key }}</span>
-				</p>
-				<p class="modal-context">
-					Locale file: <span>{{ addTranslationLocale }}</span>
-				</p>
-				<label class="modal-label" for="translation-value-input">Translation text</label>
-				<textarea
-					id="translation-value-input"
-					rows="4"
-					class="modal-textarea"
-					placeholder="Type translation text"
-					(input)="addTranslationValue = ($any($event.target).value ?? '').toString()"
-				></textarea>
-				<p class="modal-hint">
-					You can leave this empty. The key will then be added with an empty string value.
-				</p>
-				@if (addTranslationError) {
-					<p class="modal-error">{{ addTranslationError }}</p>
-				}
-				<footer class="modal-actions">
-					<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">Cancel</button>
-					<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation">
-						{{ isAddingTranslation ? 'Saving...' : 'Add Key' }}
-					</button>
-				</footer>
-			</div>
-		</dialog>
-	}
-
+		<div #modalCard class="modal-card" [style.transform]="modalCardTransform" [class.dragging]="isModalDragging">
+			<header
+				class="modal-header modal-drag-handle"
+				(pointerdown)="onModalHeaderPointerDown($event, modalCard)"
+				(pointermove)="onModalHeaderPointerMove($event, modalCard)"
+				(pointerup)="onModalHeaderPointerUp($event)"
+				(pointercancel)="onModalHeaderPointerUp($event)">
+				<h4 id="add-translation-title">Add Translation</h4>
+				<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">
+					<span class="material-symbols-outlined">close</span>
+				</button>
+			</header>
+			<p class="modal-context">
+				Key: <span>{{ selectedRow.key }}</span>
+			</p>
+			<p class="modal-context">
+				Locale file: <span>{{ addTranslationLocale }}</span>
+			</p>
+			<label class="modal-label" for="translation-value-input">Translation text</label>
+			<textarea
+				id="translation-value-input"
+				rows="4"
+				class="modal-textarea"
+				placeholder="Type translation text"
+				(input)="addTranslationValue = ($any($event.target).value ?? '').toString()"></textarea>
+			<p class="modal-hint">You can leave this empty. The key will then be added with an empty string value.</p>
+			@if (addTranslationError) {
+				<p class="modal-error">{{ addTranslationError }}</p>
+			}
+			<footer class="modal-actions">
+				<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">Cancel</button>
+				<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation">
+					{{ isAddingTranslation ? 'Saving...' : 'Add Key' }}
+				</button>
+			</footer>
+		</div>
+	</dialog>
+}

@@ -64,7 +64,11 @@
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	cursor: pointer;
-	transition: transform 100ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+	transition:
+		transform 100ms ease,
+		background-color 120ms ease,
+		color 120ms ease,
+		border-color 120ms ease;
 
 	&:hover {
 		background: var(--surface-container-low);
@@ -188,7 +192,9 @@
 	background: var(--surface-container-lowest);
 	cursor: pointer;
 	border-left: 4px solid transparent;
-	transition: background 120ms ease, border-color 120ms ease;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease;
 
 	&:hover {
 		background: var(--surface-container-low);
@@ -231,6 +237,47 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.key-with-badge {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.placeholder-badge {
+	flex: 0 0 auto;
+	padding: 0.12rem 0.45rem;
+	border-radius: 9999px;
+	background: var(--tertiary-fixed);
+	color: var(--tertiary);
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.placeholder-list {
+	margin-top: 0.75rem;
+	display: grid;
+	gap: 0.5rem;
+	color: var(--on-surface-variant);
+
+	div {
+		display: grid;
+		grid-template-columns: 70px minmax(0, 1fr);
+		gap: 0.5rem;
+		font-size: 13px;
+	}
+
+	span {
+		font-family: var(--mono);
+		word-break: break-word;
+		color: var(--on-surface);
+	}
+
+	strong {
+		color: var(--on-surface-variant);
+	}
 }
 
 .table-row:hover .key-cell,
@@ -287,7 +334,10 @@
 	opacity: 1;
 	transform: translateX(0);
 	visibility: visible;
-	transition: opacity 180ms ease, transform 220ms ease, border-color 180ms ease;
+	transition:
+		opacity 180ms ease,
+		transform 220ms ease,
+		border-color 180ms ease;
 	will-change: opacity, transform;
 
 	&.hidden {
@@ -416,7 +466,11 @@
 	background: var(--surface);
 	color: var(--on-surface);
 	cursor: pointer;
-	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+	transition:
+		transform 100ms ease,
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
 
 	.material-symbols-outlined {
 		font-size: 15px;
@@ -482,7 +536,9 @@
 	gap: 0.25rem;
 	font-size: 12px;
 	font-weight: 700;
-	transition: transform 100ms ease, color 120ms ease;
+	transition:
+		transform 100ms ease,
+		color 120ms ease;
 
 	&:hover {
 		color: var(--on-primary-container);
@@ -655,7 +711,11 @@
 	font-weight: 700;
 	cursor: pointer;
 	border: 1px solid transparent;
-	transition: transform 100ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+	transition:
+		transform 100ms ease,
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
 
 	&:focus-visible {
 		outline: 2px solid var(--primary-container);

@@ -24,7 +24,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	private readonly localScanResult = signal<IProjectScanResult | undefined>(undefined);
 	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
 
-	private readonly activeFilterSignal = signal<'all' | 'missing-key' | 'empty-value'>('all');
+	private readonly activeFilterSignal = signal<'all' | 'missing-key' | 'empty-value' | 'placeholders'>('all');
 	private readonly searchTermSignal = signal('');
 	selectedKey?: string;
 	isDetailOpen = false;
@@ -49,15 +49,14 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		const normalizedSearch = this.searchTermSignal().trim().toLowerCase();
 		const activeFilter = this.activeFilterSignal();
 		return this.matrix.rows.filter((row) => {
-			if (
-				activeFilter === 'missing-key' &&
-				!this.isRowMissingKey(row) &&
-				!this.isRowRecentlyResolved(row.key)
-			) {
+			if (activeFilter === 'missing-key' && !this.isRowMissingKey(row) && !this.isRowRecentlyResolved(row.key)) {
 				return false;
 			}
 
 			if (activeFilter === 'empty-value' && !this.isRowEmptyValue(row)) {
+				return false;
+			}
+			if (activeFilter === 'placeholders' && !this.hasPlaceholders(row)) {
 				return false;
 			}
 
@@ -68,6 +67,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.animationStateVersion();
 		let missing = 0;
 		let empty = 0;
+		let placeholders = 0;
 		for (const row of this.matrix.rows) {
 			if (this.isRowMissingKey(row)) {
 				missing++;
@@ -75,8 +75,11 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			if (this.isRowEmptyValue(row)) {
 				empty++;
 			}
+			if (this.hasPlaceholders(row)) {
+				placeholders++;
+			}
 		}
-		return { missing, empty };
+		return { missing, empty, placeholders };
 	});
 
 	get activeFilter(): ReturnType<typeof this.activeFilterSignal> {
@@ -111,15 +114,18 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.scanResult = this.scanOrchestrationService.snapshot.result;
 		this.ensureSelectedRow();
 
-		effect(() => {
-			const snapshotResult = this.scanSnapshot().result;
-			if (!snapshotResult) {
-				return;
-			}
+		effect(
+			() => {
+				const snapshotResult = this.scanSnapshot().result;
+				if (!snapshotResult) {
+					return;
+				}
 
-			this.localScanResult.set(snapshotResult);
-			this.ensureSelectedRow();
-		}, { injector: this.injector });
+				this.localScanResult.set(snapshotResult);
+				this.ensureSelectedRow();
+			},
+			{ injector: this.injector }
+		);
 
 		if (!this.scanResult) {
 			void this.router.navigate(['/scan-progress']);
@@ -143,7 +149,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.ensureSelectedRow();
 	}
 
-	onFilterChange(filter: 'all' | 'missing-key' | 'empty-value'): void {
+	onFilterChange(filter: 'all' | 'missing-key' | 'empty-value' | 'placeholders'): void {
 		this.activeFilterSignal.set(filter);
 		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedRow();
@@ -210,6 +216,22 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return this.filterCountsSignal().empty;
 	}
 
+	get placeholderFilterCount(): number {
+		return this.filterCountsSignal().placeholders;
+	}
+
+	placeholderNames(row: ITranslationMatrixRow): string[] {
+		return [...new Set(this.locales.flatMap((locale) => row.placeholders?.[locale] ?? []))].sort((a, b) => a.localeCompare(b));
+	}
+
+	placeholderNamesForLocale(row: ITranslationMatrixRow, locale: string): string[] {
+		return row.placeholders?.[locale] ?? [];
+	}
+
+	hasPlaceholders(row: ITranslationMatrixRow): boolean {
+		return this.placeholderNames(row).length > 0;
+	}
+
 	get totalRowsLabel(): string {
 		return `${this.filteredRows.length} of ${this.matrix.totalKeys} keys`;
 	}
@@ -219,9 +241,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		return this.locales.filter(
-			(locale) => !this.hasLocaleKey(this.selectedRow as ITranslationMatrixRow, locale)
-		);
+		return this.locales.filter((locale) => !this.hasLocaleKey(this.selectedRow as ITranslationMatrixRow, locale));
 	}
 
 	get selectedEmptyValueLocales(): string[] {
@@ -238,9 +258,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}
 
 		const missing = this.selectedMissingLocales;
-		const pendingResolved = this.locales.filter(
-			(locale) => !missing.includes(locale) && this.isLocaleRecentlyResolvedForKey(this.selectedRow!.key, locale)
-		);
+		const pendingResolved = this.locales.filter((locale) => !missing.includes(locale) && this.isLocaleRecentlyResolvedForKey(this.selectedRow!.key, locale));
 
 		return [...missing, ...pendingResolved];
 	}
@@ -250,9 +268,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return '0/0';
 		}
 
-		const presentCount = this.locales.filter(
-			(locale) => this.hasLocaleTranslation(this.selectedRow as ITranslationMatrixRow, locale)
-		).length;
+		const presentCount = this.locales.filter((locale) => this.hasLocaleTranslation(this.selectedRow as ITranslationMatrixRow, locale)).length;
 		return `${presentCount}/${this.locales.length}`;
 	}
 
@@ -417,16 +433,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		const locale = this.addTranslationLocale;
 		const key = this.selectedRow.key;
 		const missingLocalesBeforeAdd = [...this.selectedMissingLocales];
-		const resolvesMissingKey =
-			missingLocalesBeforeAdd.length === 1 && missingLocalesBeforeAdd[0] === locale;
+		const resolvesMissingKey = missingLocalesBeforeAdd.length === 1 && missingLocalesBeforeAdd[0] === locale;
 
 		try {
-			await this.scanOrchestrationService.addTranslationKeyForLocale(
-				locale,
-				key,
-				this.addTranslationValue,
-				'translation-keys'
-			);
+			await this.scanOrchestrationService.addTranslationKeyForLocale(locale, key, this.addTranslationValue, 'translation-keys');
 			this.markLocaleResolvedForAnimation(key, locale);
 			if (resolvesMissingKey) {
 				this.markRowResolvedForAnimation(key);
@@ -435,8 +445,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			this.toastService.success(`Key added for locale ${locale}.`);
 			this.closeAddTranslationModal(true);
 		} catch (error) {
-			this.addTranslationError =
-				error instanceof Error ? error.message : 'Unable to add key to translation file.';
+			this.addTranslationError = error instanceof Error ? error.message : 'Unable to add key to translation file.';
 		} finally {
 			this.isAddingTranslation = false;
 		}
@@ -561,10 +570,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		if (
-			this.isDetailOpen &&
-			(!this.selectedKey || !this.filteredRows.some((row) => row.key === this.selectedKey))
-		) {
+		if (this.isDetailOpen && (!this.selectedKey || !this.filteredRows.some((row) => row.key === this.selectedKey))) {
 			this.selectedKey = this.filteredRows[0].key;
 		}
 	}

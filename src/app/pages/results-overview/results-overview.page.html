@@ -16,6 +16,9 @@
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'extra-in-language'" (click)="onFilterChange('extra-in-language')">
 					Extra ({{ extraFilterCount }})
 				</button>
+				<button type="button" class="filter-chip" [class.active]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
+					Placeholders ({{ placeholderFilterCount }})
+				</button>
 				<button type="button" class="filter-chip" [class.active]="activeFilter === 'used'" (click)="onFilterChange('used')">Used ({{ usedFilterCount }})</button>
 			</div>
 
@@ -58,7 +61,7 @@
 									[class.used]="finding.status === 'used'"
 									[class.unused]="finding.status === 'unused'"
 									[class.dynamic]="isUncertainStatus(finding.status)"
-									[class.missing]="finding.status === 'missing-in-language'"
+									[class.missing]="finding.status === 'missing-in-language' || isPlaceholderError(finding.status)"
 									[class.extra]="finding.status === 'extra-in-language'">
 									{{ statusLabel(finding.status) }}{{ finding.language ? ' · ' + finding.language : '' }}
 								</span>
@@ -120,7 +123,7 @@
 							[class.used]="selectedFinding.status === 'used'"
 							[class.unused]="selectedFinding.status === 'unused'"
 							[class.dynamic]="isUncertainStatus(selectedFinding.status)"
-							[class.missing]="selectedFinding.status === 'missing-in-language'"
+							[class.missing]="selectedFinding.status === 'missing-in-language' || isPlaceholderError(selectedFinding.status)"
 							[class.extra]="selectedFinding.status === 'extra-in-language'">
 							{{ statusLabel(selectedFinding.status) }}{{ selectedFinding.language ? ' · ' + selectedFinding.language : '' }}
 						</span>
@@ -128,6 +131,22 @@
 					</div>
 					<p class="detail-message">{{ selectedFinding.message }}</p>
 				</section>
+
+				@if (selectedFinding.placeholderDetails) {
+					<section class="detail-section">
+						<h4>Placeholder Contract</h4>
+						<p class="detail-message">Required: {{ selectedFinding.placeholderDetails.required.join(', ') || 'None' }}</p>
+						@if (selectedFinding.placeholderDetails.provided) {
+							<p class="detail-message">Provided: {{ selectedFinding.placeholderDetails.provided.join(', ') || 'None' }}</p>
+						}
+						@if (selectedFinding.placeholderDetails.missing?.length) {
+							<p class="detail-message">Missing: {{ selectedFinding.placeholderDetails.missing?.join(', ') }}</p>
+						}
+						@if (selectedFinding.placeholderDetails.actual) {
+							<p class="detail-message">Locale placeholders: {{ selectedFinding.placeholderDetails.actual.join(', ') || 'None' }}</p>
+						}
+					</section>
+				}
 
 				<section class="detail-section">
 					<h4>Evidence</h4>

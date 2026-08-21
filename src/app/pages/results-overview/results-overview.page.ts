@@ -26,13 +26,8 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	private readonly localScanResult = signal<IProjectScanResult | undefined>(undefined);
 	private readonly scanResultSignal = computed(() => this.localScanResult() ?? this.scanSnapshot().result);
 	private readonly activeFilterSignal = signal<
-		| 'all'
-		| 'missing-in-language'
-		| 'unused'
-		| 'dynamic-uncertain'
-		| 'indirect-uncertain'
-		| 'extra-in-language'
-		| 'used'>('all');
+		'all' | 'missing-in-language' | 'unused' | 'dynamic-uncertain' | 'indirect-uncertain' | 'extra-in-language' | 'placeholders' | 'used'
+	>('all');
 	private readonly searchTermSignal = signal('');
 	selectedFindingId?: string;
 	isDetailOpen = false;
@@ -59,7 +54,12 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 				return false;
 			}
 
-			if (activeFilter !== 'all' && finding.status !== activeFilter) {
+			const isPlaceholderFinding = finding.status.startsWith('placeholder-');
+			if (activeFilter === 'placeholders' && !isPlaceholderFinding) {
+				return false;
+			}
+
+			if (activeFilter !== 'all' && activeFilter !== 'placeholders' && finding.status !== activeFilter) {
 				return false;
 			}
 
@@ -68,11 +68,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			}
 
 			const evidencePath = finding.evidence[0]?.filePath?.toLowerCase() ?? '';
-			return (
-				finding.key.toLowerCase().includes(normalizedSearch) ||
-				finding.message.toLowerCase().includes(normalizedSearch) ||
-				evidencePath.includes(normalizedSearch)
-			);
+			return finding.key.toLowerCase().includes(normalizedSearch) || finding.message.toLowerCase().includes(normalizedSearch) || evidencePath.includes(normalizedSearch);
 		});
 	});
 	private readonly filterCountsSignal = computed(() => {
@@ -82,17 +78,33 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			dynamic: 0,
 			indirect: 0,
 			extra: 0,
+			placeholders: 0,
 			used: 0
 		};
 
 		for (const finding of this.findings) {
+			if (finding.status.startsWith('placeholder-')) {
+				counts.placeholders++;
+			}
 			switch (finding.status) {
-				case 'missing-in-language': counts.missing++; break;
-				case 'unused': counts.unused++; break;
-				case 'dynamic-uncertain': counts.dynamic++; break;
-				case 'indirect-uncertain': counts.indirect++; break;
-				case 'extra-in-language': counts.extra++; break;
-				case 'used': counts.used++; break;
+				case 'missing-in-language':
+					counts.missing++;
+					break;
+				case 'unused':
+					counts.unused++;
+					break;
+				case 'dynamic-uncertain':
+					counts.dynamic++;
+					break;
+				case 'indirect-uncertain':
+					counts.indirect++;
+					break;
+				case 'extra-in-language':
+					counts.extra++;
+					break;
+				case 'used':
+					counts.used++;
+					break;
 			}
 		}
 
@@ -140,15 +152,18 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.loggerService.info('ResultsOverviewPage', 'initialized with scan result:', this.scanResult);
 		this.ensureSelectedFinding();
 
-		effect(() => {
-			const snapshotResult = this.scanSnapshot().result;
-			if (!snapshotResult) {
-				return;
-			}
+		effect(
+			() => {
+				const snapshotResult = this.scanSnapshot().result;
+				if (!snapshotResult) {
+					return;
+				}
 
-			this.localScanResult.set(snapshotResult);
-			this.ensureSelectedFinding();
-		}, { injector: this.injector });
+				this.localScanResult.set(snapshotResult);
+				this.ensureSelectedFinding();
+			},
+			{ injector: this.injector }
+		);
 
 		if (!this.scanResult) {
 			void this.router.navigate(['/scan-progress']);
@@ -162,16 +177,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.resolvedRemovalTimers.clear();
 	}
 
-	onFilterChange(
-		filter:
-			| 'all'
-			| 'missing-in-language'
-			| 'unused'
-			| 'dynamic-uncertain'
-			| 'indirect-uncertain'
-			| 'extra-in-language'
-			| 'used'
-	): void {
+	onFilterChange(filter: 'all' | 'missing-in-language' | 'unused' | 'dynamic-uncertain' | 'indirect-uncertain' | 'extra-in-language' | 'placeholders' | 'used'): void {
 		this.activeFilterSignal.set(filter);
 		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedFinding();
@@ -277,12 +283,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			const resolvedLocales = [...this.selectedMissingLocales];
 			const resolvedLocaleCount = resolvedLocales.length;
 			for (const locale of resolvedLocales) {
-				await this.scanOrchestrationService.addTranslationKeyForLocale(
-					locale,
-					key,
-					this.translationDrafts[locale] ?? '',
-					'results-overview'
-				);
+				await this.scanOrchestrationService.addTranslationKeyForLocale(locale, key, this.translationDrafts[locale] ?? '', 'results-overview');
 			}
 
 			this.reconcileResolvedMissingFindings(key, resolvedLocales);
@@ -291,8 +292,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			this.toastService.success(`Added key to ${resolvedLocaleCount} locale file(s).`);
 			this.closeAddTranslationModal(true);
 		} catch (error) {
-			this.addTranslationsError =
-				error instanceof Error ? error.message : 'Unable to add key to translation files.';
+			this.addTranslationsError = error instanceof Error ? error.message : 'Unable to add key to translation files.';
 		} finally {
 			this.isSavingTranslations = false;
 		}
@@ -369,9 +369,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		const locales = this.selectedFinding.language
-			? [this.selectedFinding.language]
-			: this.matrixLocales;
+		const locales = this.selectedFinding.language ? [this.selectedFinding.language] : this.matrixLocales;
 		if (!locales.length) {
 			return [];
 		}
@@ -385,11 +383,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get canShowAddToTranslationsAction(): boolean {
-		return (
-			this.selectedFinding?.status === 'missing-in-language' &&
-			!this.isSelectedFindingResolved &&
-			this.selectedMissingLocales.length > 0
-		);
+		return this.selectedFinding?.status === 'missing-in-language' && !this.isSelectedFindingResolved && this.selectedMissingLocales.length > 0;
 	}
 
 	get isSelectedFindingResolved(): boolean {
@@ -413,11 +407,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		}
 
 		const resolvedMissingFindings = this.scanResult.findings.filter(
-			(finding) =>
-				finding.status === 'missing-in-language' &&
-				finding.key === key &&
-				finding.language !== undefined &&
-				resolvedLocales.includes(finding.language)
+			(finding) => finding.status === 'missing-in-language' && finding.key === key && finding.language !== undefined && resolvedLocales.includes(finding.language)
 		);
 		if (!resolvedMissingFindings.length) {
 			return;
@@ -448,6 +438,10 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.resolvedRemovalTimers.set(resolutionId, timer);
 	}
 
+	get placeholderFilterCount(): number {
+		return this.filterCountsSignal().placeholders;
+	}
+
 	get extraFilterCount(): number {
 		return this.filterCountsSignal().extra;
 	}
@@ -457,17 +451,13 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		const resolvedMissingFindings = this.scanResult.findings.filter(
-			(finding) => findingIds.includes(finding.id)
-		);
+		const resolvedMissingFindings = this.scanResult.findings.filter((finding) => findingIds.includes(finding.id));
 		if (!resolvedMissingFindings.length) {
 			this.resolvedRemovalTimers.delete(resolutionId);
 			return;
 		}
 
-		const remainingFindings = this.scanResult.findings.filter(
-			(finding) => !findingIds.includes(finding.id)
-		);
+		const remainingFindings = this.scanResult.findings.filter((finding) => !findingIds.includes(finding.id));
 
 		const summary = this.scanResult.summary;
 		this.scanResult = {
@@ -510,11 +500,27 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return 'Extra';
 		}
 
+		if (status === 'placeholder-missing') {
+			return 'Missing Params';
+		}
+
+		if (status === 'placeholder-uncertain') {
+			return 'Params Uncertain';
+		}
+
+		if (status === 'placeholder-mismatch') {
+			return 'Locale Params';
+		}
+
 		return status.charAt(0).toUpperCase() + status.slice(1);
 	}
 
 	isUncertainStatus(status: string): boolean {
-		return status === 'dynamic-uncertain' || status === 'indirect-uncertain';
+		return status === 'dynamic-uncertain' || status === 'indirect-uncertain' || status === 'placeholder-uncertain';
+	}
+
+	isPlaceholderError(status: IFinding['status']): boolean {
+		return status === 'placeholder-missing' || status === 'placeholder-mismatch';
 	}
 
 	severityLabel(severity: IFinding['severity']): string {
@@ -548,10 +554,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		if (
-			this.isDetailOpen &&
-			(!this.selectedFindingId || !this.filteredFindings.some((finding) => finding.id === this.selectedFindingId))
-		) {
+		if (this.isDetailOpen && (!this.selectedFindingId || !this.filteredFindings.some((finding) => finding.id === this.selectedFindingId))) {
 			this.selectedFindingId = this.filteredFindings[0].id;
 		}
 	}
@@ -609,9 +612,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		return this.scanResult.findings
-			.filter((finding) => finding.status === 'missing-in-language')
-			.slice(0, 5);
+		return this.scanResult.findings.filter((finding) => finding.status === 'missing-in-language').slice(0, 5);
 	}
 
 	get unusedPercent(): number {
