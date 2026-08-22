@@ -2,7 +2,7 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { normalizePath, IProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
-import { loadScannerConfig, NodeFileSystemAdapter } from '@key-lint/core/node';
+import { loadScannerConfig, NodeFileSystemAdapter, NodeRemoteTranslationFetcher } from '@key-lint/core/node';
 
 import { parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
@@ -100,10 +100,16 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		});
 
 		const fs = new NodeFileSystemAdapter(config.guardrails);
+		const remoteTranslations = {
+			allowNetwork: options.allowNetwork,
+			fetcher: options.allowNetwork ? new NodeRemoteTranslationFetcher() : undefined,
+			environment: process.env
+		};
 		const result = await runScan({
 			projectRoot,
 			fs,
 			config,
+			remoteTranslations,
 			onProgress: (progress) => {
 				if (!options.quiet) {
 					io.stderr(`${progress.message}\n`);

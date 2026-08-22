@@ -14,6 +14,7 @@ Options:
   --max-errors <n>         Allowed error findings before failing (default: 0)
   --max-warnings <n>       Allowed warning findings before failing (default: unlimited)
   --ignore <glob>          Translation key glob to ignore, repeatable
+  --allow-network          Allow configured remote translation requests
   --quiet                  Suppress progress output on stderr
   --no-color               Disable ANSI colors
   -h, --help               Show this help
@@ -38,8 +39,8 @@ function parseCount(raw: string | undefined, flag: string, fallback: number): nu
 }
 
 export function parseCliArgs(argv: string[]): ICliOptions {
-	const color = !argv.includes('--no-color') && process.env['NO_COLOR'] === undefined;
-	const args = argv.filter((arg) => arg !== '--no-color');
+	const color: boolean = !argv.includes('--no-color') && process.env['NO_COLOR'] === undefined;
+	const args: string[] = argv.filter((arg) => arg !== '--no-color');
 
 	let parsed;
 	try {
@@ -53,6 +54,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 				'max-errors': { type: 'string' },
 				'max-warnings': { type: 'string' },
 				ignore: { type: 'string', multiple: true },
+				'allow-network': { type: 'boolean' },
 				quiet: { type: 'boolean' },
 				help: { type: 'boolean', short: 'h' },
 				version: { type: 'boolean', short: 'v' }
@@ -63,7 +65,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 	}
 
 	const values = parsed.values;
-	const positionals = parsed.positionals;
+	const positionals: string[] = parsed.positionals;
 
 	const base: ICliOptions = {
 		command: 'scan',
@@ -73,6 +75,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 		maxErrors: 0,
 		maxWarnings: -1,
 		ignoreKeys: [],
+		allowNetwork: Boolean(values['allow-network']),
 		quiet: Boolean(values.quiet),
 		color
 	};
@@ -94,15 +97,15 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 		throw new CliUsageError(`Unknown command "${first}". Did you mean "scan"?`);
 	}
 
-	const outputs = new Map<ReporterName, string>();
+	const outputs: Map<ReporterName, string> = new Map<ReporterName, string>();
 	for (const entry of values.output ?? []) {
-		const separatorIndex = entry.indexOf('=');
+		const separatorIndex: number = entry.indexOf('=');
 		if (separatorIndex <= 0) {
 			throw new CliUsageError(`--output expects "<reporter>=<file>", received "${entry}".`);
 		}
 
-		const name = entry.slice(0, separatorIndex);
-		const file = entry.slice(separatorIndex + 1);
+		const name: string = entry.slice(0, separatorIndex);
+		const file: string = entry.slice(separatorIndex + 1);
 		if (!isReporterName(name)) {
 			throw new CliUsageError(`Unknown reporter "${name}". Available: ${REPORTER_NAMES.join(', ')}.`);
 		}

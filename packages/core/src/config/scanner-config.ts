@@ -1,15 +1,80 @@
 import {
-	IFilesystemTranslationSourceConfig,
-	IScannerConfig,
-	IScannerConfigOverrides,
-	IScannerGuardrails,
-	ITranslationSourceConfig,
-	ScannerConfigError
+	IFilesystemTranslationSourceConfig, IHttpTranslationSourceConfig, IScannerConfig, IScannerConfigOverrides, IScannerGuardrails, ITranslationSourceConfig, ScannerConfigError
 } from './config.interfaces.js';
 import { DEFAULT_SCANNER_CONFIG } from './scanner-defaults.js';
 
 const STRING_ARRAY_KEYS = ['includeTranslationGlobs', 'includeSourceGlobs', 'excludeGlobs', 'supportedTranslationExtensions', 'ignoreKeys'] as const;
 const GUARDRAIL_KEYS = ['maxFiles', 'maxFileSizeBytes'] as const;
+const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const LOCALE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+function assertNonEmptyString(value: unknown, key: string): string {
+	if (typeof value !== 'string' || value.trim().length === 0) {
+		throw new ScannerConfigError(`"${key}" must be a non-empty string.`);
+	}
+	return value.trim();
+}
+
+function parseHttpTranslationSource(source: Record<string, unknown>, index: number): IHttpTranslationSourceConfig {
+	const allowedKeys: Set<string> = new Set(['type', 'id', 'urlTemplate', 'locales', 'headersFromEnv']);
+	for (const key of Object.keys(source)) {
+		if (!allowedKeys.has(key)) {
+			throw new ScannerConfigError(
+				`Unknown HTTP translation source key "${key}" at index ${index}. Allowed keys: ${[...allowedKeys].join(', ')}.`
+			);
+		}
+	}
+
+	const id: string = assertNonEmptyString(source['id'], `translationSources[${index}].id`);
+	const urlTemplate: string = assertNonEmptyString(source['urlTemplate'], `translationSources[${index}].urlTemplate`);
+	if ((urlTemplate.match(/\{locale\}/g) ?? []).length !== 1) {
+		throw new ScannerConfigError(
+			`"translationSources[${index}].urlTemplate" must contain exactly one "{locale}" placeholder.`
+		);
+	}
+	let parsedUrl: URL;
+	try {
+		parsedUrl = new URL(urlTemplate.replace('{locale}', 'en'));
+	} catch {
+		throw new ScannerConfigError(`"translationSources[${index}].urlTemplate" must be a valid absolute HTTP(S) URL.`);
+	}
+	if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+		throw new ScannerConfigError(`"translationSources[${index}].urlTemplate" must use HTTP or HTTPS.`);
+	}
+	if (parsedUrl.username || parsedUrl.password) {
+		throw new ScannerConfigError(`"translationSources[${index}].urlTemplate" must not contain URL credentials.`);
+	}
+
+	const locales: string[] = assertStringArray(source['locales'], `translationSources[${index}].locales`).map((locale) => locale.trim());
+	if (locales.length === 0 || locales.some((locale) => !LOCALE_PATTERN.test(locale))) {
+		throw new ScannerConfigError(`"translationSources[${index}].locales" must contain at least one valid non-empty locale.`);
+	}
+	if (new Set(locales).size !== locales.length) {
+		throw new ScannerConfigError(`"translationSources[${index}].locales" must not contain duplicates.`);
+	}
+
+	let headersFromEnv: Record<string, string> | undefined;
+	if (source['headersFromEnv'] !== undefined) {
+		if (source['headersFromEnv'] === null || typeof source['headersFromEnv'] !== 'object' || Array.isArray(source['headersFromEnv'])) {
+			throw new ScannerConfigError(`"translationSources[${index}].headersFromEnv" must be an object.`);
+		}
+		headersFromEnv = {};
+		const normalizedHeaderNames: Set<string> = new Set<string>();
+		for (const [headerName, environmentName] of Object.entries(source['headersFromEnv'] as Record<string, unknown>)) {
+			if (!HTTP_HEADER_NAME_PATTERN.test(headerName)) {
+				throw new ScannerConfigError(`Invalid HTTP header name "${headerName}".`);
+			}
+			const normalizedHeaderName: string = headerName.toLowerCase();
+			if (normalizedHeaderNames.has(normalizedHeaderName)) {
+				throw new ScannerConfigError(`Duplicate HTTP header name "${headerName}".`);
+			}
+			normalizedHeaderNames.add(normalizedHeaderName);
+			headersFromEnv[headerName] = assertNonEmptyString(environmentName, `translationSources[${index}].headersFromEnv.${headerName}`);
+		}
+	}
+
+	return { type: 'http', id, urlTemplate, locales, ...(headersFromEnv ? { headersFromEnv } : {}) };
+}
 
 function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 	if (!Array.isArray(value) || value.length === 0) {
@@ -23,6 +88,15 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 		}
 
 		const source = entry as Record<string, unknown>;
+		if (source['type'] === 'http') {
+			const parsed = parseHttpTranslationSource(source, index);
+			if (identifiers.has(parsed.id)) {
+				throw new ScannerConfigError(`Duplicate translation source id "${parsed.id}".`);
+			}
+			identifiers.add(parsed.id);
+			return parsed;
+		}
+
 		const allowedKeys = new Set(['type', 'id', 'includeGlobs']);
 		for (const key of Object.keys(source)) {
 			if (!allowedKeys.has(key)) {
@@ -34,7 +108,7 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 
 		if (source['type'] !== 'filesystem') {
 			throw new ScannerConfigError(
-				`"translationSources[${index}].type" must be "filesystem".`
+				`"translationSources[${index}].type" must be "filesystem" or "http".`
 			);
 		}
 

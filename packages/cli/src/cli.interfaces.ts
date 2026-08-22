@@ -11,6 +11,7 @@ export interface ICliOptions {
 	/** Negative means "unlimited". */
 	maxWarnings: number;
 	ignoreKeys: string[];
+	allowNetwork: boolean;
 	quiet: boolean;
 	color: boolean;
 }

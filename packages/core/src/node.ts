@@ -5,3 +5,4 @@
  */
 export * from './fs/node-file-system.adapter.js';
 export * from './config/load-config.js';
+export * from './remote/node-remote-translation.fetcher.js';

@@ -41,8 +41,8 @@ describe('translationSources config', () => {
 	it('rejects empty, unsupported, duplicate, and misspelled sources', () => {
 		expect(() => parseScannerConfigOverrides({ translationSources: [] })).toThrowError(/non-empty array/);
 		expect(() => parseScannerConfigOverrides({
-			translationSources: [{ type: 'http' }]
-		})).toThrowError(/must be "filesystem"/);
+			translationSources: [{ type: 'ftp' }]
+		})).toThrowError(/must be "filesystem" or "http"/);
 		expect(() => parseScannerConfigOverrides({
 			translationSources: [
 				{ type: 'filesystem', id: 'same' },
@@ -55,5 +55,67 @@ describe('translationSources config', () => {
 		expect(() => parseScannerConfigOverrides({
 			translationSources: [{ type: 'filesystem', includeGlobs: [] }]
 		})).toThrowError(/at least one non-empty glob/);
+	});
+
+	it('parses validated HTTP sources without accepting direct header values', () => {
+		const overrides = parseScannerConfigOverrides({
+			translationSources: [{
+				type: 'http',
+				id: ' feature-api ',
+				urlTemplate: 'https://api.example.com/i18n/{locale}.json',
+				locales: ['de', 'en-US'],
+				headersFromEnv: { Authorization: ' KEYLINT_TRANSLATION_AUTH ' }
+			}]
+		});
+
+		expect(overrides.translationSources).toEqual([{
+			type: 'http',
+			id: 'feature-api',
+			urlTemplate: 'https://api.example.com/i18n/{locale}.json',
+			locales: ['de', 'en-US'],
+			headersFromEnv: { Authorization: 'KEYLINT_TRANSLATION_AUTH' }
+		}]);
+		expect(() => parseScannerConfigOverrides({
+			translationSources: [{
+				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json',
+				locales: ['en'], headers: { Authorization: 'secret' }
+			}]
+		})).toThrowError(/Unknown HTTP translation source key "headers"/);
+	});
+
+	it('rejects unsafe or ambiguous HTTP source configuration', () => {
+		const source = (overrides: Record<string, unknown>) => ({
+			type: 'http',
+			id: 'api',
+			urlTemplate: 'https://example.com/{locale}.json',
+			locales: ['en'],
+			...overrides
+		});
+
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ id: '' })] }))
+			.toThrowError(/non-empty string/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ urlTemplate: 'file:///tmp/{locale}.json' })] }))
+			.toThrowError(/HTTP or HTTPS/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ urlTemplate: 'https://user:pass@example.com/{locale}.json' })] }))
+			.toThrowError(/must not contain URL credentials/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ urlTemplate: 'https://example.com/static.json' })] }))
+			.toThrowError(/exactly one/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ locales: [] })] }))
+			.toThrowError(/at least one/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ locales: ['en', 'en'] })] }))
+			.toThrowError(/duplicates/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ headersFromEnv: { 'Bad Header': 'TOKEN' } })] }))
+			.toThrowError(/Invalid HTTP header name/);
+		expect(() => parseScannerConfigOverrides({ translationSources: [source({ headersFromEnv: { Authorization: '' } })] }))
+			.toThrowError(/non-empty string/);
+	});
+
+	it('requires unique identifiers across filesystem and HTTP sources', () => {
+		expect(() => parseScannerConfigOverrides({
+			translationSources: [
+				{ type: 'filesystem', id: 'shared' },
+				{ type: 'http', id: 'shared', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'] }
+			]
+		})).toThrowError(/Duplicate translation source id/);
 	});
 });
