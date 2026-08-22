@@ -465,6 +465,41 @@ describe('angularScanAdapter', () => {
 		expect(featureRow?.values['fr']).toBe('');
 	});
 
+	it('collects stable writable resources for ordered filesystem sources', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/base/i18n/en.json': '{"APP":{"TITLE":"Title","BODY":"Body"}}',
+			'workspace/project/src/override/i18n/en.json': '{"APP":{"TITLE":"Display title"}}'
+		});
+		context = {
+			...context,
+			config: {
+				...DEFAULT_SCANNER_CONFIG,
+				translationSources: [
+					{ type: 'filesystem', id: 'base', includeGlobs: ['src/base/i18n/**/*.json'] },
+					{ type: 'filesystem', id: 'override', includeGlobs: ['src/override/i18n/**/*.json'] }
+				]
+			}
+		};
+
+		const resources = await angularScanAdapter.collectTranslationResources?.(context, fs);
+
+		expect(resources).toHaveLength(2);
+		expect(resources?.map((entry) => entry.position)).toEqual([0, 1]);
+		expect(resources?.map((entry) => entry.sourceId)).toEqual(['base', 'override']);
+		expect(resources?.every((entry) => entry.writable)).toBeTrue();
+		expect(resources?.map((entry) => entry.origin.path)).toEqual([
+			'workspace/project/src/base/i18n/en.json',
+			'workspace/project/src/override/i18n/en.json'
+		]);
+
+		const matrix = resources
+			? await angularScanAdapter.buildTranslationMatrixFromResources?.(resources)
+			: undefined;
+		expect(matrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Display title');
+		expect(matrix?.rows.find((row) => row.key === 'APP.BODY')?.values['en']).toBe('Body');
+	});
+
 	it('fails key extraction when a translation file contains invalid JSON', async () => {
 		const fs = new InMemoryFsAdapter({
 			'workspace/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title"}}',

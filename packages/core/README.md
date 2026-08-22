@@ -49,6 +49,25 @@ Every discovered translation file must be readable, contain valid JSON and use
 an object as its root value. A violation rejects `runScan` with a
 `TranslationFileError`; no partial result is returned.
 
+## Translation resources
+
+The scanner represents translation inputs as ordered `ITranslationResource`
+objects. Each resource retains its locale, source identifier, deterministic
+position, parsed content, origin and writability. Existing configurations are
+equivalent to one implicit filesystem source:
+
+```json
+{
+  "translationSources": [{ "type": "filesystem" }]
+}
+```
+
+Multiple filesystem sources are evaluated in configuration order. Plain JSON
+objects merge recursively; later arrays, primitive values, `null` values and
+type conflicts replace the earlier value. A filesystem source can provide
+`includeGlobs`; otherwise the existing global translation globs control which
+files it discovers.
+
 Filesystem adapters can expose structured `IFileSystemWarning` values for
 oversized files, file-count limits, unreadable directories and skipped symbolic
 links. The Node CLI and Electron desktop adapters enforce the same configured

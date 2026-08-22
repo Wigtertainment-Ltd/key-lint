@@ -2,6 +2,7 @@ import { IFinding } from '../models/finding.model.js';
 import { BaseLocaleSelectionSource } from '../util/translation-matrix.util.js';
 import { ITranslationMatrix } from '../models/scan-result.model.js';
 import { IScannerConfig } from '../config/config.interfaces.js';
+import { ITranslationResource } from '../models/translation-resource.model.js';
 
 export type TranslationFormat = 'json' | 'yaml' | 'xliff' | 'po';
 
@@ -51,9 +52,13 @@ export interface IScanAdapter {
 	capabilities: IAdapterCapabilities;
 	detect(projectRoot: string, fs: IFileSystemAdapter): Promise<IAdapterDetectionResult>;
 	collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter): Promise<string[]>;
+	/** Additive resource-aware collection contract. Legacy adapters may omit it. */
+	collectTranslationResources?(context: IProjectContext, fs: IFileSystemAdapter): Promise<ITranslationResource[]>;
 	extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter): Promise<string[]>;
+	extractDefinedKeysFromResources?(resources: ITranslationResource[]): Promise<string[]>;
 	extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter): Promise<IKeyUsage[]>;
 	buildTranslationMatrix?(translationFiles: string[], fs: IFileSystemAdapter): Promise<ITranslationMatrix>;
+	buildTranslationMatrixFromResources?(resources: ITranslationResource[]): Promise<ITranslationMatrix>;
 	runRules(input: {
 		definedKeys: string[];
 		usedKeys: IKeyUsage[];

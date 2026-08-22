@@ -8,6 +8,9 @@ import { extractTranslocoStructuralMatches } from './extractors/transloco/transl
 import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/translation-matrix.util.js';
 import { readTranslationJson } from '../../util/translation-json.util.js';
 import { extractMustachePlaceholders, parsePlaceholderParameters } from '../../util/placeholder.util.js';
+import { ITranslationResource } from '../../models/translation-resource.model.js';
+import { mergeTranslationResources } from '../../util/translation-resource.util.js';
+import { ITranslationSourceConfig } from '../../config/config.interfaces.js';
 
 function normalizePath(value: string): string {
 	return (
@@ -150,6 +153,90 @@ function inferLocaleFromTranslationFile(filePath: string): string {
 	}
 
 	return withoutExtension;
+}
+
+async function collectFilesystemTranslationFiles(
+	context: IProjectContext,
+	fs: IFileSystemAdapter,
+	includeGlobs: string[] = context.config.includeTranslationGlobs
+): Promise<string[]> {
+	const listedFiles = await fs.listFiles(
+		context.projectRoot,
+		includeGlobs,
+		context.config.excludeGlobs
+	);
+	const extensions = new Set(
+		context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase())
+	);
+
+	return listedFiles
+		.map((file) => normalizePath(file))
+		.filter((file) => extensions.has(file.slice(file.lastIndexOf('.')).toLowerCase()))
+		.filter((file) => !matchesAny(file, context.config.excludeGlobs))
+		.sort((left, right) => left.localeCompare(right));
+}
+
+async function resourcesFromFiles(
+	translationFiles: string[],
+	fs: IFileSystemAdapter,
+	sourceId = 'filesystem-1',
+	sourceIndex = 0,
+	positionOffset = 0
+): Promise<ITranslationResource[]> {
+	const resources: ITranslationResource[] = [];
+	for (const [resourceIndex, filePath] of translationFiles.entries()) {
+		const normalizedPath = normalizePath(filePath);
+		resources.push({
+			locale: inferLocaleFromTranslationFile(normalizedPath),
+			sourceType: 'filesystem',
+			sourceId,
+			sourceIndex,
+			resourceIndex,
+			position: positionOffset + resourceIndex,
+			content: await readTranslationJson(fs, normalizedPath),
+			origin: { type: 'file', path: normalizedPath },
+			writable: true
+		});
+	}
+	return resources;
+}
+
+function definedKeysFromResources(resources: ITranslationResource[]): string[] {
+	return uniqueSorted(
+		[...mergeTranslationResources(resources).values()]
+			.flatMap((content) => flattenTranslationObject(content))
+	);
+}
+
+function matrixFromResources(resources: ITranslationResource[]): ITranslationMatrix {
+	const localeToContent = mergeTranslationResources(resources);
+	const localeToValues = new Map<string, Record<string, string>>();
+	const localeToPresence = new Map<string, Set<string>>();
+
+	for (const [locale, content] of localeToContent) {
+		const flattened: Record<string, string> = {};
+		flattenTranslationValueObject(content, '', flattened);
+		localeToValues.set(locale, flattened);
+		localeToPresence.set(locale, new Set(Object.keys(flattened)));
+	}
+
+	const locales = uniqueSorted([...localeToValues.keys()]);
+	const allKeys = uniqueSorted(locales.flatMap((locale) => Object.keys(localeToValues.get(locale) ?? {})));
+	const rows = allKeys.map((key) => {
+		const values: Record<string, string> = {};
+		const keyPresence: Record<string, boolean> = {};
+		const placeholders: Record<string, string[]> = {};
+		for (const locale of locales) {
+			const localeValues = localeToValues.get(locale) ?? {};
+			const localePresence = localeToPresence.get(locale) ?? new Set<string>();
+			values[locale] = localeValues[key] ?? '';
+			keyPresence[locale] = localePresence.has(key);
+			placeholders[locale] = extractMustachePlaceholders(values[locale]);
+		}
+		return { key, values, keyPresence, placeholders };
+	});
+
+	return { locales, rows, totalKeys: rows.length };
 }
 
 function getParentDirectory(path: string): string {
@@ -329,77 +416,46 @@ export const angularScanAdapter: IScanAdapter = {
 	},
 
 	async collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter) {
-		const listedFiles = await fs.listFiles(context.projectRoot, context.config.includeTranslationGlobs, context.config.excludeGlobs);
+		return collectFilesystemTranslationFiles(context, fs);
+	},
 
-		const extensions = new Set(context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase()));
-
-		return listedFiles
-			.map((file) => normalizePath(file))
-			.filter((file) => {
-				const extension = file.slice(file.lastIndexOf('.')).toLowerCase();
-				return extensions.has(extension);
-			})
-			.filter((file) => !matchesAny(file, context.config.excludeGlobs))
-			.sort((a, b) => a.localeCompare(b));
+	async collectTranslationResources(context: IProjectContext, fs: IFileSystemAdapter) {
+		const resources: ITranslationResource[] = [];
+		const configuredSources: ITranslationSourceConfig[] = context.config.translationSources ?? [
+			{ type: 'filesystem' }
+		];
+		for (const [sourceIndex, source] of configuredSources.entries()) {
+			const files = await collectFilesystemTranslationFiles(
+				context,
+				fs,
+				source.includeGlobs ?? context.config.includeTranslationGlobs
+			);
+			const sourceResources = await resourcesFromFiles(
+				files,
+				fs,
+				source.id ?? `filesystem-${sourceIndex + 1}`,
+				sourceIndex,
+				resources.length
+			);
+			resources.push(...sourceResources);
+		}
+		return resources;
 	},
 
 	async extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter) {
-		const allKeys: string[] = [];
+		return definedKeysFromResources(await resourcesFromFiles(translationFiles, fs));
+	},
 
-		for (const filePath of translationFiles) {
-			const parsed = await readTranslationJson(fs, filePath);
-			allKeys.push(...flattenTranslationObject(parsed));
-		}
-
-		return uniqueSorted(allKeys);
+	async extractDefinedKeysFromResources(resources: ITranslationResource[]) {
+		return definedKeysFromResources(resources);
 	},
 
 	async buildTranslationMatrix(translationFiles: string[], fs: IFileSystemAdapter): Promise<ITranslationMatrix> {
-		const localeToValues = new Map<string, Record<string, string>>();
-		const localeToPresence = new Map<string, Set<string>>();
+		return matrixFromResources(await resourcesFromFiles(translationFiles, fs));
+	},
 
-		for (const filePath of translationFiles) {
-			const parsed = await readTranslationJson(fs, filePath);
-			const locale = inferLocaleFromTranslationFile(filePath);
-			const flattened: Record<string, string> = {};
-			flattenTranslationValueObject(parsed, '', flattened);
-
-			const existing = localeToValues.get(locale) ?? {};
-			localeToValues.set(locale, {
-				...existing,
-				...flattened
-			});
-
-			const existingPresence = localeToPresence.get(locale) ?? new Set<string>();
-			for (const key of Object.keys(flattened)) {
-				existingPresence.add(key);
-			}
-			localeToPresence.set(locale, existingPresence);
-		}
-
-		const locales = uniqueSorted([...localeToValues.keys()]);
-		const allKeys = uniqueSorted(locales.flatMap((locale) => Object.keys(localeToValues.get(locale) ?? {})));
-
-		const rows = allKeys.map((key) => {
-			const values: Record<string, string> = {};
-			const keyPresence: Record<string, boolean> = {};
-			const placeholders: Record<string, string[]> = {};
-			for (const locale of locales) {
-				const localeValues = localeToValues.get(locale) ?? {};
-				const localePresence = localeToPresence.get(locale) ?? new Set<string>();
-				values[locale] = localeValues[key] ?? '';
-				keyPresence[locale] = localePresence.has(key);
-				placeholders[locale] = extractMustachePlaceholders(values[locale]);
-			}
-
-			return { key, values, keyPresence, placeholders };
-		});
-
-		return {
-			locales,
-			rows,
-			totalKeys: rows.length
-		};
+	async buildTranslationMatrixFromResources(resources: ITranslationResource[]): Promise<ITranslationMatrix> {
+		return matrixFromResources(resources);
 	},
 
 	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter) {
