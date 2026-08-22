@@ -11,11 +11,7 @@ export type RemoteTranslationErrorCode =
 	| 'remote-response-too-large';
 
 export class RemoteTranslationError extends Error {
-	constructor(
-		readonly code: RemoteTranslationErrorCode,
-		message: string,
-		options?: ErrorOptions
-	) {
+	constructor(readonly code: RemoteTranslationErrorCode, message: string, options?: ErrorOptions) {
 		super(message, options);
 		this.name = 'RemoteTranslationError';
 	}

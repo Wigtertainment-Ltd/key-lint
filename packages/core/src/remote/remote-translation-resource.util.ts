@@ -1,16 +1,8 @@
-import {
-	IHttpTranslationSourceConfig,
-	IScannerGuardrails,
-	ITranslationSourceConfig
-} from '../config/config.interfaces.js';
+import { IHttpTranslationSourceConfig, IScannerGuardrails, ITranslationSourceConfig } from '../config/config.interfaces.js';
 import { ITranslationResource } from '../models/translation-resource.model.js';
 import { parseTranslationJson } from '../util/translation-json.util.js';
 import { RemoteTranslationError, redactRemoteUrl } from './remote-translation.error.js';
-import {
-	DEFAULT_REMOTE_TRANSLATION_LIMITS,
-	IRemoteTranslationFetchResponse,
-	IRemoteTranslationRuntime
-} from './remote-translation.interfaces.js';
+import { DEFAULT_REMOTE_TRANSLATION_LIMITS, IRemoteTranslationFetchResponse, IRemoteTranslationRuntime } from './remote-translation.interfaces.js';
 
 interface IPreparedHttpSource {
 	source: IHttpTranslationSourceConfig;
@@ -27,11 +19,8 @@ function headersSignature(headers: Readonly<Record<string, string>>): string {
 		.join('\u0001');
 }
 
-function prepareSources(
-	sources: ITranslationSourceConfig[],
-	runtime: IRemoteTranslationRuntime
-): IPreparedHttpSource[] {
-	const environment = runtime.environment ?? {};
+function prepareSources(sources: ITranslationSourceConfig[], runtime: IRemoteTranslationRuntime): IPreparedHttpSource[] {
+	const environment: Readonly<Record<string, string | undefined>> = runtime.environment ?? {};
 	const prepared: IPreparedHttpSource[] = [];
 
 	for (const [sourceIndex, source] of sources.entries()) {
@@ -75,29 +64,20 @@ export async function collectRemoteTranslationResources(
 	guardrails: IScannerGuardrails
 ): Promise<Map<number, ITranslationResource[]>> {
 	if (!runtime.allowNetwork) {
-		throw new RemoteTranslationError(
-			'network-not-allowed',
-			'Remote translation network access was not explicitly enabled.'
-		);
+		throw new RemoteTranslationError('network-not-allowed', 'Remote translation network access was not explicitly enabled.');
 	}
 	if (!runtime.fetcher) {
-		throw new RemoteTranslationError(
-			'remote-fetcher-missing',
-			'Remote translation sources require an injected remote translation fetcher.'
-		);
+		throw new RemoteTranslationError('remote-fetcher-missing', 'Remote translation sources require an injected remote translation fetcher.');
 	}
 
-	const prepared = prepareSources(sources, runtime);
-	const requestSignatures = new Map<string, string>();
+	const prepared: IPreparedHttpSource[] = prepareSources(sources, runtime);
+	const requestSignatures: Map<string, string> = new Map<string, string>();
 	for (const item of prepared) {
-		const signature = headersSignature(item.headers);
+		const signature: string = headersSignature(item.headers);
 		for (const url of item.urls) {
-			const existingSignature = requestSignatures.get(url);
+			const existingSignature: string | undefined = requestSignatures.get(url);
 			if (existingSignature !== undefined && existingSignature !== signature) {
-				throw new RemoteTranslationError(
-					'remote-request-conflict',
-					`Remote translation URL ${redactRemoteUrl(url)} is configured with conflicting headers.`
-				);
+				throw new RemoteTranslationError('remote-request-conflict', `Remote translation URL ${redactRemoteUrl(url)} is configured with conflicting headers.`);
 			}
 			requestSignatures.set(url, signature);
 		}
@@ -109,13 +89,13 @@ export async function collectRemoteTranslationResources(
 		);
 	}
 
-	const responseCache = new Map<string, Promise<IRemoteTranslationFetchResponse>>();
-	const result = new Map<number, ITranslationResource[]>();
+	const responseCache: Map<string, Promise<IRemoteTranslationFetchResponse>> = new Map<string, Promise<IRemoteTranslationFetchResponse>>();
+	const result: Map<number, ITranslationResource[]> = new Map<number, ITranslationResource[]>();
 	for (const item of prepared) {
 		const resources: ITranslationResource[] = [];
 		for (const [resourceIndex, locale] of item.source.locales.entries()) {
-			const url = item.urls[resourceIndex];
-			let responsePromise = responseCache.get(url);
+			const url: string = item.urls[resourceIndex];
+			let responsePromise: Promise<IRemoteTranslationFetchResponse> | undefined = responseCache.get(url);
 			if (!responsePromise) {
 				responsePromise = runtime.fetcher.fetch({
 					url,

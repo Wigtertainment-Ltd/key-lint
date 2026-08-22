@@ -1,9 +1,5 @@
 import { RemoteTranslationError, redactRemoteUrl } from './remote-translation.error.js';
-import {
-	IRemoteTranslationFetcher,
-	IRemoteTranslationFetchRequest,
-	IRemoteTranslationFetchResponse
-} from './remote-translation.interfaces.js';
+import { IRemoteTranslationFetcher, IRemoteTranslationFetchRequest, IRemoteTranslationFetchResponse } from './remote-translation.interfaces.js';
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
@@ -12,23 +8,13 @@ function parseHttpUrl(value: string): URL {
 	try {
 		url = new URL(value);
 	} catch (error) {
-		throw new RemoteTranslationError(
-			'remote-fetch-failed',
-			'Remote translation URL is invalid.',
-			{ cause: error }
-		);
+		throw new RemoteTranslationError('remote-fetch-failed', 'Remote translation URL is invalid.', { cause: error });
 	}
 	if (!['http:', 'https:'].includes(url.protocol)) {
-		throw new RemoteTranslationError(
-			'remote-fetch-failed',
-			`Remote translation URL must use HTTP or HTTPS: ${redactRemoteUrl(value)}`
-		);
+		throw new RemoteTranslationError('remote-fetch-failed', `Remote translation URL must use HTTP or HTTPS: ${redactRemoteUrl(value)}`);
 	}
 	if (url.username || url.password) {
-		throw new RemoteTranslationError(
-			'remote-fetch-failed',
-			`Remote translation URL must not contain credentials: ${redactRemoteUrl(value)}`
-		);
+		throw new RemoteTranslationError('remote-fetch-failed', `Remote translation URL must not contain credentials: ${redactRemoteUrl(value)}`);
 	}
 	return url;
 }
@@ -38,39 +24,26 @@ function isSensitiveHeader(name: string): boolean {
 		/(api[-_]?key|token|secret)/i.test(name);
 }
 
-function headersForRedirect(
-	headers: Readonly<Record<string, string>>,
-	from: URL,
-	to: URL
-): Record<string, string> {
+function headersForRedirect(headers: Readonly<Record<string, string>>, from: URL, to: URL): Record<string, string> {
 	if (from.origin === to.origin) {
 		return { ...headers };
 	}
-	return Object.fromEntries(
-		Object.entries(headers).filter(([name]) => !isSensitiveHeader(name))
-	);
+	return Object.fromEntries(Object.entries(headers).filter(([name]) => !isSensitiveHeader(name)));
 }
 
-async function readLimitedBody(
-	response: Response,
-	maxResponseBytes: number,
-	url: string
-): Promise<string> {
-	const declaredLength = Number(response.headers.get('content-length'));
+async function readLimitedBody(response: Response, maxResponseBytes: number, url: string): Promise<string> {
+	const declaredLength: number = Number(response.headers.get('content-length'));
 	if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
-		throw new RemoteTranslationError(
-			'remote-response-too-large',
-			`Remote translation response from ${redactRemoteUrl(url)} exceeds ${maxResponseBytes} bytes.`
-		);
+		throw new RemoteTranslationError('remote-response-too-large', `Remote translation response from ${redactRemoteUrl(url)} exceeds ${maxResponseBytes} bytes.`);
 	}
 	if (!response.body) {
 		return '';
 	}
 
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder();
-	let receivedBytes = 0;
-	let body = '';
+	const reader: ReadableStreamDefaultReader<any> = response.body.getReader();
+	const decoder: TextDecoder = new TextDecoder();
+	let receivedBytes: number = 0;
+	let body: string = '';
 	while (true) {
 		const chunk = await reader.read();
 		if (chunk.done) {
@@ -79,10 +52,7 @@ async function readLimitedBody(
 		receivedBytes += chunk.value.byteLength;
 		if (receivedBytes > maxResponseBytes) {
 			await reader.cancel();
-			throw new RemoteTranslationError(
-				'remote-response-too-large',
-				`Remote translation response from ${redactRemoteUrl(url)} exceeds ${maxResponseBytes} bytes.`
-			);
+			throw new RemoteTranslationError('remote-response-too-large', `Remote translation response from ${redactRemoteUrl(url)} exceeds ${maxResponseBytes} bytes.`);
 		}
 		body += decoder.decode(chunk.value, { stream: true });
 	}
@@ -92,11 +62,11 @@ async function readLimitedBody(
 /** Guarded Node transport used by the CLI. Redirects are handled manually. */
 export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 	async fetch(request: IRemoteTranslationFetchRequest): Promise<IRemoteTranslationFetchResponse> {
-		let currentUrl = parseHttpUrl(request.url);
+		let currentUrl: URL = parseHttpUrl(request.url);
 		let headers = { ...request.headers };
-		let redirects = 0;
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), request.timeoutMs);
+		let redirects: number = 0;
+		const controller: AbortController = new AbortController();
+		const timeout: NodeJS.Timeout = setTimeout(() => controller.abort(), request.timeoutMs);
 
 		try {
 			while (true) {
@@ -137,7 +107,7 @@ export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 							`Remote translation redirect from ${redactRemoteUrl(currentUrl.toString())} has no location.`
 						);
 					}
-					const nextUrl = parseHttpUrl(new URL(location, currentUrl).toString());
+					const nextUrl: URL = parseHttpUrl(new URL(location, currentUrl).toString());
 					headers = headersForRedirect(headers, currentUrl, nextUrl);
 					currentUrl = nextUrl;
 					redirects += 1;
@@ -145,8 +115,7 @@ export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 				}
 
 				if (!response.ok) {
-					throw new RemoteTranslationError(
-						'remote-http-error',
+					throw new RemoteTranslationError('remote-http-error',
 						`Remote translation request to ${redactRemoteUrl(currentUrl.toString())} returned HTTP ${response.status}.`
 					);
 				}
