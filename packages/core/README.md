@@ -73,6 +73,39 @@ oversized files, file-count limits, unreadable directories and skipped symbolic
 links. The Node CLI and Electron desktop adapters enforce the same configured
 guardrail values.
 
+### HTTP translation sources (experimental)
+
+An HTTP source declares the locales to fetch and an absolute HTTP(S) URL with
+exactly one `{locale}` placeholder:
+
+```json
+{
+  "translationSources": [
+    {
+      "type": "http",
+      "id": "feature-api",
+      "urlTemplate": "https://api.example.com/i18n/{locale}.json",
+      "locales": ["de", "en"],
+      "headersFromEnv": {
+        "Authorization": "KEYLINT_TRANSLATION_AUTH"
+      }
+    }
+  ]
+}
+```
+
+Header values cannot be stored in configuration. `headersFromEnv` maps header
+names to environment-variable names, and every referenced variable must exist
+at scan time. Core performs no network I/O itself: callers must explicitly set
+`allowNetwork` and inject an `IRemoteTranslationFetcher`. Remote resources are
+marked read-only, and later sources still override earlier sources recursively.
+
+The Node transport exported from `@key-lint/core/node` uses GET, a 15-second
+total timeout, at most three redirects, the configured file-size limit and at
+most 100 distinct URLs per scan. Sensitive headers are removed on cross-origin
+redirects, duplicate URLs are fetched once, and query values are redacted from
+diagnostics.
+
 `resolveScannerConfigSources` also returns `guardrailSources`, identifying the
 winning source (`default`, `package-json`, `config-file` or `override`) for each
 effective guardrail.
@@ -83,7 +116,11 @@ The Node subpath export exposes `NodeFileSystemAdapter` and config loading:
 
 ```ts
 import { runScan } from '@key-lint/core';
-import { NodeFileSystemAdapter, loadScannerConfig } from '@key-lint/core/node';
+import {
+  NodeFileSystemAdapter,
+  NodeRemoteTranslationFetcher,
+  loadScannerConfig
+} from '@key-lint/core/node';
 
 const config = await loadScannerConfig({ projectRoot: '.' });
 const fs = new NodeFileSystemAdapter(config.guardrails);
@@ -92,6 +129,11 @@ const result = await runScan({
   projectRoot: '.',
   fs,
   config,
+  remoteTranslations: {
+    allowNetwork: true,
+    fetcher: new NodeRemoteTranslationFetcher(),
+    environment: process.env
+  }
 });
 ```
 
@@ -100,7 +142,7 @@ const result = await runScan({
 | Export | Purpose |
 | --- | --- |
 | `@key-lint/core` | Browser-safe engine (adapter registry, scan, models) |
-| `@key-lint/core/node` | Node-only APIs (`NodeFileSystemAdapter`, `loadScannerConfig`) |
+| `@key-lint/core/node` | Node-only APIs (`NodeFileSystemAdapter`, `NodeRemoteTranslationFetcher`, `loadScannerConfig`) |
 
 ## License
 

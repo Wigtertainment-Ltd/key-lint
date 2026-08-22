@@ -32,6 +32,7 @@ keylint scan /path/to/project \
 | `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited (`-1`). |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Overrides config file `ignoreKeys`. |
+| `--allow-network` | Explicitly allow requests for configured HTTP translation sources. Disabled by default. |
 | `--quiet` | Suppress progress output on stderr. |
 | `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
 
@@ -84,6 +85,40 @@ another non-object root stops the scan with exit code `2`, prints the affected
 path to stderr and does not emit a partial report.
 
 Alternatively embed the config in `package.json` under the `"keylint"` key.
+
+### Remote translations
+
+HTTP translation sources remain disabled unless the scan includes
+`--allow-network`. Configure only environment-variable names—not credentials—in
+`keylint.config.json`:
+
+```json
+{
+  "translationSources": [
+    {
+      "type": "http",
+      "id": "feature-api",
+      "urlTemplate": "https://api.example.com/i18n/{locale}.json",
+      "locales": ["de", "en"],
+      "headersFromEnv": {
+        "Authorization": "KEYLINT_TRANSLATION_AUTH"
+      }
+    }
+  ]
+}
+```
+
+Then provide the value through the process environment and opt in:
+
+```bash
+KEYLINT_TRANSLATION_AUTH="Bearer ..." keylint scan . --allow-network
+```
+
+A missing environment variable, request failure, invalid response, timeout or
+guardrail violation stops the scan with exit code `2` and no partial report.
+Remote translations are read-only. Requests use GET, a 15-second total timeout,
+at most three redirects and the configured `maxFileSizeBytes`; query values are
+redacted from errors.
 
 ## Reporters
 

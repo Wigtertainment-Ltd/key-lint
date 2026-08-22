@@ -18,12 +18,16 @@ export class TranslationFileError extends Error {
 	}
 }
 
+function normalizeTranslationLocation(value: string): string {
+	return /^https?:\/\//i.test(value) ? value : normalizePath(value);
+}
+
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
 export function parseTranslationJson(raw: string, filePath: string): Record<string, unknown> {
-	const normalizedFilePath = normalizePath(filePath);
+	const normalizedFilePath = normalizeTranslationLocation(filePath);
 	let parsed: unknown;
 
 	try {

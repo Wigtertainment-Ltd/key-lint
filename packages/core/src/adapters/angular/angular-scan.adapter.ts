@@ -11,6 +11,7 @@ import { extractMustachePlaceholders, parsePlaceholderParameters } from '../../u
 import { ITranslationResource } from '../../models/translation-resource.model.js';
 import { mergeTranslationResources } from '../../util/translation-resource.util.js';
 import { ITranslationSourceConfig } from '../../config/config.interfaces.js';
+import { collectRemoteTranslationResources } from '../../remote/remote-translation-resource.util.js';
 import { IPatternDescriptor } from '../adapter.interfaces.js';
 
 function normalizePath(value: string): string {
@@ -419,7 +420,25 @@ export const angularScanAdapter: IScanAdapter = {
 		const configuredSources: ITranslationSourceConfig[] = context.config.translationSources ?? [
 			{ type: 'filesystem' }
 		];
+		const hasRemoteSources = configuredSources.some((source) => source.type === 'http');
+		const remoteResources = hasRemoteSources
+			? await collectRemoteTranslationResources(
+				configuredSources,
+				context.remoteTranslations ?? { allowNetwork: false },
+				context.config.guardrails
+			)
+			: new Map<number, ITranslationResource[]>();
 		for (const [sourceIndex, source] of configuredSources.entries()) {
+			if (source.type === 'http') {
+				const sourceResources = (remoteResources.get(sourceIndex) ?? []).map((resource, resourceIndex) => ({
+					...resource,
+					resourceIndex,
+					position: resources.length + resourceIndex
+				}));
+				resources.push(...sourceResources);
+				continue;
+			}
+
 			const files = await collectFilesystemTranslationFiles(
 				context,
 				fs,

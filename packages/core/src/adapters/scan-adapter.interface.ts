@@ -3,6 +3,7 @@ import { BaseLocaleSelectionSource } from '../util/translation-matrix.util.js';
 import { ITranslationMatrix } from '../models/scan-result.model.js';
 import { IScannerConfig } from '../config/config.interfaces.js';
 import { ITranslationResource } from '../models/translation-resource.model.js';
+import { IRemoteTranslationRuntime } from '../remote/remote-translation.interfaces.js';
 
 export type TranslationFormat = 'json' | 'yaml' | 'xliff' | 'po';
 
@@ -28,6 +29,7 @@ export interface IFileSystemAdapter {
 export interface IProjectContext {
 	projectRoot: string;
 	config: IScannerConfig;
+	remoteTranslations?: IRemoteTranslationRuntime;
 }
 
 export interface IKeyUsage {

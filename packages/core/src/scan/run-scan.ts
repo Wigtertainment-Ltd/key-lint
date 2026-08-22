@@ -7,6 +7,8 @@ import { buildSummary, IProjectScanResult, ITranslationMatrix } from '../models/
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
 import { resolveBaseLocale } from '../util/translation-matrix.util.js';
+import { IRemoteTranslationRuntime } from '../remote/remote-translation.interfaces.js';
+import { RemoteTranslationError } from '../remote/remote-translation.error.js';
 
 export type ScanStage =
 	| 'detecting-adapter'
@@ -28,6 +30,7 @@ export interface IRunScanOptions {
 	config?: IScannerConfig;
 	registry?: AdapterRegistry;
 	onProgress?: (progress: IScanProgress) => void;
+	remoteTranslations?: IRemoteTranslationRuntime;
 }
 
 const EMPTY_TRANSLATION_MATRIX: ITranslationMatrix = {
@@ -59,15 +62,30 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 	const adapter = adapterMatch.adapter;
 	const context: IProjectContext = {
 		projectRoot: resolvedProjectRoot,
-		config
+		config,
+		remoteTranslations: options.remoteTranslations
 	};
+	const hasRemoteSources = config.translationSources?.some((source) => source.type === 'http') ?? false;
+	if (hasRemoteSources && !options.remoteTranslations?.allowNetwork) {
+		throw new RemoteTranslationError(
+			'network-not-allowed',
+			'Remote translation sources are configured, but network access is disabled. Enable the runtime network opt-in explicitly.'
+		);
+	}
+	if (hasRemoteSources && !options.remoteTranslations?.fetcher) {
+		throw new RemoteTranslationError(
+			'remote-fetcher-missing',
+			'Remote translation sources require an injected remote translation fetcher.'
+		);
+	}
 
 	report('collecting-translation-files', 'Collecting translation files...');
 	const translationResources = adapter.collectTranslationResources
 		? await adapter.collectTranslationResources(context, fs)
 		: undefined;
 	const translationFiles = translationResources
-		? translationResources.map((resource) => resource.origin.path)
+		? translationResources
+			.flatMap((resource) => resource.origin.type === 'file' ? [resource.origin.path] : [])
 		: await adapter.collectTranslationFiles(context, fs);
 
 	report('extracting-defined-keys', 'Extracting translation keys...');
@@ -116,6 +134,7 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 			adapterDetectionReason: adapterMatch.detection.reason,
 			adapterDetectionConfidence: adapterMatch.detection.confidence,
 			translationFileCount: translationFiles.length,
+			translationReadOnly: translationResources?.some((resource) => !resource.writable) ?? false,
 			usedKeyEvidenceCount: usedKeys.length,
 			translationLocaleCount: translationMatrix.locales.length,
 			baseLocale: baseLocaleSelection.locale ?? null,

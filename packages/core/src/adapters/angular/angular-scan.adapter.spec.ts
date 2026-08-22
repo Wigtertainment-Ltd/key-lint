@@ -500,6 +500,45 @@ describe('angularScanAdapter', () => {
 		expect(matrix?.rows.find((row) => row.key === 'APP.BODY')?.values['en']).toBe('Body');
 	});
 
+	it('preserves mixed filesystem and HTTP source order', async () => {
+		const fs = new InMemoryFsAdapter({
+			'workspace/project/angular.json': '{"version":1}',
+			'workspace/project/src/base/en.json': '{"APP":{"TITLE":"Base","BASE":"Base only"}}',
+			'workspace/project/src/final/en.json': '{"APP":{"TITLE":"Final"}}'
+		});
+		context = {
+			...context,
+			config: {
+				...DEFAULT_SCANNER_CONFIG,
+				translationSources: [
+					{ type: 'filesystem', id: 'base', includeGlobs: ['src/base/**/*.json'] },
+					{ type: 'http', id: 'remote', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'] },
+					{ type: 'filesystem', id: 'final', includeGlobs: ['src/final/**/*.json'] }
+				]
+			},
+			remoteTranslations: {
+				allowNetwork: true,
+				fetcher: {
+					fetch: async (request) => ({
+						body: '{"APP":{"TITLE":"Remote","REMOTE":"Remote only"}}',
+						finalUrl: request.url
+					})
+				}
+			}
+		};
+
+		const resources = await angularScanAdapter.collectTranslationResources?.(context, fs);
+
+		expect(resources?.map((entry) => entry.position)).toEqual([0, 1, 2]);
+		expect(resources?.map((entry) => entry.sourceId)).toEqual(['base', 'remote', 'final']);
+		expect(resources?.map((entry) => entry.writable)).toEqual([true, false, true]);
+		const matrix = resources
+			? await angularScanAdapter.buildTranslationMatrixFromResources?.(resources)
+			: undefined;
+		expect(matrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Final');
+		expect(matrix?.rows.find((row) => row.key === 'APP.REMOTE')?.values['en']).toBe('Remote only');
+	});
+
 	it('fails key extraction when a translation file contains invalid JSON', async () => {
 		const fs = new InMemoryFsAdapter({
 			'workspace/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title"}}',

@@ -11,7 +11,20 @@ export interface IFilesystemTranslationSourceConfig {
 	includeGlobs?: string[];
 }
 
-export type ITranslationSourceConfig = IFilesystemTranslationSourceConfig;
+export interface IHttpTranslationSourceConfig {
+	type: 'http';
+	/** Stable identifier used in diagnostics and source metadata. */
+	id: string;
+	/** HTTP(S) URL containing exactly one `{locale}` placeholder. */
+	urlTemplate: string;
+	locales: string[];
+	/** Maps HTTP header names to environment-variable names. */
+	headersFromEnv?: Record<string, string>;
+}
+
+export type ITranslationSourceConfig =
+	| IFilesystemTranslationSourceConfig
+	| IHttpTranslationSourceConfig;
 
 export interface IScannerConfig {
 	/** Canonical locale used for cross-locale consistency checks. Auto-detected when omitted. */

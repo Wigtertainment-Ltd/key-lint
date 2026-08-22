@@ -14,6 +14,7 @@ Options:
   --max-errors <n>         Allowed error findings before failing (default: 0)
   --max-warnings <n>       Allowed warning findings before failing (default: unlimited)
   --ignore <glob>          Translation key glob to ignore, repeatable
+  --allow-network         Allow configured remote translation requests
   --quiet                  Suppress progress output on stderr
   --no-color               Disable ANSI colors
   -h, --help               Show this help
@@ -53,6 +54,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 				'max-errors': { type: 'string' },
 				'max-warnings': { type: 'string' },
 				ignore: { type: 'string', multiple: true },
+				'allow-network': { type: 'boolean' },
 				quiet: { type: 'boolean' },
 				help: { type: 'boolean', short: 'h' },
 				version: { type: 'boolean', short: 'v' }
@@ -73,6 +75,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 		maxErrors: 0,
 		maxWarnings: -1,
 		ignoreKeys: [],
+		allowNetwork: Boolean(values['allow-network']),
 		quiet: Boolean(values.quiet),
 		color
 	};
