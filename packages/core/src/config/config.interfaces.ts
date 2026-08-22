@@ -3,6 +3,16 @@ export interface IScannerGuardrails {
 	maxFileSizeBytes: number;
 }
 
+export interface IFilesystemTranslationSourceConfig {
+	type: 'filesystem';
+	/** Optional stable identifier. A deterministic identifier is generated when omitted. */
+	id?: string;
+	/** Source-specific file globs. Global translation globs are used when omitted. */
+	includeGlobs?: string[];
+}
+
+export type ITranslationSourceConfig = IFilesystemTranslationSourceConfig;
+
 export interface IScannerConfig {
 	/** Canonical locale used for cross-locale consistency checks. Auto-detected when omitted. */
 	baseLocale?: string;
@@ -10,6 +20,8 @@ export interface IScannerConfig {
 	includeSourceGlobs: string[];
 	excludeGlobs: string[];
 	supportedTranslationExtensions: string[];
+	/** Ordered translation inputs. Later sources override earlier sources. */
+	translationSources?: ITranslationSourceConfig[];
 	/** Glob patterns matched against translation keys; matching findings are dropped. */
 	ignoreKeys: string[];
 	guardrails: IScannerGuardrails;
@@ -21,6 +33,7 @@ export interface IScannerConfigOverrides {
 	includeSourceGlobs?: string[];
 	excludeGlobs?: string[];
 	supportedTranslationExtensions?: string[];
+	translationSources?: ITranslationSourceConfig[];
 	ignoreKeys?: string[];
 	guardrails?: Partial<IScannerGuardrails>;
 }

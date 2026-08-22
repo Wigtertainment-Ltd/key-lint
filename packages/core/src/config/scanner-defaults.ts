@@ -22,6 +22,7 @@ export const DEFAULT_SCANNER_CONFIG: IScannerConfig = {
 		'**/out/**'
 	],
 	supportedTranslationExtensions: ['.json'],
+	translationSources: [{ type: 'filesystem' }],
 	ignoreKeys: [],
 	guardrails: {
 		maxFiles: 25000,

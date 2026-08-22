@@ -63,15 +63,24 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 	};
 
 	report('collecting-translation-files', 'Collecting translation files...');
-	const translationFiles = await adapter.collectTranslationFiles(context, fs);
+	const translationResources = adapter.collectTranslationResources
+		? await adapter.collectTranslationResources(context, fs)
+		: undefined;
+	const translationFiles = translationResources
+		? translationResources.map((resource) => resource.origin.path)
+		: await adapter.collectTranslationFiles(context, fs);
 
 	report('extracting-defined-keys', 'Extracting translation keys...');
-	const definedKeys = await adapter.extractDefinedKeys(translationFiles, fs);
+	const definedKeys = translationResources && adapter.extractDefinedKeysFromResources
+		? await adapter.extractDefinedKeysFromResources(translationResources)
+		: await adapter.extractDefinedKeys(translationFiles, fs);
 
 	report('building-translation-matrix', 'Building translation matrix...');
-	const translationMatrix = adapter.buildTranslationMatrix
-		? await adapter.buildTranslationMatrix(translationFiles, fs)
-		: EMPTY_TRANSLATION_MATRIX;
+	const translationMatrix = translationResources && adapter.buildTranslationMatrixFromResources
+		? await adapter.buildTranslationMatrixFromResources(translationResources)
+		: adapter.buildTranslationMatrix
+			? await adapter.buildTranslationMatrix(translationFiles, fs)
+			: EMPTY_TRANSLATION_MATRIX;
 	const baseLocaleSelection = resolveBaseLocale(translationMatrix, config.baseLocale);
 
 	report('scanning-source-usage', 'Scanning source key usage...');

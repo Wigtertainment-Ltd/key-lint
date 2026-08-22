@@ -1,8 +1,73 @@
-import { IScannerConfig, IScannerConfigOverrides, IScannerGuardrails, ScannerConfigError } from './config.interfaces.js';
+import {
+	IFilesystemTranslationSourceConfig,
+	IScannerConfig,
+	IScannerConfigOverrides,
+	IScannerGuardrails,
+	ITranslationSourceConfig,
+	ScannerConfigError
+} from './config.interfaces.js';
 import { DEFAULT_SCANNER_CONFIG } from './scanner-defaults.js';
 
 const STRING_ARRAY_KEYS = ['includeTranslationGlobs', 'includeSourceGlobs', 'excludeGlobs', 'supportedTranslationExtensions', 'ignoreKeys'] as const;
 const GUARDRAIL_KEYS = ['maxFiles', 'maxFileSizeBytes'] as const;
+
+function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
+	if (!Array.isArray(value) || value.length === 0) {
+		throw new ScannerConfigError('"translationSources" must be a non-empty array.');
+	}
+
+	const identifiers = new Set<string>();
+	return value.map((entry, index) => {
+		if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+			throw new ScannerConfigError(`"translationSources[${index}]" must be an object.`);
+		}
+
+		const source = entry as Record<string, unknown>;
+		const allowedKeys = new Set(['type', 'id', 'includeGlobs']);
+		for (const key of Object.keys(source)) {
+			if (!allowedKeys.has(key)) {
+				throw new ScannerConfigError(
+					`Unknown translation source key "${key}" at index ${index}. Allowed keys: type, id, includeGlobs.`
+				);
+			}
+		}
+
+		if (source['type'] !== 'filesystem') {
+			throw new ScannerConfigError(
+				`"translationSources[${index}].type" must be "filesystem".`
+			);
+		}
+
+		const parsed: IFilesystemTranslationSourceConfig = { type: 'filesystem' };
+		if (source['id'] !== undefined) {
+			if (typeof source['id'] !== 'string' || source['id'].trim().length === 0) {
+				throw new ScannerConfigError(
+					`"translationSources[${index}].id" must be a non-empty string.`
+				);
+			}
+			parsed.id = source['id'].trim();
+		}
+		if (source['includeGlobs'] !== undefined) {
+			const includeGlobs = assertStringArray(
+				source['includeGlobs'],
+				`translationSources[${index}].includeGlobs`
+			);
+			if (includeGlobs.length === 0 || includeGlobs.some((glob) => glob.trim().length === 0)) {
+				throw new ScannerConfigError(
+					`"translationSources[${index}].includeGlobs" must contain at least one non-empty glob.`
+				);
+			}
+			parsed.includeGlobs = includeGlobs.map((glob) => glob.trim());
+		}
+
+		const resolvedId = parsed.id ?? `filesystem-${index + 1}`;
+		if (identifiers.has(resolvedId)) {
+			throw new ScannerConfigError(`Duplicate translation source id "${resolvedId}".`);
+		}
+		identifiers.add(resolvedId);
+		return parsed;
+	});
+}
 
 function assertStringArray(value: unknown, key: string): string[] {
 	if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
@@ -30,7 +95,12 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 	}
 
 	const source = raw as Record<string, unknown>;
-	const allowedKeys = new Set<string>([...STRING_ARRAY_KEYS, 'baseLocale', 'guardrails']);
+	const allowedKeys = new Set<string>([
+		...STRING_ARRAY_KEYS,
+		'baseLocale',
+		'guardrails',
+		'translationSources'
+	]);
 	const overrides: IScannerConfigOverrides = {};
 
 	for (const [key, value] of Object.entries(source)) {
@@ -76,6 +146,11 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 			continue;
 		}
 
+		if (key === 'translationSources') {
+			overrides.translationSources = assertTranslationSources(value);
+			continue;
+		}
+
 		overrides[key as (typeof STRING_ARRAY_KEYS)[number]] = assertStringArray(value, key);
 	}
 
@@ -91,6 +166,7 @@ export function mergeScannerConfig(base: IScannerConfig = DEFAULT_SCANNER_CONFIG
 		excludeGlobs: overrides.excludeGlobs ?? base.excludeGlobs,
 		supportedTranslationExtensions:
 			overrides.supportedTranslationExtensions ?? base.supportedTranslationExtensions,
+		translationSources: overrides.translationSources ?? base.translationSources,
 		ignoreKeys: overrides.ignoreKeys ?? base.ignoreKeys,
 		guardrails: {
 			maxFiles: overrides.guardrails?.maxFiles ?? base.guardrails.maxFiles,
