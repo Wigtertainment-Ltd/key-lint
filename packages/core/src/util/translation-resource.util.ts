@@ -17,14 +17,11 @@ function cloneTranslationValue(value: unknown): unknown {
 }
 
 /** Recursively merges JSON translation objects without mutating either input. */
-export function mergeTranslationObjects(
-	earlier: Record<string, unknown>,
-	later: Record<string, unknown>
-): Record<string, unknown> {
-	const merged = cloneTranslationValue(earlier) as Record<string, unknown>;
+export function mergeTranslationObjects(earlier: Record<string, unknown>, later: Record<string, unknown>): Record<string, unknown> {
+	const merged: Record<string, unknown> = cloneTranslationValue(earlier) as Record<string, unknown>;
 
 	for (const [key, laterValue] of Object.entries(later)) {
-		const earlierValue = merged[key];
+		const earlierValue: unknown = merged[key];
 		merged[key] = isPlainObject(earlierValue) && isPlainObject(laterValue)
 			? mergeTranslationObjects(earlierValue, laterValue)
 			: cloneTranslationValue(laterValue);
@@ -34,11 +31,9 @@ export function mergeTranslationObjects(
 }
 
 /** Groups resources by locale and merges them in their deterministic position order. */
-export function mergeTranslationResources(
-	resources: ITranslationResource[]
-): Map<string, Record<string, unknown>> {
-	const localeContent = new Map<string, Record<string, unknown>>();
-	const ordered = [...resources].sort((left, right) => left.position - right.position);
+export function mergeTranslationResources(resources: ITranslationResource[]): Map<string, Record<string, unknown>> {
+	const localeContent: Map<string, Record<string, unknown>> = new Map<string, Record<string, unknown>>();
+	const ordered: ITranslationResource[] = [...resources].sort((left, right) => left.position - right.position);
 
 	for (const resource of ordered) {
 		localeContent.set(
