@@ -4,7 +4,9 @@ const IPC_CHANNELS = Object.freeze({
 	pathExists: 'keylint:fs:path-exists',
 	readFile: 'keylint:fs:read-file',
 	writeFile: 'keylint:fs:write-file',
-	readDirectory: 'keylint:fs:read-directory'
+	readDirectory: 'keylint:fs:read-directory',
+	fetchTranslationResource: 'keylint:translations:fetch-resource',
+	endTranslationScan: 'keylint:translations:end-scan'
 });
 
 module.exports = { IPC_CHANNELS };

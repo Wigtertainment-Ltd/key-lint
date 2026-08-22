@@ -34,6 +34,8 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 
 	assert.equal(exposedName, 'keyLint');
 	assert.deepEqual(Object.keys(api).sort(), [
+		'endTranslationScan',
+		'fetchTranslationResource',
 		'getAppVersion',
 		'getPathForFile',
 		'pathExists',
@@ -51,6 +53,10 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 	await api.readFile('C:\\project\\en.json');
 	await api.writeFile('C:\\project\\de.json', '{}');
 	await api.readDirectory('C:\\project');
+	await api.fetchTranslationResource({ scanId: 'scan-1', method: 'GET' });
+	await api.endTranslationScan('scan-1');
+	assert.equal(api.fetch, undefined);
+	assert.equal(api.getEnvironment, undefined);
 
 	assert.deepEqual(calls, [
 		[IPC_CHANNELS.selectProjectDirectory],
@@ -58,6 +64,8 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 		[IPC_CHANNELS.pathExists, 'C:\\project'],
 		[IPC_CHANNELS.readFile, 'C:\\project\\en.json'],
 		[IPC_CHANNELS.writeFile, 'C:\\project\\de.json', '{}'],
-		[IPC_CHANNELS.readDirectory, 'C:\\project']
+		[IPC_CHANNELS.readDirectory, 'C:\\project'],
+		[IPC_CHANNELS.fetchTranslationResource, { scanId: 'scan-1', method: 'GET' }],
+		[IPC_CHANNELS.endTranslationScan, 'scan-1']
 	]);
 });

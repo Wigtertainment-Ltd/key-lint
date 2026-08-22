@@ -10,9 +10,10 @@ const MISSING_PATH = path.join(PROJECT_PATH, 'missing');
 const TEXT_FILE_PATH = path.join(PROJECT_PATH, 'note.txt');
 const TRANSLATION_FILE_PATH = path.join(PROJECT_PATH, 'de.json');
 
-function createHarness() {
+function createHarness(remoteTransport) {
 	const handlers = new Map();
 	const writes = [];
+	const remoteCalls = [];
 	const ipcMain = {
 		handle: (channel, handler) => handlers.set(channel, handler)
 	};
@@ -42,10 +43,17 @@ function createHarness() {
 		ipcMain,
 		dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [PROJECT_PATH] }) },
 		app: { getVersion: () => '1.2.3' },
-		fs
+		fs,
+		remoteTransport: remoteTransport ?? {
+			fetch: async (request) => {
+				remoteCalls.push(['fetch', request]);
+				return { body: '{}', finalUrl: request.url };
+			},
+			endScan: (scanId) => void remoteCalls.push(['end', scanId])
+		}
 	});
 
-	return { handlers, writes };
+	return { handlers, writes, remoteCalls };
 }
 
 test('registers the fixed IPC surface and returns serializable values', async () => {
@@ -62,6 +70,32 @@ test('registers the fixed IPC surface and returns serializable values', async ()
 			{ name: 'linked', isDirectory: false, isFile: false, isSymbolicLink: true, sizeBytes: undefined }
 		]
 	);
+});
+
+test('exposes only normalized translation transport responses', async () => {
+	const { handlers, remoteCalls } = createHarness();
+	const request = { scanId: 'scan-1', method: 'GET', url: 'https://example.com/en.json' };
+
+	assert.deepEqual(
+		await handlers.get(IPC_CHANNELS.fetchTranslationResource)(null, request),
+		{ ok: true, value: { body: '{}', finalUrl: request.url } }
+	);
+	assert.deepEqual(await handlers.get(IPC_CHANNELS.endTranslationScan)(null, 'scan-1'), { ok: true });
+	assert.deepEqual(remoteCalls, [['fetch', request], ['end', 'scan-1']]);
+});
+
+test('does not serialize unknown transport secrets across IPC', async () => {
+	const { handlers } = createHarness({
+		fetch: async () => { throw new Error('Bearer ipc-secret'); },
+		endScan: () => undefined
+	});
+	const result = await handlers.get(IPC_CHANNELS.fetchTranslationResource)(null, {});
+
+	assert.deepEqual(result, {
+		ok: false,
+		error: { code: 'remote-fetch-failed', message: 'Remote translation request failed.' }
+	});
+	assert.doesNotMatch(JSON.stringify(result), /ipc-secret|Bearer/);
 });
 
 test('rejects relative paths and unsafe writes before accessing the filesystem', async () => {

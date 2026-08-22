@@ -1,6 +1,7 @@
 const path = require('path');
 
 const { IPC_CHANNELS } = require('./ipc-channels');
+const { createRemoteTranslationTransport, serializeTransportError } = require('./remote-translation-transport');
 
 const MAX_WRITE_BYTES = 2 * 1024 * 1024;
 
@@ -12,7 +13,7 @@ function assertAbsolutePath(value, label = 'Path') {
 	return path.normalize(value);
 }
 
-function registerIpcHandlers({ ipcMain, dialog, app, fs }) {
+function registerIpcHandlers({ ipcMain, dialog, app, fs, remoteTransport = createRemoteTranslationTransport() }) {
 	ipcMain.handle(IPC_CHANNELS.selectProjectDirectory, async () => {
 		const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
 		return result.canceled ? undefined : result.filePaths[0];
@@ -70,6 +71,23 @@ function registerIpcHandlers({ ipcMain, dialog, app, fs }) {
 				sizeBytes
 			};
 		}));
+	});
+
+	ipcMain.handle(IPC_CHANNELS.fetchTranslationResource, async (_event, request) => {
+		try {
+			return { ok: true, value: await remoteTransport.fetch(request) };
+		} catch (error) {
+			return { ok: false, error: serializeTransportError(error) };
+		}
+	});
+
+	ipcMain.handle(IPC_CHANNELS.endTranslationScan, async (_event, scanId) => {
+		try {
+			remoteTransport.endScan(scanId);
+			return { ok: true };
+		} catch (error) {
+			return { ok: false, error: serializeTransportError(error) };
+		}
 	});
 }
 
