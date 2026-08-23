@@ -1,11 +1,4 @@
-import {
-	IRemoteTranslationFetcher,
-	IRemoteTranslationFetchRequest,
-	IRemoteTranslationFetchResponse,
-	RemoteTranslationError,
-	RemoteTranslationErrorCode
-} from '@key-lint/core';
-
+import { IRemoteTranslationFetcher, IRemoteTranslationFetchRequest, IRemoteTranslationFetchResponse, RemoteTranslationError, RemoteTranslationErrorCode } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
 let scanSequence = 0;
@@ -30,8 +23,8 @@ const REMOTE_ERROR_CODES = new Set<RemoteTranslationErrorCode>([
 
 /** Narrow renderer adapter for the translation-only main-process IPC contract. */
 export class ElectronRemoteTranslationFetcher implements IRemoteTranslationFetcher {
-	private readonly scanId = nextScanId();
-	private closed = false;
+	private readonly scanId: string = nextScanId();
+	private closed: boolean = false;
 
 	constructor(private readonly electronService: ElectronService) { }
 
