@@ -14,7 +14,7 @@ import {
 	IDesktopTranslationSourceDraft,
 	IPreparedDesktopRemoteScan,
 	IRemoteScanConfirmation
-} from '../../shared/services/desktop-remote-translation.service';
+} from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
 
 @Component({
 	selector: 'app-project-selection-page',

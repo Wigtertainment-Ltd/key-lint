@@ -10,7 +10,7 @@ import { LoggerService } from '../../shared/services/logging/logger.service';
 import { RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ProjectSelectionPage } from './project-selection.page';
-import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation.service';
+import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
 
 describe('ProjectSelectionPage scan settings', () => {
 	let fixture: ComponentFixture<ProjectSelectionPage>;

@@ -1,85 +1,9 @@
 import { Injectable } from '@angular/core';
-import {
-	ITranslationSourceConfig,
-	parseScannerConfigOverrides
-} from '@key-lint/core';
-
-export interface IDesktopRemoteHeaderDraft {
-	id: string;
-	name: string;
-	environmentName: string;
-	value: string;
-	configured: boolean;
-}
-
-export interface IDesktopTranslationSourceDraft {
-	draftId: string;
-	type: 'filesystem' | 'http';
-	id: string;
-	includeGlobs: string[];
-	urlTemplate: string;
-	locales: string[];
-	headers: IDesktopRemoteHeaderDraft[];
-	configured: boolean;
-}
-
-export interface IRemoteScanConfirmationSource {
-	order: number;
-	type: 'filesystem' | 'http';
-	id: string;
-	urlTemplate?: string;
-	origin?: string;
-	locales: string[];
-	headerNames: string[];
-	headerEnvironmentNames: string[];
-	usesInsecureHttp: boolean;
-	isPrivateOrLocal: boolean;
-}
-
-export interface IRemoteScanConfirmation {
-	sources: IRemoteScanConfirmationSource[];
-	expectedRequestCount: number;
-	hasInsecureHttp: boolean;
-	hasPrivateOrLocalTarget: boolean;
-}
-
-export interface IPreparedDesktopRemoteScan {
-	translationSources: ITranslationSourceConfig[];
-	environment: Record<string, string>;
-	confirmation: IRemoteScanConfirmation;
-}
+import { ITranslationSourceConfig, parseScannerConfigOverrides } from '@key-lint/core';
+import { IDesktopRemoteHeaderDraft, IDesktopTranslationSourceDraft, IPreparedDesktopRemoteScan, IRemoteScanConfirmation, IRemoteScanConfirmationSource } from './desktop-remote-translation.interfaces';
+import { cloneDraft, isPrivateOrLocalHostname } from './desktop-remote-translation.helper';
 
 const HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-
-function cloneDraft(source: IDesktopTranslationSourceDraft): IDesktopTranslationSourceDraft {
-	return {
-		...source,
-		includeGlobs: [...source.includeGlobs],
-		locales: [...source.locales],
-		headers: source.headers.map((header) => ({ ...header }))
-	};
-}
-
-function isPrivateOrLocalHostname(hostname: string): boolean {
-	const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-	if (normalized === 'localhost' || normalized.endsWith('.localhost') || normalized.endsWith('.local')) {
-		return true;
-	}
-	if (normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:')) {
-		return true;
-	}
-	const parts = normalized.split('.').map(Number);
-	if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-		return false;
-	}
-	return parts[0] === 10 ||
-		parts[0] === 0 ||
-		parts[0] === 127 ||
-		(parts[0] === 100 && (parts[1] ?? 0) >= 64 && (parts[1] ?? 0) <= 127) ||
-		(parts[0] === 169 && parts[1] === 254) ||
-		(parts[0] === 172 && (parts[1] ?? 0) >= 16 && (parts[1] ?? 0) <= 31) ||
-		(parts[0] === 192 && parts[1] === 168);
-}
 
 @Injectable({ providedIn: 'root' })
 export class DesktopRemoteTranslationService {
