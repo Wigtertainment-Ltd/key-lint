@@ -182,3 +182,22 @@ test('serialized failures never expose header or sensitive query values', async 
 		message: 'Remote translation request failed.'
 	});
 });
+
+test('ending a scan aborts in-flight requests and releases the session', async () => {
+	let calls = 0;
+	const transport = createRemoteTranslationTransport({
+		fetchImpl: (_url, options) => {
+			calls += 1;
+			if (calls > 1) return Promise.resolve(new Response('{}'));
+			return new Promise((_resolve, reject) => {
+				options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+			});
+		}
+	});
+	const pending = transport.fetch(request());
+	await Promise.resolve();
+	transport.endScan('scan-1');
+	await assert.rejects(pending, { code: 'remote-timeout' });
+	await transport.fetch(request({ url: 'https://example.com/after-cancel.json' }));
+	assert.equal(calls, 2);
+});

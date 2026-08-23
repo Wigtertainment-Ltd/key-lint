@@ -9,6 +9,12 @@ import { LoggerService } from '../../shared/services/logging/logger.service';
 import { DesktopScannerConfigService } from '../../shared/services/desktop-scanner-config.service';
 import { IScannerGuardrails, ScannerConfigValueSource } from '@key-lint/core';
 import { ElectronFile, IRecentProjectViewModel } from './project-selection.interfaces';
+import {
+	DesktopRemoteTranslationService,
+	IDesktopTranslationSourceDraft,
+	IPreparedDesktopRemoteScan,
+	IRemoteScanConfirmation
+} from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
 
 @Component({
 	selector: 'app-project-selection-page',
@@ -26,6 +32,8 @@ export class ProjectSelectionPage implements OnInit {
 	private readonly scanSettingsErrorSignal = signal('');
 	private readonly maxFilesInputSignal = signal('');
 	private readonly maxFileSizeMbInputSignal = signal('');
+	private readonly translationSourcesSignal = signal<IDesktopTranslationSourceDraft[]>([]);
+	private readonly remoteConfirmationSignal = signal<IRemoteScanConfirmation | undefined>(undefined);
 	private recentProjectsLoadId = 0;
 	private scanSettingsLoadId = 0;
 
@@ -35,6 +43,7 @@ export class ProjectSelectionPage implements OnInit {
 	private readonly router: Router = inject(Router);
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	private readonly desktopScannerConfigService: DesktopScannerConfigService = inject(DesktopScannerConfigService);
+	private readonly desktopRemoteTranslationService: DesktopRemoteTranslationService = inject(DesktopRemoteTranslationService);
 
 	readonly themeService = inject(ThemeService);
 	readonly appVersionService = inject(AppVersionService);
@@ -79,6 +88,18 @@ export class ProjectSelectionPage implements OnInit {
 		return this.maxFileSizeMbInputSignal();
 	}
 
+	get translationSources(): IDesktopTranslationSourceDraft[] {
+		return this.translationSourcesSignal();
+	}
+
+	get translationSourcesValidationError(): string {
+		return this.desktopRemoteTranslationService.validationError();
+	}
+
+	get remoteConfirmation(): IRemoteScanConfirmation | undefined {
+		return this.remoteConfirmationSignal();
+	}
+
 	get scanSettingsValidationError(): string {
 		if (!this.projectGuardrailsSignal() || this.scanSettingsLoading) {
 			return '';
@@ -109,7 +130,8 @@ export class ProjectSelectionPage implements OnInit {
 		return this.hasSelection &&
 			!this.scanSettingsLoading &&
 			!this.scanSettingsError &&
-			!this.scanSettingsValidationError;
+			!this.scanSettingsValidationError &&
+			!this.translationSourcesValidationError;
 	}
 
 	get appVersion(): string {
@@ -201,6 +223,9 @@ export class ProjectSelectionPage implements OnInit {
 		this.projectPathSignal.set(undefined);
 		this.projectNameSignal.set(undefined);
 		this.clearScanSettings();
+		this.desktopRemoteTranslationService.clear();
+		this.syncTranslationSources();
+		this.remoteConfirmationSignal.set(undefined);
 		this.scanOrchestrationService.reset();
 	}
 
@@ -225,14 +250,46 @@ export class ProjectSelectionPage implements OnInit {
 
 	startAnalysis(): void {
 		const projectPath = this.projectPathSignal();
-		if (!projectPath) {
+		if (!projectPath || !this.canStartAnalysis) {
 			return;
 		}
+		const prepared = this.desktopRemoteTranslationService.prepareScan();
+		if (this.desktopRemoteTranslationService.hasRemoteSources) {
+			this.remoteConfirmationSignal.set(prepared.confirmation);
+			this.wipePreparedEnvironment(prepared);
+			return;
+		}
+		this.beginAnalysis(projectPath, prepared, false);
+	}
 
+	confirmRemoteAnalysis(): void {
+		const projectPath = this.projectPathSignal();
+		if (!projectPath || !this.remoteConfirmation) {
+			return;
+		}
+		const prepared = this.desktopRemoteTranslationService.prepareScan();
+		this.remoteConfirmationSignal.set(undefined);
+		this.beginAnalysis(projectPath, prepared, true);
+	}
+
+	cancelRemoteConfirmation(): void {
+		this.remoteConfirmationSignal.set(undefined);
+		this.desktopRemoteTranslationService.clearSecrets();
+		this.syncTranslationSources();
+	}
+
+	private beginAnalysis(projectPath: string, prepared: IPreparedDesktopRemoteScan, authorizeRemote: boolean): void {
 		this.scanOrchestrationService.reset();
 		this.scanOrchestrationService.setNextScanConfigOverrides({
-			guardrails: this.buildGuardrailOverrides()
+			guardrails: this.buildGuardrailOverrides(),
+			translationSources: prepared.translationSources
 		});
+		if (authorizeRemote) {
+			this.scanOrchestrationService.authorizeNextRemoteScan(prepared.environment);
+		}
+		this.wipePreparedEnvironment(prepared);
+		this.desktopRemoteTranslationService.clearSecrets();
+		this.syncTranslationSources();
 		void this.router.navigate(['/scan-progress'], {
 			queryParams: {
 				projectPath
@@ -247,6 +304,9 @@ export class ProjectSelectionPage implements OnInit {
 		this.recentProjectsService.addRecentProject(path);
 		void this.loadRecentProjects();
 		this.scanOrchestrationService.reset();
+		this.desktopRemoteTranslationService.clear();
+		this.syncTranslationSources();
+		this.remoteConfirmationSignal.set(undefined);
 		void this.loadScanSettings(path);
 	}
 
@@ -263,6 +323,68 @@ export class ProjectSelectionPage implements OnInit {
 		if (guardrails) {
 			this.setGuardrailInputs(guardrails);
 		}
+		this.desktopRemoteTranslationService.resetSources();
+		this.syncTranslationSources();
+	}
+
+	addFilesystemSource(): void {
+		this.desktopRemoteTranslationService.addFilesystemSource();
+		this.syncTranslationSources();
+	}
+
+	addHttpSource(): void {
+		this.desktopRemoteTranslationService.addHttpSource();
+		this.syncTranslationSources();
+	}
+
+	removeTranslationSource(draftId: string): void {
+		this.desktopRemoteTranslationService.removeSource(draftId);
+		this.syncTranslationSources();
+	}
+
+	moveTranslationSource(draftId: string, direction: -1 | 1): void {
+		this.desktopRemoteTranslationService.moveSource(draftId, direction);
+		this.syncTranslationSources();
+	}
+
+	onSourceIdInput(draftId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateSource(draftId, { id: value });
+		this.syncTranslationSources();
+	}
+
+	onSourceGlobsInput(draftId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateSource(draftId, { includeGlobs: this.parseList(value) });
+		this.syncTranslationSources();
+	}
+
+	onSourceUrlInput(draftId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateSource(draftId, { urlTemplate: value });
+		this.syncTranslationSources();
+	}
+
+	onSourceLocalesInput(draftId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateSource(draftId, { locales: this.parseList(value) });
+		this.syncTranslationSources();
+	}
+
+	addTemporaryHeader(draftId: string): void {
+		this.desktopRemoteTranslationService.addTemporaryHeader(draftId);
+		this.syncTranslationSources();
+	}
+
+	onHeaderNameInput(draftId: string, headerId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateHeader(draftId, headerId, { name: value });
+		this.syncTranslationSources();
+	}
+
+	onHeaderValueInput(draftId: string, headerId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateHeader(draftId, headerId, { value });
+		this.syncTranslationSources();
+	}
+
+	removeTemporaryHeader(draftId: string, headerId: string): void {
+		this.desktopRemoteTranslationService.removeHeader(draftId, headerId);
+		this.syncTranslationSources();
 	}
 
 	guardrailSourceLabel(key: keyof IScannerGuardrails): string {
@@ -294,6 +416,8 @@ export class ProjectSelectionPage implements OnInit {
 			this.projectGuardrailsSignal.set({ ...loaded.config.guardrails });
 			this.guardrailSourcesSignal.set({ ...loaded.guardrailSources });
 			this.setGuardrailInputs(loaded.config.guardrails);
+			this.desktopRemoteTranslationService.loadConfiguredSources(loaded.config.translationSources);
+			this.syncTranslationSources();
 		} catch (error) {
 			if (loadId === this.scanSettingsLoadId) {
 				this.scanSettingsErrorSignal.set(
@@ -350,6 +474,20 @@ export class ProjectSelectionPage implements OnInit {
 		this.guardrailSourcesSignal.set(undefined);
 		this.maxFilesInputSignal.set('');
 		this.maxFileSizeMbInputSignal.set('');
+	}
+
+	private syncTranslationSources(): void {
+		this.translationSourcesSignal.set(this.desktopRemoteTranslationService.sources);
+	}
+
+	private parseList(value: string): string[] {
+		return value.split(/[\n,]/).map((entry) => entry.trim()).filter(Boolean);
+	}
+
+	private wipePreparedEnvironment(prepared: IPreparedDesktopRemoteScan): void {
+		for (const key of Object.keys(prepared.environment)) {
+			delete prepared.environment[key];
+		}
 	}
 
 	private parsePositiveInteger(value: string): number | undefined {

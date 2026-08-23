@@ -181,8 +181,11 @@
 					</div>
 				</section>
 
-				@if (isSelectedFindingResolved || canShowAddToTranslationsAction) {
+				@if (isSelectedFindingResolved || canShowAddToTranslationsAction || (isRemoteReadOnly && selectedFinding.status === 'missing-in-language')) {
 					<section class="detail-section action-stack">
+						@if (isRemoteReadOnly && selectedFinding.status === 'missing-in-language') {
+							<p class="modal-hint">Remote translations are read-only.</p>
+						}
 						@if (isSelectedFindingResolved) {
 							<p class="success-message">Successfully added. This entry will be removed in a moment.</p>
 						}

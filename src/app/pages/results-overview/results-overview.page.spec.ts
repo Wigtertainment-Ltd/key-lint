@@ -46,9 +46,10 @@ const result: IProjectScanResult = {
 describe('ResultsOverviewPage placeholder findings', () => {
 	let fixture: ComponentFixture<ResultsOverviewPage>;
 	let component: ResultsOverviewPage;
+	let state: BehaviorSubject<ScanExecutionSnapshot>;
 
 	beforeEach(async () => {
-		const state = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'completed', result });
+		state = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'completed', result });
 		await TestBed.configureTestingModule({
 			imports: [ResultsOverviewPage],
 			providers: [
@@ -72,5 +73,34 @@ describe('ResultsOverviewPage placeholder findings', () => {
 		expect(component.statusLabel('placeholder-missing')).toBe('Missing Params');
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Placeholder Contract');
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Required: name');
+	});
+
+	it('disables translation writes and explains remote read-only results', async () => {
+		const missingFinding = {
+			id: 'missing-remote',
+			adapterId: 'angular',
+			key: 'APP.REMOTE',
+			status: 'missing-in-language' as const,
+			severity: 'error' as const,
+			language: 'de',
+			message: 'Missing',
+			evidence: []
+		};
+		state.next({
+			state: 'completed',
+			result: {
+				...result,
+				findings: [...result.findings, missingFinding],
+				metadata: { translationReadOnly: true }
+			}
+		});
+		fixture.detectChanges();
+		await fixture.whenStable();
+		component.onSelectFinding(component.findings.find((finding) => finding.id === missingFinding.id)!);
+		fixture.detectChanges();
+
+		expect(component.isRemoteReadOnly).toBeTrue();
+		expect(component.canShowAddToTranslationsAction).toBeFalse();
+		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Remote translations are read-only.');
 	});
 });

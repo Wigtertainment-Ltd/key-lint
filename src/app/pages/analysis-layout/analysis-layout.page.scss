@@ -231,6 +231,10 @@
 	}
 }
 
+.app-status-bar.remote-readonly {
+	background: var(--primary-container);
+	color: var(--on-primary-container);
+}
 
 .content-shell {
 	flex: 1;

@@ -110,6 +110,87 @@
 						}
 					}
 				</section>
+
+				<section class="translation-sources" aria-labelledby="translation-sources-title">
+					<div class="scan-settings-header">
+						<div>
+							<h3 id="translation-sources-title">Translation sources</h3>
+							<p>Ordered inputs for the next scan. Remote credentials remain in memory only.</p>
+						</div>
+						<div class="source-add-actions">
+							<button type="button" class="reset-settings-btn" (click)="addFilesystemSource()">Add local</button>
+							<button type="button" class="reset-settings-btn" (click)="addHttpSource()">Add HTTP</button>
+						</div>
+					</div>
+
+					<div class="source-list">
+						@for (source of translationSources; track source.draftId; let sourceIndex = $index) {
+							<article class="source-card" [class.remote]="source.type === 'http'">
+								<header class="source-card-header">
+									<div>
+										<span class="source-order">{{ sourceIndex + 1 }}</span>
+										<strong>{{ source.type === 'http' ? 'HTTP source' : 'Filesystem source' }}</strong>
+										@if (source.configured) { <small>Project configuration</small> }
+									</div>
+									<div class="source-actions">
+										<button type="button" (click)="moveTranslationSource(source.draftId, -1)" [disabled]="sourceIndex === 0" aria-label="Move source up">↑</button>
+										<button type="button" (click)="moveTranslationSource(source.draftId, 1)" [disabled]="sourceIndex === translationSources.length - 1" aria-label="Move source down">↓</button>
+										<button type="button" class="danger" (click)="removeTranslationSource(source.draftId)" aria-label="Remove source">Remove</button>
+									</div>
+								</header>
+
+								<div class="source-fields">
+									<label class="setting-field">
+										<span class="setting-label">Source identifier{{ source.type === 'filesystem' ? ' (optional)' : '' }}</span>
+										<input type="text" [value]="source.id" (input)="onSourceIdInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+									</label>
+
+									@if (source.type === 'filesystem') {
+										<label class="setting-field full-width">
+											<span class="setting-label">Include globs (comma separated, optional)</span>
+											<input type="text" [value]="source.includeGlobs.join(', ')" placeholder="src/assets/i18n/**/*.json" (input)="onSourceGlobsInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+										</label>
+									} @else {
+										<label class="setting-field full-width">
+											<span class="setting-label">URL template</span>
+											<input type="url" [value]="source.urlTemplate" placeholder="https://api.example.com/i18n/{locale}.json" (input)="onSourceUrlInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+										</label>
+										<label class="setting-field full-width">
+											<span class="setting-label">Locales (comma separated)</span>
+											<input type="text" [value]="source.locales.join(', ')" placeholder="de, en" (input)="onSourceLocalesInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+										</label>
+
+										<div class="header-editor full-width">
+											<div class="header-editor-title">
+												<span>Temporary request headers</span>
+												<button type="button" class="reset-settings-btn" (click)="addTemporaryHeader(source.draftId)">Add header</button>
+											</div>
+											@for (header of source.headers; track header.id) {
+												<div class="header-row">
+													<label class="setting-field">
+														<span class="setting-label">Header name</span>
+														<input type="text" [value]="header.name" [readOnly]="header.configured" (input)="onHeaderNameInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
+														<small>{{ header.configured ? 'Configured as ' + header.environmentName : 'Temporary header' }}</small>
+													</label>
+													<label class="setting-field">
+														<span class="setting-label">Temporary value</span>
+														<input type="password" autocomplete="off" [value]="header.value" (input)="onHeaderValueInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
+														<small>Never saved</small>
+													</label>
+													<button type="button" class="header-remove" (click)="removeTemporaryHeader(source.draftId, header.id)" aria-label="Remove header">×</button>
+												</div>
+											}
+										</div>
+									}
+								</div>
+							</article>
+						}
+					</div>
+
+					@if (translationSourcesValidationError) {
+						<p class="settings-state error" role="alert">{{ translationSourcesValidationError }}</p>
+					}
+				</section>
 			}
 
 			@if (hasRecentProjects) {
@@ -158,3 +239,46 @@
 		<footer class="version">v{{ appVersion }}</footer>
 	</main>
 </div>
+
+@if (remoteConfirmation) {
+	<dialog class="remote-confirmation-backdrop" open aria-labelledby="remote-confirmation-title">
+		<section class="remote-confirmation-card">
+			<header>
+				<span class="material-symbols-outlined">security</span>
+				<div>
+					<h2 id="remote-confirmation-title">Allow remote translation requests?</h2>
+					<p>No network request is made until you confirm this scan.</p>
+				</div>
+			</header>
+
+			@if (remoteConfirmation.hasInsecureHttp) {
+				<p class="security-warning"><strong>HTTP warning:</strong> At least one source is not encrypted with HTTPS.</p>
+			}
+			@if (remoteConfirmation.hasPrivateOrLocalTarget) {
+				<p class="security-warning"><strong>Private/local target:</strong> At least one request targets localhost or a private network.</p>
+			}
+
+			<p class="request-count">Expected distinct requests: <strong>{{ remoteConfirmation.expectedRequestCount }}</strong></p>
+			<ol class="confirmation-sources">
+				@for (source of remoteConfirmation.sources; track source.order) {
+					<li>
+						<strong>{{ source.order }}. {{ source.id }}</strong>
+						<span>{{ source.type === 'filesystem' ? 'Project filesystem' : source.urlTemplate }}</span>
+						@if (source.origin) { <span>Resolved origin: {{ source.origin }}</span> }
+						@if (source.locales.length) { <span>Locales: {{ source.locales.join(', ') }}</span> }
+						@if (source.headerNames.length) {
+							<span>Headers: {{ source.headerNames.join(', ') }} (values hidden)</span>
+							<span>Configured names: {{ source.headerEnvironmentNames.join(', ') }}</span>
+						}
+					</li>
+				}
+			</ol>
+
+			<p class="readonly-note">Remote translations are read-only.</p>
+			<footer>
+				<button type="button" class="reset-settings-btn" (click)="cancelRemoteConfirmation()">Cancel</button>
+				<button type="button" class="start-btn" (click)="confirmRemoteAnalysis()">Confirm and Start Analysis</button>
+			</footer>
+		</section>
+	</dialog>
+}
