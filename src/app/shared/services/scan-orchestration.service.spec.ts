@@ -18,11 +18,15 @@ describe('ScanOrchestrationService translation updates', () => {
 	let contents: Record<string, string>;
 	let unreadablePaths: Set<string>;
 	let historyService: jasmine.SpyObj<ProjectHistoryService>;
+	let remoteRequestCount: number;
+	let remoteRequests: IKeyLintTranslationFetchRequest[];
 
 	beforeEach(() => {
 		writtenPath = undefined;
 		writtenContent = undefined;
 		unreadablePaths = new Set<string>();
+		remoteRequestCount = 0;
+		remoteRequests = [];
 		const tree: Record<string, IFakeEntry[]> = {
 			'C:/project': [
 				{ name: 'angular.json', type: 'file' },
@@ -77,7 +81,19 @@ describe('ScanOrchestrationService translation updates', () => {
 				writtenPath = path;
 				writtenContent = content;
 			},
-			pathExists: async (path: string) => path in tree || path in contents
+			pathExists: async (path: string) => path in tree || path in contents,
+			fetchTranslationResource: async (request: IKeyLintTranslationFetchRequest): Promise<IKeyLintTranslationFetchResult> => {
+				remoteRequestCount += 1;
+				remoteRequests.push(request);
+				return {
+					ok: true,
+					value: {
+						body: '{"APP":{"TITLE":"Remote title"}}',
+						finalUrl: request.url
+					}
+				};
+			},
+			endTranslationScan: async (): Promise<IKeyLintTranslationEndResult> => ({ ok: true })
 		} as unknown as ElectronService;
 		historyService = jasmine.createSpyObj<ProjectHistoryService>('ProjectHistoryService', ['addEvent']);
 
@@ -113,6 +129,78 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(JSON.parse(writtenContent ?? '{}')).toEqual({
 			APP: { TITLE: 'Konfigurierter Titel' }
 		});
+	});
+
+	it('requires per-scan confirmation before a remote-only request', async () => {
+		contents['C:/project/keylint.config.json'] = JSON.stringify({
+			translationSources: [{
+				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en']
+			}],
+			includeSourceGlobs: ['src/*.html']
+		});
+		const service = TestBed.inject(ScanOrchestrationService);
+
+		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(/was not confirmed/);
+		expect(remoteRequestCount).toBe(0);
+	});
+
+	it('analyzes remote-only translations and clears authorization after completion', async () => {
+		contents['C:/project/keylint.config.json'] = JSON.stringify({
+			translationSources: [{
+				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'],
+				headersFromEnv: { Authorization: 'KEYLINT_AUTH' }
+			}],
+			includeSourceGlobs: ['src/*.html']
+		});
+		const service = TestBed.inject(ScanOrchestrationService);
+		service.authorizeNextRemoteScan({ KEYLINT_AUTH: 'Bearer temporary-secret' });
+
+		const result = await service.scanProject('C:/project');
+
+		expect(remoteRequestCount).toBe(1);
+		expect(remoteRequests[0].headers).toEqual({ Authorization: 'Bearer temporary-secret' });
+		expect(result.metadata?.['translationReadOnly']).toBeTrue();
+		expect(result.metadata?.['translationFileCount']).toBe(0);
+		expect(result.translationMatrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
+		expect(JSON.stringify(result)).not.toContain('temporary-secret');
+		expect(JSON.stringify(historyService.addEvent.calls.allArgs())).not.toContain('temporary-secret');
+		await expectAsync(service.addTranslationKeyForLocale('en', 'APP.NEW', 'New'))
+			.toBeRejectedWithError('Remote translations are read-only.');
+
+		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(/was not confirmed/);
+		expect(remoteRequestCount).toBe(1);
+	});
+
+	it('preserves configured mixed-source override order', async () => {
+		contents['C:/project/keylint.config.json'] = JSON.stringify({
+			translationSources: [
+				{ type: 'filesystem', id: 'base', includeGlobs: ['translations/*.json'] },
+				{ type: 'http', id: 'remote', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'] }
+			],
+			includeSourceGlobs: ['src/*.html']
+		});
+		const service = TestBed.inject(ScanOrchestrationService);
+		service.authorizeNextRemoteScan({});
+
+		const result = await service.scanProject('C:/project');
+
+		expect(result.translationMatrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
+		expect(result.metadata?.['translationReadOnly']).toBeTrue();
+	});
+
+	it('clears pending remote authorization on reset', async () => {
+		contents['C:/project/keylint.config.json'] = JSON.stringify({
+			translationSources: [{
+				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'],
+				headersFromEnv: { Authorization: 'KEYLINT_AUTH' }
+			}]
+		});
+		const service = TestBed.inject(ScanOrchestrationService);
+		service.authorizeNextRemoteScan({ KEYLINT_AUTH: 'Bearer reset-secret' });
+		service.reset();
+
+		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(/was not confirmed/);
+		expect(remoteRequestCount).toBe(0);
 	});
 
 	it('keeps scanning and exposes filesystem guardrail warnings in metadata', async () => {

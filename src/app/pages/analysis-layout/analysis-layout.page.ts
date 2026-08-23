@@ -22,6 +22,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	lastScanText = 'Running now';
 	isSidebarCollapsed = false;
 	private readonly fileSystemWarningsSignal = signal<IFileSystemWarning[]>([]);
+	private readonly remoteReadOnlySignal = signal(false);
 
 	readonly themeService = inject(ThemeService);
 	readonly appVersionService = inject(AppVersionService);
@@ -46,6 +47,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 			this.fileSystemWarningsSignal.set(this.readFileSystemWarnings(
 				snapshot.result?.metadata?.['fileSystemWarnings']
 			));
+			this.remoteReadOnlySignal.set(snapshot.result?.metadata?.['translationReadOnly'] === true);
 		});
 	}
 
@@ -85,6 +87,10 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 
 	get fileSystemWarnings(): IFileSystemWarning[] {
 		return this.fileSystemWarningsSignal();
+	}
+
+	get remoteReadOnly(): boolean {
+		return this.remoteReadOnlySignal();
 	}
 
 	private readFileSystemWarnings(value: unknown): IFileSystemWarning[] {

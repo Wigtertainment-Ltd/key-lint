@@ -244,6 +244,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return this.locales.filter((locale) => !this.hasLocaleKey(this.selectedRow as ITranslationMatrixRow, locale));
 	}
 
+	get isRemoteReadOnly(): boolean {
+		return this.scanResult?.metadata?.['translationReadOnly'] === true;
+	}
+
 	get selectedEmptyValueLocales(): string[] {
 		if (!this.selectedRow) {
 			return [];
@@ -309,7 +313,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	openAddTranslationModal(locale: string): void {
-		if (!this.selectedRow) {
+		if (!this.selectedRow || this.isRemoteReadOnly) {
 			return;
 		}
 

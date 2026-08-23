@@ -29,9 +29,10 @@ const result: IProjectScanResult = {
 describe('TranslationKeysPage placeholders', () => {
 	let fixture: ComponentFixture<TranslationKeysPage>;
 	let component: TranslationKeysPage;
+	let state: BehaviorSubject<ScanExecutionSnapshot>;
 
 	beforeEach(async () => {
-		const state = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'completed', result });
+		state = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'completed', result });
 		await TestBed.configureTestingModule({
 			imports: [TranslationKeysPage],
 			providers: [
@@ -55,5 +56,32 @@ describe('TranslationKeysPage placeholders', () => {
 		fixture.detectChanges();
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Placeholders by Locale');
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('name');
+	});
+
+	it('disables missing-locale actions for remote read-only results', async () => {
+		const row = {
+			...result.translationMatrix!.rows[0],
+			keyPresence: { de: true, en: false }
+		};
+		state.next({
+			state: 'completed',
+			result: {
+				...result,
+				metadata: { translationReadOnly: true },
+				translationMatrix: {
+					...result.translationMatrix!,
+					rows: [row, ...result.translationMatrix!.rows.slice(1)]
+				}
+			}
+		});
+		fixture.detectChanges();
+		await fixture.whenStable();
+		component.onSelectRow(component.matrix.rows.find((entry) => entry.key === row.key)!);
+		fixture.detectChanges();
+
+		const addButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.add-missing-button');
+		expect(component.isRemoteReadOnly).toBeTrue();
+		expect(addButton?.disabled).toBeTrue();
+		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Remote translations are read-only.');
 	});
 });

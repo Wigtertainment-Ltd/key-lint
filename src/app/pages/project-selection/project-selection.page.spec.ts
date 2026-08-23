@@ -10,6 +10,7 @@ import { LoggerService } from '../../shared/services/logging/logger.service';
 import { RecentProjectsService } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ProjectSelectionPage } from './project-selection.page';
+import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation.service';
 
 describe('ProjectSelectionPage scan settings', () => {
 	let fixture: ComponentFixture<ProjectSelectionPage>;
@@ -20,7 +21,8 @@ describe('ProjectSelectionPage scan settings', () => {
 	beforeEach(async () => {
 		scanService = jasmine.createSpyObj<ScanOrchestrationService>('ScanOrchestrationService', [
 			'reset',
-			'setNextScanConfigOverrides'
+			'setNextScanConfigOverrides',
+			'authorizeNextRemoteScan'
 		]);
 		configService = jasmine.createSpyObj<DesktopScannerConfigService>('DesktopScannerConfigService', ['load']);
 		configService.load.and.resolveTo({
@@ -55,15 +57,14 @@ describe('ProjectSelectionPage scan settings', () => {
 					}
 				},
 				{ provide: ScanOrchestrationService, useValue: scanService },
+				DesktopRemoteTranslationService,
 				{ provide: DesktopScannerConfigService, useValue: configService },
 				{ provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
 				{ provide: AppVersionService, useValue: { version: '1.2.0' } },
 				{ provide: ThemeService, useValue: { getCurrent: () => 'light', toggle: () => undefined } },
 				{ provide: LoggerService, useValue: jasmine.createSpyObj('LoggerService', ['info', 'debug']) }
 			]
-		})
-			.overrideComponent(ProjectSelectionPage, { set: { template: '' } })
-			.compileComponents();
+		}).compileComponents();
 
 		fixture = TestBed.createComponent(ProjectSelectionPage);
 		component = fixture.componentInstance;
@@ -94,13 +95,72 @@ describe('ProjectSelectionPage scan settings', () => {
 			guardrails: {
 				maxFiles: 25,
 				maxFileSizeBytes: 1_572_864
-			}
+			},
+			translationSources: [{ type: 'filesystem' }]
 		});
 
 		component.resetScanSettings();
 		expect(component.maxFilesInput).toBe('500');
 		expect(component.maxFileSizeMbInput).toBe('4');
 		expect(component.guardrailSourceLabel('maxFiles')).toBe('package.json');
+	});
+
+	it('renders configured sources and supports editing, removal, and reordering', async () => {
+		configService.load.and.resolveTo({
+			config: {
+				...DEFAULT_SCANNER_CONFIG,
+				translationSources: [
+					{ type: 'filesystem', id: 'base' },
+					{ type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'] }
+				]
+			},
+			packageJsonConfigApplied: false,
+			guardrailSources: { maxFiles: 'default', maxFileSizeBytes: 'default' }
+		});
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		fixture.detectChanges();
+
+		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Translation sources');
+		expect(component.translationSources.map((source) => source.id)).toEqual(['base', 'api']);
+		component.moveTranslationSource(component.translationSources[1].draftId, -1);
+		expect(component.translationSources.map((source) => source.id)).toEqual(['api', 'base']);
+		component.removeTranslationSource(component.translationSources[0].draftId);
+		expect(component.translationSources.map((source) => source.id)).toEqual(['base']);
+	});
+
+	it('requires confirmation before remote navigation and clears temporary secrets after approval', async () => {
+		configService.load.and.resolveTo({
+			config: {
+				...DEFAULT_SCANNER_CONFIG,
+				translationSources: [{
+					type: 'http', id: 'api', urlTemplate: 'http://127.0.0.1/{locale}.json', locales: ['en'],
+					headersFromEnv: { Authorization: 'KEYLINT_AUTH' }
+				}]
+			},
+			packageJsonConfigApplied: false,
+			guardrailSources: { maxFiles: 'default', maxFileSizeBytes: 'default' }
+		});
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		const source = component.translationSources[0];
+		component.onHeaderValueInput(source.draftId, source.headers[0].id, 'Bearer secret');
+
+		component.startAnalysis();
+		expect(component.remoteConfirmation).toEqual(jasmine.objectContaining({
+			hasInsecureHttp: true,
+			hasPrivateOrLocalTarget: true,
+			expectedRequestCount: 1
+		}));
+		expect(scanService.authorizeNextRemoteScan).not.toHaveBeenCalled();
+
+		let capturedEnvironment: Record<string, string> = {};
+		scanService.authorizeNextRemoteScan.and.callFake((environment) => {
+			capturedEnvironment = { ...environment };
+		});
+		component.confirmRemoteAnalysis();
+		expect(capturedEnvironment).toEqual({ KEYLINT_AUTH: 'Bearer secret' });
+		expect(component.translationSources[0].headers[0].value).toBe('');
 	});
 
 	it('blocks the scan for invalid values', async () => {

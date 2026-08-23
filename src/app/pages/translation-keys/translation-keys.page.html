@@ -108,6 +108,9 @@
 						}
 					</p>
 					@if (displayedMissingLocales.length) {
+						@if (isRemoteReadOnly) {
+							<p class="modal-hint">Remote translations are read-only.</p>
+						}
 						<div class="missing-actions">
 							@for (locale of displayedMissingLocales; track locale) {
 								<button
@@ -115,7 +118,7 @@
 									class="add-missing-button"
 									[class.resolved-success]="isLocaleRecentlyResolved(locale)"
 									(click)="openAddTranslationModal(locale)"
-									[disabled]="isLocaleRecentlyResolved(locale)">
+									[disabled]="isRemoteReadOnly || isLocaleRecentlyResolved(locale)">
 									<span class="material-symbols-outlined">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
 									{{ isLocaleRecentlyResolved(locale) ? 'Added to ' + locale + ' file' : 'Add to ' + locale + ' file' }}
 								</button>

@@ -18,6 +18,7 @@ import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import { ProjectHistoryService } from './project-history.service';
 import { LoggerService } from './logging/logger.service';
 import { DesktopScannerConfigService } from './desktop-scanner-config.service';
+import { ElectronRemoteTranslationFetcher } from './electron-remote-translation.fetcher';
 
 export type ScanExecutionState = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -42,6 +43,11 @@ export class ScanOrchestrationService {
 	private readonly desktopScannerConfigService: DesktopScannerConfigService = inject(DesktopScannerConfigService);
 	private activeScannerConfig: IScannerConfig = DEFAULT_SCANNER_CONFIG;
 	private nextScanConfigOverrides: IScannerConfigOverrides = {};
+	private nextRemoteEnvironment?: Record<string, string>;
+	private activeRemoteEnvironment?: Record<string, string>;
+	private remoteScanApproved = false;
+	private activeRemoteFetcher?: ElectronRemoteTranslationFetcher;
+	private scanExecutionId = 0;
 
 	private withNormalizedSummary(result: IProjectScanResult): IProjectScanResult {
 		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
@@ -79,10 +85,22 @@ export class ScanOrchestrationService {
 	}
 
 	reset(): void {
+		this.scanExecutionId += 1;
+		this.clearRemoteAuthorization();
+		if (this.activeRemoteFetcher) {
+			void this.activeRemoteFetcher.close().catch(() => undefined);
+			this.activeRemoteFetcher = undefined;
+		}
 		this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
 		this.nextScanConfigOverrides = {};
 		this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
 		this.stateSubject.next({ state: 'idle' });
+	}
+
+	authorizeNextRemoteScan(environment: Record<string, string>): void {
+		this.clearRemoteAuthorization();
+		this.nextRemoteEnvironment = { ...environment };
+		this.remoteScanApproved = true;
 	}
 
 	setNextScanConfigOverrides(overrides: IScannerConfigOverrides): void {
@@ -100,6 +118,9 @@ export class ScanOrchestrationService {
 		const currentResult = this.snapshot.result;
 		if (!currentResult) {
 			throw new Error('No scan result available. Run a scan before adding translation keys.');
+		}
+		if (currentResult.metadata?.['translationReadOnly'] === true) {
+			throw new Error('Remote translations are read-only.');
 		}
 
 		const projectRoot = normalizePath(currentResult.projectRoot);
@@ -210,6 +231,13 @@ export class ScanOrchestrationService {
 	}
 
 	async scanProject(projectRoot: string): Promise<IProjectScanResult> {
+		const executionId = ++this.scanExecutionId;
+		const remoteScanApproved = this.remoteScanApproved;
+		const remoteEnvironment = this.nextRemoteEnvironment ?? {};
+		this.nextRemoteEnvironment = undefined;
+		this.remoteScanApproved = false;
+		this.activeRemoteEnvironment = remoteEnvironment;
+		let remoteFetcher: ElectronRemoteTranslationFetcher | undefined;
 		this.loggerService.info('ScanOrchestrationService', 'Starting scan for project root:', projectRoot);
 		const normalizedProjectRoot = normalizePath(projectRoot);
 		this.projectHistoryService.addEvent({
@@ -224,13 +252,27 @@ export class ScanOrchestrationService {
 
 		try {
 			const loadedConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot, this.nextScanConfigOverrides);
+			const hasRemoteSources = loadedConfig.config.translationSources?.some((source) => source.type === 'http') ?? false;
+			if (hasRemoteSources && !remoteScanApproved) {
+				throw new Error('Remote translation network access was not confirmed for this scan.');
+			}
 			this.activeScannerConfig = loadedConfig.config;
 			this.fsAdapter.configureGuardrails(loadedConfig.config.guardrails);
+			remoteFetcher = hasRemoteSources ? new ElectronRemoteTranslationFetcher(this.electronService) : undefined;
+			this.activeRemoteFetcher = remoteFetcher;
 			const rawResult = await runScan({
 				projectRoot: normalizedProjectRoot,
 				fs: this.fsAdapter,
 				config: loadedConfig.config,
+				remoteTranslations: hasRemoteSources ? {
+					allowNetwork: true,
+					fetcher: remoteFetcher,
+					environment: remoteEnvironment
+				} : undefined,
 				onProgress: (progress) => {
+					if (executionId !== this.scanExecutionId) {
+						return;
+					}
 					if (progress.stage === 'completed') {
 						return;
 					}
@@ -252,6 +294,9 @@ export class ScanOrchestrationService {
 				}
 			});
 
+			if (executionId !== this.scanExecutionId) {
+				throw new Error('Scan cancelled.');
+			}
 			this.stateSubject.next({
 				state: 'completed',
 				stage: 'Scan completed.',
@@ -279,6 +324,9 @@ export class ScanOrchestrationService {
 		} catch (error) {
 			this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
 			this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
+			if (executionId !== this.scanExecutionId) {
+				throw error;
+			}
 			this.loggerService.error('ScanOrchestrationService', 'Scan failed for project root:', normalizedProjectRoot, error);
 			const message = error instanceof Error ? error.message : 'Unknown scan error';
 			this.stateSubject.next({
@@ -287,6 +335,34 @@ export class ScanOrchestrationService {
 				error: message
 			});
 			throw error;
+		} finally {
+			if (remoteFetcher) {
+				await remoteFetcher.close().catch(() => undefined);
+			}
+			if (this.activeRemoteFetcher === remoteFetcher) {
+				this.activeRemoteFetcher = undefined;
+			}
+			this.wipeEnvironment(remoteEnvironment);
+			if (this.activeRemoteEnvironment === remoteEnvironment) {
+				this.activeRemoteEnvironment = undefined;
+			}
+		}
+	}
+
+	private clearRemoteAuthorization(): void {
+		this.wipeEnvironment(this.nextRemoteEnvironment);
+		this.wipeEnvironment(this.activeRemoteEnvironment);
+		this.nextRemoteEnvironment = undefined;
+		this.activeRemoteEnvironment = undefined;
+		this.remoteScanApproved = false;
+	}
+
+	private wipeEnvironment(environment?: Record<string, string>): void {
+		if (!environment) {
+			return;
+		}
+		for (const key of Object.keys(environment)) {
+			delete environment[key];
 		}
 	}
 }

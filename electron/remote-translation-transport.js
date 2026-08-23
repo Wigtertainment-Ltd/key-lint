@@ -169,11 +169,12 @@ function createRemoteTranslationTransport({
 	if (typeof fetchImpl !== 'function') throw new TypeError('A fetch implementation is required.');
 	const sessions = new Map();
 
-	async function execute(request) {
+	async function execute(request, session) {
 		let currentUrl = request.url;
 		let headers = { ...request.headers };
 		let redirects = 0;
 		const controller = new AbortController();
+		session.controllers.add(controller);
 		const timeout = setTimeoutImpl(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 		try {
 			while (true) {
@@ -222,6 +223,7 @@ function createRemoteTranslationTransport({
 			}
 		} finally {
 			clearTimeoutImpl(timeout);
+			session.controllers.delete(controller);
 		}
 	}
 
@@ -230,30 +232,34 @@ function createRemoteTranslationTransport({
 			const request = validateRequest(rawRequest);
 			let session = sessions.get(request.scanId);
 			if (!session) {
-				session = new Map();
+				session = { requests: new Map(), controllers: new Set() };
 				sessions.set(request.scanId, session);
 			}
 			const key = request.url.toString();
 			const signature = headerSignature(request.headers);
-			const existing = session.get(key);
+			const existing = session.requests.get(key);
 			if (existing) {
 				if (existing.signature !== signature || existing.maxResponseBytes !== request.maxResponseBytes) {
 					throw new TranslationTransportError('remote-request-conflict', `Remote translation URL ${redactRemoteUrl(key)} is configured with conflicting request data.`);
 				}
 				return existing.promise;
 			}
-			if (session.size >= MAX_REQUESTS_PER_SCAN) {
+			if (session.requests.size >= MAX_REQUESTS_PER_SCAN) {
 				throw new TranslationTransportError('remote-request-limit', `Remote translation scan exceeds the limit of ${MAX_REQUESTS_PER_SCAN} requests.`);
 			}
-			const promise = execute(request);
-			session.set(key, { signature, maxResponseBytes: request.maxResponseBytes, promise });
+			const promise = execute(request, session);
+			session.requests.set(key, { signature, maxResponseBytes: request.maxResponseBytes, promise });
 			return promise;
 		},
 		endScan: (scanId) => {
 			if (typeof scanId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(scanId)) {
 				throw new TranslationTransportError('remote-invalid-request', 'Remote translation scan identifier is invalid.');
 			}
-			sessions.delete(scanId);
+			const session = sessions.get(scanId);
+			if (session) {
+				for (const controller of session.controllers) controller.abort();
+				sessions.delete(scanId);
+			}
 		}
 	});
 }

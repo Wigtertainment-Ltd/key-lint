@@ -383,7 +383,11 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	get canShowAddToTranslationsAction(): boolean {
-		return this.selectedFinding?.status === 'missing-in-language' && !this.isSelectedFindingResolved && this.selectedMissingLocales.length > 0;
+		return !this.isRemoteReadOnly && this.selectedFinding?.status === 'missing-in-language' && !this.isSelectedFindingResolved && this.selectedMissingLocales.length > 0;
+	}
+
+	get isRemoteReadOnly(): boolean {
+		return this.scanResult?.metadata?.['translationReadOnly'] === true;
 	}
 
 	get isSelectedFindingResolved(): boolean {

@@ -131,6 +131,16 @@
 			</aside>
 		}
 
+		@if (remoteReadOnly) {
+			<aside class="app-status-bar remote-readonly" role="status">
+				<span class="material-symbols-outlined status-icon" aria-hidden="true">lock</span>
+				<div class="status-summary">
+					<strong>Remote translations are read-only.</strong>
+					<span>Translation write actions are disabled for this scan.</span>
+				</div>
+			</aside>
+		}
+
 		<section class="content-shell" [class.edge-to-edge]="isEdgeToEdgeContent">
 			<router-outlet></router-outlet>
 		</section>

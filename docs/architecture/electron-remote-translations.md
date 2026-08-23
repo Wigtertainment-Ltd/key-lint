@@ -2,8 +2,8 @@
 
 Remote translation traffic crosses a dedicated Electron IPC boundary. The
 renderer never receives Node, environment, or general-purpose network access.
-This transport exists in Issue #9 but is intentionally not connected to the
-desktop scan workflow until the configuration and confirmation flow is added.
+Issue #10 connects this transport to a manual, per-scan desktop configuration
+and confirmation flow. Automatic loader detection remains outside this layer.
 
 ## Data flow
 
@@ -15,7 +15,35 @@ desktop scan workflow until the configuration and confirmation flow is added.
 4. The main process performs a GET with manual redirect handling, streams and
    validates the JSON response, and returns only `{ body, finalUrl }`.
 5. The renderer closes the scan session through
-   `keylint:translations:end-scan`, removing its deduplication state.
+   `keylint:translations:end-scan`, aborting outstanding requests and removing
+   its deduplication state.
+
+## Desktop authorization flow
+
+The project screen loads the ordered translation sources from the effective
+scanner configuration. Users can edit, add, remove and reorder filesystem and
+HTTP sources for the next scan. Configured HTTP header mappings show only the
+header and environment-variable names; their values must be supplied again in
+password fields.
+
+Before a remote scan, the renderer builds a value-free confirmation summary
+containing the source order, URL templates and resolved origins, locales,
+header and environment-variable names, expected distinct request count, and
+warnings for plain HTTP and private or local targets. No network authorization
+is passed to the orchestration service until the user confirms this summary.
+Authorization is consumed by exactly one scan.
+
+HTTP translation results are marked read-only by Core. The analysis layout and
+detail views expose that state, disable translation write actions, and the
+orchestration service repeats the check at the write boundary.
+
+## Temporary credential lifetime
+
+Header values exist only in renderer memory. They are copied into a temporary
+environment map only after confirmation and are never written to scanner
+configuration, project history, diagnostics, or scan results. Both the input
+drafts and temporary maps are cleared after success, cancellation, reset,
+project change, or failure; restarting the application also discards them.
 
 The IPC response is an explicit success/error envelope. Unknown exceptions are
 replaced with a generic failure, so Electron serialization cannot accidentally
