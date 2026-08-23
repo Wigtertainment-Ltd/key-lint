@@ -8,7 +8,9 @@ const channels = Object.freeze({
 	pathExists: 'keylint:fs:path-exists',
 	readFile: 'keylint:fs:read-file',
 	writeFile: 'keylint:fs:write-file',
-	readDirectory: 'keylint:fs:read-directory'
+	readDirectory: 'keylint:fs:read-directory',
+	fetchTranslationResource: 'keylint:translations:fetch-resource',
+	endTranslationScan: 'keylint:translations:end-scan'
 });
 
 contextBridge.exposeInMainWorld('keyLint', Object.freeze({
@@ -18,5 +20,7 @@ contextBridge.exposeInMainWorld('keyLint', Object.freeze({
 	pathExists: (filePath) => ipcRenderer.invoke(channels.pathExists, filePath),
 	readFile: (filePath) => ipcRenderer.invoke(channels.readFile, filePath),
 	writeFile: (filePath, content) => ipcRenderer.invoke(channels.writeFile, filePath, content),
-	readDirectory: (directoryPath) => ipcRenderer.invoke(channels.readDirectory, directoryPath)
+	readDirectory: (directoryPath) => ipcRenderer.invoke(channels.readDirectory, directoryPath),
+	fetchTranslationResource: (request) => ipcRenderer.invoke(channels.fetchTranslationResource, request),
+	endTranslationScan: (scanId) => ipcRenderer.invoke(channels.endTranslationScan, scanId)
 }));

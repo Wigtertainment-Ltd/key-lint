@@ -8,7 +8,10 @@ export type RemoteTranslationErrorCode =
 	| 'remote-http-error'
 	| 'remote-timeout'
 	| 'remote-redirect-error'
-	| 'remote-response-too-large';
+	| 'remote-response-too-large'
+	| 'remote-invalid-request'
+	| 'remote-invalid-json'
+	| 'remote-invalid-root';
 
 export class RemoteTranslationError extends Error {
 	constructor(readonly code: RemoteTranslationErrorCode, message: string, options?: ErrorOptions) {

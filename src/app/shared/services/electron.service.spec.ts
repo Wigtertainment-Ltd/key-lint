@@ -28,7 +28,9 @@ describe('ElectronService preload bridge', () => {
 			'pathExists',
 			'readFile',
 			'writeFile',
-			'readDirectory'
+			'readDirectory',
+			'fetchTranslationResource',
+			'endTranslationScan'
 		]);
 		bridge.selectProjectDirectory.and.resolveTo('C:/project');
 		bridge.getPathForFile.and.returnValue('C:/project/dropped');
@@ -37,6 +39,11 @@ describe('ElectronService preload bridge', () => {
 		bridge.readFile.and.resolveTo('{}');
 		bridge.writeFile.and.resolveTo();
 		bridge.readDirectory.and.resolveTo([]);
+		bridge.fetchTranslationResource.and.resolveTo({
+			ok: true,
+			value: { body: '{}', finalUrl: 'https://example.com/en.json' }
+		});
+		bridge.endTranslationScan.and.resolveTo({ ok: true });
 		Object.defineProperty(window, 'keyLint', { configurable: true, value: bridge });
 		const service = new ElectronService();
 
@@ -48,6 +55,20 @@ describe('ElectronService preload bridge', () => {
 		expect(await service.readFile('C:/project/en.json')).toBe('{}');
 		await service.writeFile('C:/project/de.json', '{}');
 		expect(await service.readDirectory('C:/project')).toEqual([]);
+		const remoteRequest: IKeyLintTranslationFetchRequest = {
+			scanId: 'scan-1',
+			method: 'GET',
+			url: 'https://example.com/en.json',
+			headers: {},
+			timeoutMs: 15_000,
+			maxRedirects: 3,
+			maxResponseBytes: 1_024
+		};
+		expect(await service.fetchTranslationResource(remoteRequest)).toEqual({
+			ok: true,
+			value: { body: '{}', finalUrl: 'https://example.com/en.json' }
+		});
+		expect(await service.endTranslationScan('scan-1')).toEqual({ ok: true });
 		expect(bridge.writeFile).toHaveBeenCalledOnceWith('C:/project/de.json', '{}');
 	});
 });

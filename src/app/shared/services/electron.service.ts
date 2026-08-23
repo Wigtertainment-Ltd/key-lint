@@ -36,6 +36,14 @@ export class ElectronService {
 		return this.bridge().readDirectory(directoryPath);
 	}
 
+	fetchTranslationResource(request: IKeyLintTranslationFetchRequest): Promise<IKeyLintTranslationFetchResult> {
+		return this.bridge().fetchTranslationResource(request);
+	}
+
+	endTranslationScan(scanId: string): Promise<IKeyLintTranslationEndResult> {
+		return this.bridge().endTranslationScan(scanId);
+	}
+
 	private bridge(): IKeyLintDesktopApi {
 		if (!this.isElectron) {
 			throw new Error('Electron preload bridge is not available.');

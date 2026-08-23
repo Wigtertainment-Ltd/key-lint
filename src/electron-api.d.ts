@@ -17,7 +17,32 @@ declare global {
 		readFile(filePath: string): Promise<string>;
 		writeFile(filePath: string, content: string): Promise<void>;
 		readDirectory(directoryPath: string): Promise<IKeyLintDirectoryEntry[]>;
+		fetchTranslationResource(request: IKeyLintTranslationFetchRequest): Promise<IKeyLintTranslationFetchResult>;
+		endTranslationScan(scanId: string): Promise<IKeyLintTranslationEndResult>;
 	}
+
+	interface IKeyLintTranslationFetchRequest {
+		scanId: string;
+		method: 'GET';
+		url: string;
+		headers: Record<string, string>;
+		timeoutMs: 15000;
+		maxRedirects: 3;
+		maxResponseBytes: number;
+	}
+
+	interface IKeyLintTranslationTransportError {
+		code: string;
+		message: string;
+	}
+
+	type IKeyLintTranslationFetchResult =
+		| { ok: true; value: { body: string; finalUrl: string } }
+		| { ok: false; error: IKeyLintTranslationTransportError };
+
+	type IKeyLintTranslationEndResult =
+		| { ok: true }
+		| { ok: false; error: IKeyLintTranslationTransportError };
 
 	interface Window {
 		keyLint?: IKeyLintDesktopApi;
