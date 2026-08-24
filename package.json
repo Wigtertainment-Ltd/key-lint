@@ -71,8 +71,10 @@
 		"@angular-devkit/build-angular": "22.1.4",
 		"@angular/cli": "22.1.4",
 		"@angular/compiler-cli": "22.1.2",
+		"@eslint/js": "^10.0.1",
 		"@key-lint/core": "^1.2.0",
 		"@types/jasmine": "6.0.0",
+		"angular-eslint": "^22.1.0",
 		"concurrently": "10.0.5",
 		"cross-env": "10.1.0",
 		"electron": "43.4.0",
@@ -86,6 +88,7 @@
 		"karma-jasmine-html-reporter": "2.2.0",
 		"prettier": "3.9.6",
 		"typescript": "6.0.3",
+		"typescript-eslint": "^8.67.0",
 		"wait-on": "9.1.0"
 	}
 }
