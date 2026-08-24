@@ -208,10 +208,10 @@ describe('ScanOrchestrationService translation updates', () => {
 		const service = TestBed.inject(ScanOrchestrationService);
 
 		const result = await service.scanProject('C:/project');
-		const warnings = result.metadata?.['fileSystemWarnings'] as Array<{
+		const warnings = result.metadata?.['fileSystemWarnings'] as {
 			code: string;
 			filePath?: string;
-		}>;
+		}[];
 
 		expect(result.metadata?.['fileSystemWarningCount']).toBeGreaterThan(0);
 		expect(warnings).toContain(jasmine.objectContaining({
@@ -232,7 +232,7 @@ describe('ScanOrchestrationService translation updates', () => {
 		const service = TestBed.inject(ScanOrchestrationService);
 
 		const result = await service.scanProject('C:/project');
-		const warnings = result.metadata?.['fileSystemWarnings'] as Array<{ code: string }>;
+		const warnings = result.metadata?.['fileSystemWarnings'] as { code: string }[];
 
 		expect(result.metadata?.['translationFileCount']).toBe(1);
 		expect(warnings).toContain(jasmine.objectContaining({ code: 'max-files-reached' }));

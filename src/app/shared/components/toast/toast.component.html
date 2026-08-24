@@ -6,6 +6,7 @@
 		[class.app-toast-info]="toast.type === 'info'"
 		aria-live="polite"
 		aria-atomic="true"
+		tabindex="-1"
 		(keydown.escape)="dismiss()"
 	>
 		<span class="material-symbols-outlined">

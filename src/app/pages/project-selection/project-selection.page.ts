@@ -9,12 +9,12 @@ import { LoggerService } from '../../shared/services/logging/logger.service';
 import { DesktopScannerConfigService } from '../../shared/services/desktop-scanner-config.service';
 import { IScannerGuardrails, ScannerConfigValueSource } from '@key-lint/core';
 import { ElectronFile, IRecentProjectViewModel } from './project-selection.interfaces';
+import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
 import {
-	DesktopRemoteTranslationService,
 	IDesktopTranslationSourceDraft,
 	IPreparedDesktopRemoteScan,
 	IRemoteScanConfirmation
-} from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
+} from '../../shared/services/desktop-remote-translation/desktop-remote-translation.interfaces';
 
 @Component({
 	selector: 'app-project-selection-page',
