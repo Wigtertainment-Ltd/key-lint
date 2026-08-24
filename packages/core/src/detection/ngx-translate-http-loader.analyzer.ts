@@ -4,36 +4,12 @@ import {
 	ILoaderAnalysisSourceFile, ILoaderDetectionDiagnostic, ILoaderResourceTemplate, ILoaderSourceLocation, ITranslationLoaderAnalysisResult,
 	ITranslationLoaderCandidate
 } from './loader-detection.interfaces.js';
+import { IAnalysisContext, IConstantDeclaration, IImportedSymbol, IResolvedExpression } from './ngx-translate-http-loader.interfaces.js';
 
 const HTTP_LOADER_MODULE = '@ngx-translate/http-loader';
 const TRANSLATE_CORE_MODULE = '@ngx-translate/core';
 const DEFAULT_PREFIX = '/assets/i18n/';
 const DEFAULT_SUFFIX = '.json';
-
-interface IImportedSymbol {
-	moduleName: string;
-	importedName: string;
-}
-
-interface IAnalysisContext {
-	input: ILoaderAnalysisSourceFile;
-	sourceFile: ts.SourceFile;
-	imports: Map<string, IImportedSymbol>;
-	namespaces: Map<string, string>;
-	constantInitializers: Map<string, IConstantDeclaration[]>;
-	shadowDeclarations: Map<string, ts.Node[]>;
-	functionDeclarations: Map<string, Array<ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression>>;
-}
-
-interface IConstantDeclaration {
-	declaration: ts.VariableDeclaration;
-	initializer: ts.Expression;
-}
-
-interface IResolvedExpression {
-	expression?: ts.Expression;
-	ambiguousNode?: ts.Node;
-}
 
 function unwrapExpression(expression: ts.Expression): ts.Expression {
 	let current = expression;
