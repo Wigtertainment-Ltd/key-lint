@@ -38,6 +38,10 @@
 		"./node": {
 			"types": "./dist/node.d.ts",
 			"default": "./dist/node.js"
+		},
+		"./detection": {
+			"types": "./dist/detection.d.ts",
+			"default": "./dist/detection.js"
 		}
 	},
 	"files": [
@@ -52,9 +56,11 @@
 		"test": "vitest run",
 		"publish:pkg": "npm run build && npm publish"
 	},
+	"dependencies": {
+		"typescript": "~6.0.3"
+	},
 	"devDependencies": {
 		"@types/node": "^26.2.0",
-		"typescript": "~6.0.3",
 		"vitest": "^4.1.10"
 	}
 }
