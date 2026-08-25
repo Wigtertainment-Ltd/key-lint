@@ -24,37 +24,6 @@ function normalizePath(value: string): string {
 	);
 }
 
-function escapeRegex(text: string): string {
-	// Match every regular-expression metacharacter that must be escaped when inserting literal text.
-	return text.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-}
-
-function globToRegex(glob: string): RegExp {
-	const normalized = normalizePath(glob);
-	const escaped = escapeRegex(normalized)
-		// Preserve "**/" before processing single stars because it may match zero directory segments.
-		.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
-		// Preserve remaining globstars before converting single stars.
-		.replace(/\*\*/g, '__DOUBLE_STAR__')
-		// A single star matches characters only within one path segment.
-		.replace(/\*/g, '[^/]*')
-		// A globstar followed by a slash matches zero or more complete directory segments.
-		.replace(/__DOUBLE_STAR_SLASH__/g, '(?:.*/)?')
-		// A remaining globstar may match across directory boundaries.
-		.replace(/__DOUBLE_STAR__/g, '.*');
-
-	// Anchor the generated expression so the glob must match the complete normalized path.
-	return new RegExp(`^${escaped}$`);
-}
-
-function matchesAny(path: string, patterns: string[]): boolean {
-	if (patterns.length === 0) {
-		return false;
-	}
-
-	return patterns.some((pattern) => globToRegex(pattern).test(path));
-}
-
 function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	if (value === null || value === undefined) {
 		return [];
@@ -163,12 +132,11 @@ async function collectFilesystemTranslationFiles(
 	includeGlobs: string[] = context.config.includeTranslationGlobs
 ): Promise<string[]> {
 	const listedFiles: string[] = await fs.listFiles(context.projectRoot, includeGlobs, context.config.excludeGlobs);
-	const extensions: Set<string> = new Set(context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase()));
+	const extensions: Set<string> = new Set<string>(context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase()));
 
 	return listedFiles
 		.map((file) => normalizePath(file))
 		.filter((file) => extensions.has(file.slice(file.lastIndexOf('.')).toLowerCase()))
-		.filter((file) => !matchesAny(file, context.config.excludeGlobs))
 		.sort((left, right) => left.localeCompare(right));
 }
 
@@ -438,6 +406,9 @@ export const angularScanAdapter: IScanAdapter = {
 				resources.push(...sourceResources);
 				continue;
 			}
+			if (source.type === 'auto-http') {
+				throw new Error('auto-http translation sources must be resolved before resource collection.');
+			}
 
 			const files = await collectFilesystemTranslationFiles(
 				context,
@@ -478,10 +449,6 @@ export const angularScanAdapter: IScanAdapter = {
 		const used: IKeyUsage[] = [];
 
 		for (const filePath of sourceFiles.map((file) => normalizePath(file)).sort((a, b) => a.localeCompare(b))) {
-			if (matchesAny(filePath, context.config.excludeGlobs)) {
-				continue;
-			}
-
 			const source: string = await fs.readFile(filePath);
 			const descriptors: IPatternDescriptor[] = filePath.endsWith('.html') ? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS] : [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
 			const fileUsages: IKeyUsage[] = extractMatches(source, filePath, descriptors);
@@ -526,7 +493,7 @@ export const angularScanAdapter: IScanAdapter = {
 		const dynamicUsage: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
 		const dynamicPrefixes: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
 		const indirectLiteralUsage: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
-		const allDefined: Set<string> = new Set(input.definedKeys);
+		const allDefined: Set<string> = new Set<string>(input.definedKeys);
 		const translationMatrix: ITranslationMatrix = input.translationMatrix ?? { locales: [], rows: [], totalKeys: 0 };
 		const placeholderContractByKey: Map<string, string[]> = new Map<string, string[]>();
 		if (input.baseLocale) {

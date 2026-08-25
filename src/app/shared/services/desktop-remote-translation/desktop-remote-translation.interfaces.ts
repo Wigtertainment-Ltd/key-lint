@@ -1,4 +1,5 @@
-import { ITranslationSourceConfig } from "@key-lint/core";
+import type { ITranslationSourceConfig } from '@key-lint/core';
+import type { ILoaderDetectionDiagnostic, ITranslationLoaderCandidate } from '@key-lint/core/detection';
 
 export interface IDesktopRemoteHeaderDraft {
 	id: string;
@@ -10,13 +11,27 @@ export interface IDesktopRemoteHeaderDraft {
 
 export interface IDesktopTranslationSourceDraft {
 	draftId: string;
-	type: 'filesystem' | 'http';
+	type: 'filesystem' | 'http' | 'auto-http';
 	id: string;
 	includeGlobs: string[];
 	urlTemplate: string;
+	origin: string;
 	locales: string[];
 	headers: IDesktopRemoteHeaderDraft[];
 	configured: boolean;
+	autoCandidates: IDesktopAutoHttpCandidate[];
+	autoDiagnostics: ILoaderDetectionDiagnostic[];
+	selectedCandidateIndex?: number;
+}
+
+export interface IDesktopAutoHttpCandidate {
+	index: number;
+	framework: ITranslationLoaderCandidate['framework'];
+	api: ITranslationLoaderCandidate['api'];
+	location: string;
+	urlTemplates: string[];
+	locales: string[];
+	requiresOrigin: boolean;
 }
 
 export interface IRemoteScanConfirmationSource {

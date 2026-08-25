@@ -10,6 +10,7 @@ import { DesktopScannerConfigService } from '../../shared/services/desktop-scann
 import { IScannerGuardrails, ScannerConfigValueSource } from '@key-lint/core';
 import { ElectronFile, IRecentProjectViewModel } from './project-selection.interfaces';
 import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
+import { ElectronFileSystemAdapter } from '../../shared/services/electron-file-system.adapter';
 import {
 	IDesktopTranslationSourceDraft,
 	IPreparedDesktopRemoteScan,
@@ -337,6 +338,11 @@ export class ProjectSelectionPage implements OnInit {
 		this.syncTranslationSources();
 	}
 
+	addAutoHttpSource(): void {
+		this.desktopRemoteTranslationService.addAutoHttpSource();
+		this.syncTranslationSources();
+	}
+
 	removeTranslationSource(draftId: string): void {
 		this.desktopRemoteTranslationService.removeSource(draftId);
 		this.syncTranslationSources();
@@ -359,6 +365,17 @@ export class ProjectSelectionPage implements OnInit {
 
 	onSourceUrlInput(draftId: string, value: string): void {
 		this.desktopRemoteTranslationService.updateSource(draftId, { urlTemplate: value });
+		this.syncTranslationSources();
+	}
+
+	onSourceOriginInput(draftId: string, value: string): void {
+		this.desktopRemoteTranslationService.updateSource(draftId, { origin: value });
+		this.syncTranslationSources();
+	}
+
+	onAutoCandidateSelected(draftId: string, value: string): void {
+		const candidateIndex = Number(value);
+		if (Number.isInteger(candidateIndex)) this.desktopRemoteTranslationService.selectAutoCandidate(draftId, candidateIndex);
 		this.syncTranslationSources();
 	}
 
@@ -417,6 +434,12 @@ export class ProjectSelectionPage implements OnInit {
 			this.guardrailSourcesSignal.set({ ...loaded.guardrailSources });
 			this.setGuardrailInputs(loaded.config.guardrails);
 			this.desktopRemoteTranslationService.loadConfiguredSources(loaded.config.translationSources);
+			await this.desktopRemoteTranslationService.analyzeAutoSources(
+				projectPath,
+				new ElectronFileSystemAdapter(this.electronService, loaded.config.guardrails),
+				loaded.config,
+				(files) => this.electronService.analyzeTranslationLoaders(files)
+			);
 			this.syncTranslationSources();
 		} catch (error) {
 			if (loadId === this.scanSettingsLoadId) {

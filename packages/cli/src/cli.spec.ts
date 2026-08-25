@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseCliArgs } from './args.js';
-import { runCli, ICliIo } from './cli.js';
+import { runCli } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
+import { ICliIo } from './cli.interfaces.js';
 
 const FIXTURE_ROOT = fileURLToPath(
 	new URL('../../core/test/fixtures/angular/ngx-translate-json/kitchen-sink', import.meta.url)
@@ -46,7 +47,7 @@ interface IJsonReport {
 	schemaVersion: number;
 	severityCounts: { error: number; warning: number; info: number };
 	metadata: { baseLocale?: string; baseLocaleSelectionSource?: string };
-	findings: Array<{ key: string; status: string; severity: string; language: string | null }>;
+	findings: { key: string; status: string; severity: string; language: string | null }[];
 }
 
 function parseJsonReport(io: ICapturedIo): IJsonReport {
@@ -66,6 +67,39 @@ async function createRemoteFixture(headersFromEnv?: Record<string, string>): Pro
 			locales: ['en'],
 			...(headersFromEnv ? { headersFromEnv } : {})
 		}]
+	}), 'utf8');
+	return root;
+}
+
+async function createAutoHttpFixture(
+	kind: 'ngx' | 'transloco' | 'both' | 'none',
+	source: Record<string, unknown> = {}
+): Promise<string> {
+	const root = await mkdtemp(join(tmpdir(), 'keylint-auto-http-'));
+	await mkdir(join(root, 'src', 'app'), { recursive: true });
+	await writeFile(join(root, 'angular.json'), '{"version":1}', 'utf8');
+	await writeFile(join(root, 'src', 'app', 'app.component.html'), "{{ 'APP.TITLE' | translate }}", 'utf8');
+	if (kind === 'ngx' || kind === 'both') {
+		await writeFile(join(root, 'src', 'app', 'ngx.config.ts'), `
+			import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
+			const AVAILABLE_LANGS = ['en'];
+			provideTranslateHttpLoader({ prefix: '/ngx/' });`, 'utf8');
+	}
+	if (kind === 'transloco' || kind === 'both') {
+		await writeFile(join(root, 'src', 'app', 'transloco.config.ts'), `
+			import { HttpClient } from '@angular/common/http';
+			import { provideTransloco } from '@jsverse/transloco';
+			class Loader {
+				constructor(private http: HttpClient) {}
+				getTranslation(lang: string) { return this.http.get(\`https://translations.example/transloco/\${lang}.json\`); }
+			}
+			provideTransloco({ availableLangs: ['de'], loader: Loader });`, 'utf8');
+	}
+	if (kind === 'none') {
+		await writeFile(join(root, 'src', 'app', 'app.config.ts'), 'export const providers = [];', 'utf8');
+	}
+	await writeFile(join(root, 'keylint.config.json'), JSON.stringify({
+		translationSources: [{ type: 'auto-http', ...source }]
 	}), 'utf8');
 	return root;
 }
@@ -259,9 +293,12 @@ describe('runCli', () => {
 
 			expect(exitCode).toBe(EXIT_OK);
 			expect(fetch).toHaveBeenCalledTimes(1);
-			expect(fetch.mock.calls[0]?.[1]).toMatchObject({
-				headers: { Authorization: 'Bearer test-secret' }
-			});
+			expect(fetch).toHaveBeenCalledWith(
+				new URL('https://translations.example/en.json'),
+				expect.objectContaining({
+					headers: { Authorization: 'Bearer test-secret' }
+				})
+			);
 			expect(report.metadata).toMatchObject({ translationReadOnly: true, translationFileCount: 0 });
 		} finally {
 			delete process.env[environmentName];
@@ -282,6 +319,77 @@ describe('runCli', () => {
 			expect(io.err.join('')).toContain('KEYLINT_MISSING_REMOTE_AUTH');
 		} finally {
 			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it('detects and fetches one ngx-translate auto-http candidate end to end', async () => {
+		const root = await createAutoHttpFixture('ngx', { origin: 'https://app.example' });
+		const fetch = vi.fn(async () => new Response('{"APP":{"TITLE":"Title"}}'));
+		vi.stubGlobal('fetch', fetch);
+		try {
+			const io = createIo();
+			const exitCode = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
+
+			expect(exitCode).toBe(EXIT_OK);
+			expect(fetch).toHaveBeenCalledTimes(1);
+			expect(fetch).toHaveBeenCalledWith(
+				new URL('https://app.example/ngx/en.json'),
+				expect.objectContaining({ method: 'GET' })
+			);
+			expect(io.err.join('')).toContain('ngx-translate');
+			expect(io.err.join('')).toContain('ngx.config.ts');
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it('detects and fetches one Transloco auto-http candidate end to end', async () => {
+		const root = await createAutoHttpFixture('transloco');
+		const fetch = vi.fn(async () => new Response('{"APP":{"TITLE":"Titel"}}'));
+		vi.stubGlobal('fetch', fetch);
+		try {
+			const io = createIo();
+			const exitCode = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
+
+			expect(exitCode).toBe(EXIT_OK);
+			expect(fetch).toHaveBeenCalledTimes(1);
+			expect(fetch).toHaveBeenCalledWith(
+				new URL('https://translations.example/transloco/de.json'),
+				expect.objectContaining({ method: 'GET' })
+			);
+			expect(io.err.join('')).toContain('transloco');
+			expect(io.err.join('')).toContain('transloco.config.ts');
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it('makes no request for disabled, zero, multiple, or unresolved-relative auto-http sources', async () => {
+		const fetch = vi.fn();
+		vi.stubGlobal('fetch', fetch);
+		const disabled = await createAutoHttpFixture('ngx', { origin: 'https://app.example' });
+		const zero = await createAutoHttpFixture('none');
+		const multiple = await createAutoHttpFixture('both', { origin: 'https://app.example', locales: ['en'] });
+		const relative = await createAutoHttpFixture('ngx');
+		try {
+			const disabledIo = createIo();
+			expect(await runCli(['scan', disabled, '--quiet'], disabledIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
+			expect(disabledIo.err.join('')).toContain('--allow-network');
+			const zeroIo = createIo();
+			expect(await runCli(['scan', zero, '--quiet', '--allow-network'], zeroIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
+			expect(zeroIo.err.join('')).toContain('No compatible static');
+			expect(zeroIo.err.join('')).toContain('explicit HTTP source');
+			const multipleIo = createIo();
+			expect(await runCli(['scan', multiple, '--quiet', '--allow-network'], multipleIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
+			expect(multipleIo.err.join('')).toContain('Multiple compatible');
+			expect(multipleIo.err.join('')).toContain('ngx.config.ts');
+			expect(multipleIo.err.join('')).toContain('transloco.config.ts');
+			const relativeIo = createIo();
+			expect(await runCli(['scan', relative, '--quiet', '--allow-network'], relativeIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
+			expect(relativeIo.err.join('')).toContain('requires an origin');
+			expect(fetch).not.toHaveBeenCalled();
+		} finally {
+			await Promise.all([disabled, zero, multiple, relative].map((root) => rm(root, { recursive: true, force: true })));
 		}
 	});
 });

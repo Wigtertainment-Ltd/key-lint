@@ -46,6 +46,9 @@ const EMPTY_TRANSLATION_MATRIX: ITranslationMatrix = {
 export async function runScan(options: IRunScanOptions): Promise<IProjectScanResult> {
 	const { fs, registry = defaultAdapterRegistry, config = DEFAULT_SCANNER_CONFIG } = options;
 	const report = (stage: ScanStage, message: string): void => options.onProgress?.({ stage, message });
+	if (config.translationSources?.some((source) => source.type === 'auto-http')) {
+		throw new Error('auto-http translation sources must be resolved and confirmed before runScan(). No request was made.');
+	}
 
 	const startedAt = new Date();
 	const normalizedProjectRoot = normalizePath(options.projectRoot);

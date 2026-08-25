@@ -104,4 +104,50 @@ describe('DesktopRemoteTranslationService', () => {
 		expect(service.sources).toEqual([]);
 		expect(storageSpy).not.toHaveBeenCalled();
 	});
+
+	it('lists auto-http candidates and requires selection, origin, and locales before confirmation', async () => {
+		service.loadConfiguredSources([{ type: 'auto-http' }]);
+		const fs = {
+			fileExists: async () => true,
+			readFile: async () => 'source',
+			listFiles: async () => ['C:/project/loader.ts']
+		};
+		await service.analyzeAutoSources('C:/project', fs, {
+			includeSourceGlobs: ['**/*.ts'], excludeGlobs: [], includeTranslationGlobs: [],
+			supportedTranslationExtensions: ['.json'], ignoreKeys: [], guardrails: { maxFiles: 10, maxFileSizeBytes: 1024 }
+		}, async (files) => ({
+			sourceFiles: files.map((file) => file.filePath),
+			diagnostics: [{
+				code: 'transloco-http-unsupported-scope', category: 'unsupported', message: 'Scoped loader',
+				location: { filePath: 'C:/project/scope.ts', line: 2, column: 1, endLine: 2, endColumn: 5 }
+			}],
+			candidates: [
+				{
+					framework: 'ngx-translate', loader: 'http', api: 'provideTranslateHttpLoader', confidence: 'deterministic',
+					resources: [{ urlTemplate: '/i18n/{locale}.json', urlKind: 'relative', requiresOrigin: true }], locales: ['en'],
+					location: { filePath: 'C:/project/ngx.ts', line: 4, column: 2, endLine: 4, endColumn: 10 }
+				},
+				{
+					framework: 'transloco', loader: 'http', api: 'TranslocoLoader', confidence: 'deterministic',
+					resources: [{ urlTemplate: 'https://cdn.example/{locale}.json', urlKind: 'absolute', requiresOrigin: false }], locales: [],
+					location: { filePath: 'C:/project/transloco.ts', line: 8, column: 2, endLine: 10, endColumn: 3 }
+				}
+			]
+		}));
+
+		const draft = service.sources[0];
+		expect(draft.autoCandidates.map((candidate) => candidate.framework)).toEqual(['ngx-translate', 'transloco']);
+		expect(draft.autoDiagnostics[0].code).toBe('transloco-http-unsupported-scope');
+		expect(service.validationError()).toContain('Select one');
+		service.selectAutoCandidate(draft.draftId, 0);
+		expect(service.validationError()).toContain('requires an origin');
+		service.updateSource(draft.draftId, { origin: 'https://app.example', locales: ['de'] });
+		expect(service.validationError()).toBe('');
+
+		const prepared = service.prepareScan();
+		expect(prepared.translationSources).toEqual([{
+			type: 'http', id: 'auto-http-1', urlTemplate: 'https://app.example/i18n/{locale}.json', locales: ['de']
+		}]);
+		expect(prepared.confirmation).toEqual(jasmine.objectContaining({ expectedRequestCount: 1 }));
+	});
 });

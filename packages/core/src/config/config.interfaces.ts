@@ -22,9 +22,22 @@ export interface IHttpTranslationSourceConfig {
 	headersFromEnv?: Record<string, string>;
 }
 
+export interface IAutoHttpTranslationSourceConfig {
+	type: 'auto-http';
+	/** Optional stable identifier. A deterministic identifier is generated when omitted. */
+	id?: string;
+	/** Base origin required to resolve relative detected URL templates. */
+	origin?: string;
+	/** Overrides detected locales. Required when the loader exposes no literal locales. */
+	locales?: string[];
+	/** Maps HTTP header names to environment-variable names. */
+	headersFromEnv?: Record<string, string>;
+}
+
 export type ITranslationSourceConfig =
 	| IFilesystemTranslationSourceConfig
-	| IHttpTranslationSourceConfig;
+	| IHttpTranslationSourceConfig
+	| IAutoHttpTranslationSourceConfig;
 
 export interface IScannerConfig {
 	/** Canonical locale used for cross-locale consistency checks. Auto-detected when omitted. */

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import type { IAutoHttpProjectAnalysis, ILoaderAnalysisSourceFile } from '@key-lint/core/detection';
 
 @Injectable({
 	providedIn: 'root'
@@ -34,6 +35,10 @@ export class ElectronService {
 
 	readDirectory(directoryPath: string): Promise<IKeyLintDirectoryEntry[]> {
 		return this.bridge().readDirectory(directoryPath);
+	}
+
+	async analyzeTranslationLoaders(files: ILoaderAnalysisSourceFile[]): Promise<IAutoHttpProjectAnalysis> {
+		return await this.bridge().analyzeTranslationLoaders(files) as IAutoHttpProjectAnalysis;
 	}
 
 	fetchTranslationResource(request: IKeyLintTranslationFetchRequest): Promise<IKeyLintTranslationFetchResult> {

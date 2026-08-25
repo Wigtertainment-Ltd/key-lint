@@ -27,6 +27,7 @@ module.exports = defineConfig([
 					style: 'kebab-case',
 				},
 			],
+			'@typescript-eslint/no-inferrable-types': 'off'
 		},
 	},
 	{

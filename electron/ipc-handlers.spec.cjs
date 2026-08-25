@@ -3,14 +3,14 @@ const path = require('node:path');
 const test = require('node:test');
 
 const { IPC_CHANNELS } = require('./ipc-channels');
-const { MAX_WRITE_BYTES, registerIpcHandlers } = require('./ipc-handlers');
+const { MAX_WRITE_BYTES, defaultLoaderAnalyzer, registerIpcHandlers } = require('./ipc-handlers');
 
 const PROJECT_PATH = path.resolve('project');
 const MISSING_PATH = path.join(PROJECT_PATH, 'missing');
 const TEXT_FILE_PATH = path.join(PROJECT_PATH, 'note.txt');
 const TRANSLATION_FILE_PATH = path.join(PROJECT_PATH, 'de.json');
 
-function createHarness(remoteTransport) {
+function createHarness(remoteTransport, loaderAnalyzer) {
 	const handlers = new Map();
 	const writes = [];
 	const remoteCalls = [];
@@ -50,7 +50,8 @@ function createHarness(remoteTransport) {
 				return { body: '{}', finalUrl: request.url };
 			},
 			endScan: (scanId) => void remoteCalls.push(['end', scanId])
-		}
+		},
+		loaderAnalyzer: loaderAnalyzer ?? (async (files) => ({ candidates: [], diagnostics: [], sourceFiles: files.map((file) => file.filePath) }))
 	});
 
 	return { handlers, writes, remoteCalls };
@@ -82,6 +83,41 @@ test('exposes only normalized translation transport responses', async () => {
 	);
 	assert.deepEqual(await handlers.get(IPC_CHANNELS.endTranslationScan)(null, 'scan-1'), { ok: true });
 	assert.deepEqual(remoteCalls, [['fetch', request], ['end', 'scan-1']]);
+});
+
+test('validates loader analysis input and returns only analyzer data', async () => {
+	const calls = [];
+	const { handlers } = createHarness(undefined, async (files) => {
+		calls.push(files);
+		return { candidates: [{ framework: 'transloco' }], diagnostics: [], sourceFiles: files.map((file) => file.filePath) };
+	});
+	const filePath = path.join(PROJECT_PATH, 'app.config.ts');
+	const result = await handlers.get(IPC_CHANNELS.analyzeTranslationLoaders)(null, [{ filePath, content: 'source' }]);
+
+	assert.deepEqual(result.candidates, [{ framework: 'transloco' }]);
+	assert.equal(calls.length, 1);
+	await assert.rejects(
+		handlers.get(IPC_CHANNELS.analyzeTranslationLoaders)(null, [{ filePath: 'relative.ts', content: '' }]),
+		/absolute path/
+	);
+	await assert.rejects(
+		handlers.get(IPC_CHANNELS.analyzeTranslationLoaders)(null, [{ filePath: path.join(PROJECT_PATH, 'app.js'), content: '' }]),
+		/TypeScript/
+	);
+});
+
+test('loads the Core static analyzers in the Electron main process', async () => {
+	const result = await defaultLoaderAnalyzer([{
+		filePath: path.join(PROJECT_PATH, 'app.config.ts'),
+		content: `
+			import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
+			const AVAILABLE_LANGS = ['en'];
+			provideTranslateHttpLoader({ prefix: '/assets/i18n/' });`
+	}]);
+
+	assert.equal(result.candidates.length, 1);
+	assert.equal(result.candidates[0].framework, 'ngx-translate');
+	assert.deepEqual(result.candidates[0].locales, ['en']);
 });
 
 test('does not serialize unknown transport secrets across IPC', async () => {

@@ -4,6 +4,19 @@ const { IPC_CHANNELS } = require('./ipc-channels');
 const { createRemoteTranslationTransport, serializeTransportError } = require('./remote-translation-transport');
 
 const MAX_WRITE_BYTES = 2 * 1024 * 1024;
+const MAX_ANALYSIS_FILES = 2000;
+const MAX_ANALYSIS_BYTES = 20 * 1024 * 1024;
+
+async function defaultLoaderAnalyzer(files) {
+	const detection = await import('@key-lint/core/detection');
+	const ngx = detection.analyzeNgxTranslateHttpLoaders(files);
+	const transloco = detection.analyzeTranslocoHttpLoaders(files);
+	return {
+		candidates: [...ngx.candidates, ...transloco.candidates],
+		diagnostics: [...ngx.diagnostics, ...transloco.diagnostics],
+		sourceFiles: files.map((file) => file.filePath)
+	};
+}
 
 function assertAbsolutePath(value, label = 'Path') {
 	if (typeof value !== 'string' || !value.trim() || !path.isAbsolute(value)) {
@@ -13,7 +26,7 @@ function assertAbsolutePath(value, label = 'Path') {
 	return path.normalize(value);
 }
 
-function registerIpcHandlers({ ipcMain, dialog, app, fs, remoteTransport = createRemoteTranslationTransport() }) {
+function registerIpcHandlers({ ipcMain, dialog, app, fs, remoteTransport = createRemoteTranslationTransport(), loaderAnalyzer = defaultLoaderAnalyzer }) {
 	ipcMain.handle(IPC_CHANNELS.selectProjectDirectory, async () => {
 		const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
 		return result.canceled ? undefined : result.filePaths[0];
@@ -73,6 +86,24 @@ function registerIpcHandlers({ ipcMain, dialog, app, fs, remoteTransport = creat
 		}));
 	});
 
+	ipcMain.handle(IPC_CHANNELS.analyzeTranslationLoaders, async (_event, files) => {
+		if (!Array.isArray(files) || files.length > MAX_ANALYSIS_FILES) {
+			throw new TypeError(`Loader analysis accepts at most ${MAX_ANALYSIS_FILES} source files.`);
+		}
+		let totalBytes = 0;
+		const normalizedFiles = files.map((file) => {
+			if (!file || typeof file !== 'object' || typeof file.filePath !== 'string' || typeof file.content !== 'string') {
+				throw new TypeError('Loader analysis files require filePath and content strings.');
+			}
+			const filePath = assertAbsolutePath(file.filePath, 'Loader analysis file path');
+			if (!/\.tsx?$/i.test(filePath)) throw new TypeError('Loader analysis accepts only TypeScript source files.');
+			totalBytes += Buffer.byteLength(file.content, 'utf8');
+			if (totalBytes > MAX_ANALYSIS_BYTES) throw new RangeError(`Loader analysis exceeds the ${MAX_ANALYSIS_BYTES} byte limit.`);
+			return { filePath, content: file.content };
+		});
+		return loaderAnalyzer(normalizedFiles);
+	});
+
 	ipcMain.handle(IPC_CHANNELS.fetchTranslationResource, async (_event, request) => {
 		try {
 			return { ok: true, value: await remoteTransport.fetch(request) };
@@ -91,4 +122,4 @@ function registerIpcHandlers({ ipcMain, dialog, app, fs, remoteTransport = creat
 	});
 }
 
-module.exports = { MAX_WRITE_BYTES, assertAbsolutePath, registerIpcHandlers };
+module.exports = { MAX_ANALYSIS_BYTES, MAX_ANALYSIS_FILES, MAX_WRITE_BYTES, assertAbsolutePath, defaultLoaderAnalyzer, registerIpcHandlers };

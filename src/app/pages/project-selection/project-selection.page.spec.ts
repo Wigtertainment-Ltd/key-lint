@@ -45,7 +45,16 @@ describe('ProjectSelectionPage scan settings', () => {
 					provide: ElectronService,
 					useValue: {
 						isElectron: true,
-						selectProjectDirectory: async () => 'C:/project'
+						selectProjectDirectory: async () => 'C:/project',
+						readDirectory: async () => [{ name: 'loader.ts', isDirectory: false, isFile: true, isSymbolicLink: false, sizeBytes: 100 }],
+						readFile: async () => 'source',
+						analyzeTranslationLoaders: async () => ({
+							sourceFiles: ['C:/project/loader.ts'], diagnostics: [], candidates: [{
+								framework: 'ngx-translate', loader: 'http', api: 'provideTranslateHttpLoader', confidence: 'deterministic',
+								resources: [{ urlTemplate: '/i18n/{locale}.json', urlKind: 'relative', requiresOrigin: true }],
+								locales: ['en'], location: { filePath: 'C:/project/loader.ts', line: 3, column: 1, endLine: 3, endColumn: 20 }
+							}]
+						})
 					}
 				},
 				{
@@ -170,5 +179,34 @@ describe('ProjectSelectionPage scan settings', () => {
 
 		expect(component.scanSettingsValidationError).toContain('positive whole number');
 		expect(component.canStartAnalysis).toBeFalse();
+	});
+
+	it('shows detected auto-http candidates and blocks confirmation until a relative origin is supplied', async () => {
+		configService.load.and.resolveTo({
+			config: { ...DEFAULT_SCANNER_CONFIG, translationSources: [{ type: 'auto-http' }] },
+			packageJsonConfigApplied: false,
+			guardrailSources: { maxFiles: 'default', maxFileSizeBytes: 'default' }
+		});
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await fixture.whenStable();
+		fixture.detectChanges();
+
+		expect(component.scanSettingsError).toBe('');
+		expect(component.translationSources[0].autoCandidates[0]).toEqual(jasmine.objectContaining({
+			framework: 'ngx-translate', location: 'C:/project/loader.ts:3:1'
+		}));
+		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Endpoints: /i18n/{locale}.json');
+		expect(component.translationSourcesValidationError).toContain('requires an origin');
+		expect(component.canStartAnalysis).toBeFalse();
+
+		component.onSourceOriginInput(component.translationSources[0].draftId, 'https://app.example');
+		expect(component.canStartAnalysis).toBeTrue();
+		component.startAnalysis();
+		expect(component.remoteConfirmation?.sources[0]).toEqual(jasmine.objectContaining({
+			urlTemplate: 'https://app.example/i18n/{locale}.json', locales: ['en']
+		}));
+		expect(scanService.authorizeNextRemoteScan).not.toHaveBeenCalled();
 	});
 });

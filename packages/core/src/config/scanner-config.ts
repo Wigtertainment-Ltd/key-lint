@@ -1,5 +1,5 @@
 import {
-	IFilesystemTranslationSourceConfig, IHttpTranslationSourceConfig, IScannerConfig, IScannerConfigOverrides, IScannerGuardrails, ITranslationSourceConfig, ScannerConfigError
+	IAutoHttpTranslationSourceConfig, IFilesystemTranslationSourceConfig, IHttpTranslationSourceConfig, IScannerConfig, IScannerConfigOverrides, IScannerGuardrails, ITranslationSourceConfig, ScannerConfigError
 } from './config.interfaces.js';
 import { DEFAULT_SCANNER_CONFIG } from './scanner-defaults.js';
 
@@ -13,6 +13,37 @@ function assertNonEmptyString(value: unknown, key: string): string {
 		throw new ScannerConfigError(`"${key}" must be a non-empty string.`);
 	}
 	return value.trim();
+}
+
+function parseLocales(value: unknown, key: string): string[] {
+	const locales: string[] = assertStringArray(value, key).map((locale) => locale.trim());
+	if (locales.length === 0 || locales.some((locale) => !LOCALE_PATTERN.test(locale))) {
+		throw new ScannerConfigError(`"${key}" must contain at least one valid non-empty locale.`);
+	}
+	if (new Set(locales).size !== locales.length) {
+		throw new ScannerConfigError(`"${key}" must not contain duplicates.`);
+	}
+	return locales;
+}
+
+function parseHeadersFromEnv(value: unknown, key: string): Record<string, string> {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+		throw new ScannerConfigError(`"${key}" must be an object.`);
+	}
+	const headersFromEnv: Record<string, string> = {};
+	const normalizedHeaderNames: Set<string> = new Set<string>();
+	for (const [headerName, environmentName] of Object.entries(value as Record<string, unknown>)) {
+		if (!HTTP_HEADER_NAME_PATTERN.test(headerName)) {
+			throw new ScannerConfigError(`Invalid HTTP header name "${headerName}".`);
+		}
+		const normalizedHeaderName: string = headerName.toLowerCase();
+		if (normalizedHeaderNames.has(normalizedHeaderName)) {
+			throw new ScannerConfigError(`Duplicate HTTP header name "${headerName}".`);
+		}
+		normalizedHeaderNames.add(normalizedHeaderName);
+		headersFromEnv[headerName] = assertNonEmptyString(environmentName, `${key}.${headerName}`);
+	}
+	return headersFromEnv;
 }
 
 function parseHttpTranslationSource(source: Record<string, unknown>, index: number): IHttpTranslationSourceConfig {
@@ -45,35 +76,46 @@ function parseHttpTranslationSource(source: Record<string, unknown>, index: numb
 		throw new ScannerConfigError(`"translationSources[${index}].urlTemplate" must not contain URL credentials.`);
 	}
 
-	const locales: string[] = assertStringArray(source['locales'], `translationSources[${index}].locales`).map((locale) => locale.trim());
-	if (locales.length === 0 || locales.some((locale) => !LOCALE_PATTERN.test(locale))) {
-		throw new ScannerConfigError(`"translationSources[${index}].locales" must contain at least one valid non-empty locale.`);
-	}
-	if (new Set(locales).size !== locales.length) {
-		throw new ScannerConfigError(`"translationSources[${index}].locales" must not contain duplicates.`);
-	}
+	const locales: string[] = parseLocales(source['locales'], `translationSources[${index}].locales`);
 
 	let headersFromEnv: Record<string, string> | undefined;
 	if (source['headersFromEnv'] !== undefined) {
-		if (source['headersFromEnv'] === null || typeof source['headersFromEnv'] !== 'object' || Array.isArray(source['headersFromEnv'])) {
-			throw new ScannerConfigError(`"translationSources[${index}].headersFromEnv" must be an object.`);
-		}
-		headersFromEnv = {};
-		const normalizedHeaderNames: Set<string> = new Set<string>();
-		for (const [headerName, environmentName] of Object.entries(source['headersFromEnv'] as Record<string, unknown>)) {
-			if (!HTTP_HEADER_NAME_PATTERN.test(headerName)) {
-				throw new ScannerConfigError(`Invalid HTTP header name "${headerName}".`);
-			}
-			const normalizedHeaderName: string = headerName.toLowerCase();
-			if (normalizedHeaderNames.has(normalizedHeaderName)) {
-				throw new ScannerConfigError(`Duplicate HTTP header name "${headerName}".`);
-			}
-			normalizedHeaderNames.add(normalizedHeaderName);
-			headersFromEnv[headerName] = assertNonEmptyString(environmentName, `translationSources[${index}].headersFromEnv.${headerName}`);
-		}
+		headersFromEnv = parseHeadersFromEnv(source['headersFromEnv'], `translationSources[${index}].headersFromEnv`);
 	}
 
 	return { type: 'http', id, urlTemplate, locales, ...(headersFromEnv ? { headersFromEnv } : {}) };
+}
+
+function parseAutoHttpTranslationSource(source: Record<string, unknown>, index: number): IAutoHttpTranslationSourceConfig {
+	const allowedKeys = new Set(['type', 'id', 'origin', 'locales', 'headersFromEnv']);
+	for (const key of Object.keys(source)) {
+		if (!allowedKeys.has(key)) {
+			throw new ScannerConfigError(
+				`Unknown auto-http translation source key "${key}" at index ${index}. Allowed keys: ${[...allowedKeys].join(', ')}.`
+			);
+		}
+	}
+	const parsed: IAutoHttpTranslationSourceConfig = { type: 'auto-http' };
+	if (source['id'] !== undefined) parsed.id = assertNonEmptyString(source['id'], `translationSources[${index}].id`);
+	if (source['origin'] !== undefined) {
+		const origin = assertNonEmptyString(source['origin'], `translationSources[${index}].origin`);
+		let parsedOrigin: URL;
+		try {
+			parsedOrigin = new URL(origin);
+		} catch {
+			throw new ScannerConfigError(`"translationSources[${index}].origin" must be a valid absolute HTTP(S) origin.`);
+		}
+		if (!['http:', 'https:'].includes(parsedOrigin.protocol) || parsedOrigin.username || parsedOrigin.password ||
+			parsedOrigin.pathname !== '/' || parsedOrigin.search || parsedOrigin.hash) {
+			throw new ScannerConfigError(`"translationSources[${index}].origin" must be an HTTP(S) origin without credentials, path, query, or fragment.`);
+		}
+		parsed.origin = parsedOrigin.origin;
+	}
+	if (source['locales'] !== undefined) parsed.locales = parseLocales(source['locales'], `translationSources[${index}].locales`);
+	if (source['headersFromEnv'] !== undefined) {
+		parsed.headersFromEnv = parseHeadersFromEnv(source['headersFromEnv'], `translationSources[${index}].headersFromEnv`);
+	}
+	return parsed;
 }
 
 function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
@@ -96,6 +138,13 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 			identifiers.add(parsed.id);
 			return parsed;
 		}
+		if (source['type'] === 'auto-http') {
+			const parsed = parseAutoHttpTranslationSource(source, index);
+			const resolvedId = parsed.id ?? `auto-http-${index + 1}`;
+			if (identifiers.has(resolvedId)) throw new ScannerConfigError(`Duplicate translation source id "${resolvedId}".`);
+			identifiers.add(resolvedId);
+			return parsed;
+		}
 
 		const allowedKeys = new Set(['type', 'id', 'includeGlobs']);
 		for (const key of Object.keys(source)) {
@@ -108,7 +157,7 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 
 		if (source['type'] !== 'filesystem') {
 			throw new ScannerConfigError(
-				`"translationSources[${index}].type" must be "filesystem" or "http".`
+				`"translationSources[${index}].type" must be "filesystem", "http", or "auto-http".`
 			);
 		}
 
