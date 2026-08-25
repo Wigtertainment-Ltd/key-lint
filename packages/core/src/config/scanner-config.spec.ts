@@ -24,6 +24,30 @@ describe('translationSources config', () => {
 		expect(DEFAULT_SCANNER_CONFIG.translationSources).toEqual([{ type: 'filesystem' }]);
 	});
 
+	it('validates auto-http sources without requiring values that may be detected', () => {
+		const overrides = parseScannerConfigOverrides({
+			translationSources: [{
+				type: 'auto-http',
+				origin: 'https://app.example.com',
+				locales: ['de', 'en'],
+				headersFromEnv: { Authorization: 'KEYLINT_TRANSLATION_AUTH' }
+			}]
+		});
+
+		expect(overrides.translationSources).toEqual([{
+			type: 'auto-http',
+			origin: 'https://app.example.com',
+			locales: ['de', 'en'],
+			headersFromEnv: { Authorization: 'KEYLINT_TRANSLATION_AUTH' }
+		}]);
+		expect(() => parseScannerConfigOverrides({
+			translationSources: [{ type: 'auto-http', origin: 'https://example.com/path' }]
+		})).toThrowError(/without credentials, path, query, or fragment/);
+		expect(() => parseScannerConfigOverrides({
+			translationSources: [{ type: 'auto-http', locales: [] }]
+		})).toThrowError(/at least one valid/);
+	});
+
 	it('parses ordered filesystem sources and trims identifiers', () => {
 		const overrides = parseScannerConfigOverrides({
 			translationSources: [
@@ -42,7 +66,7 @@ describe('translationSources config', () => {
 		expect(() => parseScannerConfigOverrides({ translationSources: [] })).toThrowError(/non-empty array/);
 		expect(() => parseScannerConfigOverrides({
 			translationSources: [{ type: 'ftp' }]
-		})).toThrowError(/must be "filesystem" or "http"/);
+		})).toThrowError(/must be "filesystem", "http", or "auto-http"/);
 		expect(() => parseScannerConfigOverrides({
 			translationSources: [
 				{ type: 'filesystem', id: 'same' },

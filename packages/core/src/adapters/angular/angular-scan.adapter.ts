@@ -438,6 +438,9 @@ export const angularScanAdapter: IScanAdapter = {
 				resources.push(...sourceResources);
 				continue;
 			}
+			if (source.type === 'auto-http') {
+				throw new Error('auto-http translation sources must be resolved before resource collection.');
+			}
 
 			const files = await collectFilesystemTranslationFiles(
 				context,

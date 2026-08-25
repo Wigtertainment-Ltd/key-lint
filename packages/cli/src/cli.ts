@@ -1,7 +1,8 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { normalizePath, IProjectScanResult, runScan, ScannerConfigError } from '@key-lint/core';
+import { normalizePath, IProjectScanResult, redactAutoHttpUrlTemplate, runScan, ScannerConfigError } from '@key-lint/core';
+import { analyzeProjectTranslationLoaders, expandAutoHttpTranslationSources, formatAutoHttpCandidate } from '@key-lint/core/detection';
 import { loadScannerConfig, NodeFileSystemAdapter, NodeRemoteTranslationFetcher } from '@key-lint/core/node';
 
 import { parseCliArgs, USAGE } from './args.js';
@@ -93,13 +94,26 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		const projectRoot = resolve(process.cwd(), options.projectPath);
 		await assertDirectory(projectRoot);
 
-		const { config, configFilePath } = await loadScannerConfig({
+		const loaded = await loadScannerConfig({
 			projectRoot,
 			configPath: options.configPath,
 			overrides: options.ignoreKeys.length > 0 ? { ignoreKeys: options.ignoreKeys } : {}
 		});
-
+		let config = loaded.config;
+		const configFilePath = loaded.configFilePath;
 		const fs = new NodeFileSystemAdapter(config.guardrails);
+		if (config.translationSources?.some((source) => source.type === 'auto-http')) {
+			if (!options.allowNetwork) {
+				throw new CliUsageError('auto-http translation sources require --allow-network. No request was made.');
+			}
+			const analysis = await analyzeProjectTranslationLoaders(projectRoot, fs, config);
+			const expanded = expandAutoHttpTranslationSources(config.translationSources, analysis);
+			config = { ...config, translationSources: expanded.translationSources };
+			for (const resolved of expanded.resolved) {
+				io.stderr(`Resolved auto-http source ${resolved.sourceIndex + 1}: ${formatAutoHttpCandidate(resolved.candidate, resolved.candidateIndex)}\n`);
+				io.stderr(`Locales: ${resolved.sources[0]?.locales.join(', ')}; endpoints: ${resolved.sources.map((source) => redactAutoHttpUrlTemplate(source.urlTemplate)).join(', ')}\n`);
+			}
+		}
 		const remoteTranslations = {
 			allowNetwork: options.allowNetwork,
 			fetcher: options.allowNetwork ? new NodeRemoteTranslationFetcher() : undefined,

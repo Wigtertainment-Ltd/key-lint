@@ -21,3 +21,5 @@ export * from './util/translation-json.util.js';
 export * from './util/translation-matrix.util.js';
 export * from './util/translation-resource.util.js';
 export * from './config/config.interfaces.js';
+export * from './detection/auto-http-source-resolver.js';
+export type * from './detection/loader-detection.interfaces.js';

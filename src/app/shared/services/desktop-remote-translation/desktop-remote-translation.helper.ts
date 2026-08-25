@@ -5,7 +5,13 @@ export function cloneDraft(source: IDesktopTranslationSourceDraft): IDesktopTran
 		...source,
 		includeGlobs: [...source.includeGlobs],
 		locales: [...source.locales],
-		headers: source.headers.map((header) => ({ ...header }))
+		headers: source.headers.map((header) => ({ ...header })),
+		autoCandidates: source.autoCandidates.map((candidate) => ({
+			...candidate,
+			urlTemplates: [...candidate.urlTemplates],
+			locales: [...candidate.locales]
+		})),
+		autoDiagnostics: source.autoDiagnostics.map((diagnostic) => ({ ...diagnostic, location: { ...diagnostic.location } }))
 	};
 }
 

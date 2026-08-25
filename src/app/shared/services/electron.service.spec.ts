@@ -29,6 +29,7 @@ describe('ElectronService preload bridge', () => {
 			'readFile',
 			'writeFile',
 			'readDirectory',
+			'analyzeTranslationLoaders',
 			'fetchTranslationResource',
 			'endTranslationScan'
 		]);
@@ -39,6 +40,7 @@ describe('ElectronService preload bridge', () => {
 		bridge.readFile.and.resolveTo('{}');
 		bridge.writeFile.and.resolveTo();
 		bridge.readDirectory.and.resolveTo([]);
+		bridge.analyzeTranslationLoaders.and.resolveTo({ candidates: [], diagnostics: [], sourceFiles: [] });
 		bridge.fetchTranslationResource.and.resolveTo({
 			ok: true,
 			value: { body: '{}', finalUrl: 'https://example.com/en.json' }
@@ -55,6 +57,7 @@ describe('ElectronService preload bridge', () => {
 		expect(await service.readFile('C:/project/en.json')).toBe('{}');
 		await service.writeFile('C:/project/de.json', '{}');
 		expect(await service.readDirectory('C:/project')).toEqual([]);
+		expect(await service.analyzeTranslationLoaders([])).toEqual({ candidates: [], diagnostics: [], sourceFiles: [] });
 		const remoteRequest: IKeyLintTranslationFetchRequest = {
 			scanId: 'scan-1',
 			method: 'GET',

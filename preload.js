@@ -9,6 +9,7 @@ const channels = Object.freeze({
 	readFile: 'keylint:fs:read-file',
 	writeFile: 'keylint:fs:write-file',
 	readDirectory: 'keylint:fs:read-directory',
+	analyzeTranslationLoaders: 'keylint:translations:analyze-loaders',
 	fetchTranslationResource: 'keylint:translations:fetch-resource',
 	endTranslationScan: 'keylint:translations:end-scan'
 });
@@ -21,6 +22,7 @@ contextBridge.exposeInMainWorld('keyLint', Object.freeze({
 	readFile: (filePath) => ipcRenderer.invoke(channels.readFile, filePath),
 	writeFile: (filePath, content) => ipcRenderer.invoke(channels.writeFile, filePath, content),
 	readDirectory: (directoryPath) => ipcRenderer.invoke(channels.readDirectory, directoryPath),
+	analyzeTranslationLoaders: (files) => ipcRenderer.invoke(channels.analyzeTranslationLoaders, files),
 	fetchTranslationResource: (request) => ipcRenderer.invoke(channels.fetchTranslationResource, request),
 	endTranslationScan: (scanId) => ipcRenderer.invoke(channels.endTranslationScan, scanId)
 }));

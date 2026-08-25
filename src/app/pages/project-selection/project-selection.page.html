@@ -120,16 +120,17 @@
 						<div class="source-add-actions">
 							<button type="button" class="reset-settings-btn" (click)="addFilesystemSource()">Add local</button>
 							<button type="button" class="reset-settings-btn" (click)="addHttpSource()">Add HTTP</button>
+							<button type="button" class="reset-settings-btn" (click)="addAutoHttpSource()">Detect HTTP</button>
 						</div>
 					</div>
 
 					<div class="source-list">
 						@for (source of translationSources; track source.draftId; let sourceIndex = $index) {
-							<article class="source-card" [class.remote]="source.type === 'http'">
+							<article class="source-card" [class.remote]="source.type !== 'filesystem'">
 								<header class="source-card-header">
 									<div>
 										<span class="source-order">{{ sourceIndex + 1 }}</span>
-										<strong>{{ source.type === 'http' ? 'HTTP source' : 'Filesystem source' }}</strong>
+										<strong>{{ source.type === 'filesystem' ? 'Filesystem source' : source.type === 'http' ? 'HTTP source' : 'Detected HTTP source' }}</strong>
 										@if (source.configured) { <small>Project configuration</small> }
 									</div>
 									<div class="source-actions">
@@ -141,7 +142,7 @@
 
 								<div class="source-fields">
 									<label class="setting-field">
-										<span class="setting-label">Source identifier{{ source.type === 'filesystem' ? ' (optional)' : '' }}</span>
+										<span class="setting-label">Source identifier{{ source.type !== 'http' ? ' (optional)' : '' }}</span>
 										<input type="text" [value]="source.id" (input)="onSourceIdInput(source.draftId, ($any($event.target).value ?? '').toString())" />
 									</label>
 
@@ -151,12 +152,45 @@
 											<input type="text" [value]="source.includeGlobs.join(', ')" placeholder="src/assets/i18n/**/*.json" (input)="onSourceGlobsInput(source.draftId, ($any($event.target).value ?? '').toString())" />
 										</label>
 									} @else {
+										@if (source.type === 'http') {
 										<label class="setting-field full-width">
 											<span class="setting-label">URL template</span>
 											<input type="url" [value]="source.urlTemplate" placeholder="https://api.example.com/i18n/{locale}.json" (input)="onSourceUrlInput(source.draftId, ($any($event.target).value ?? '').toString())" />
 										</label>
+										} @else {
+											<label class="setting-field full-width">
+												<span class="setting-label">Origin for relative detected URLs (optional)</span>
+												<input type="url" [value]="source.origin" placeholder="https://app.example.com" (input)="onSourceOriginInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+											</label>
+											@if (source.autoCandidates.length) {
+												<label class="setting-field full-width">
+													<span class="setting-label">Detected loader candidate</span>
+													<select [value]="source.selectedCandidateIndex ?? ''" (change)="onAutoCandidateSelected(source.draftId, ($any($event.target).value ?? '').toString())">
+														<option value="" disabled>Select a candidate</option>
+														@for (candidate of source.autoCandidates; track candidate.index) {
+															<option [value]="candidate.index">{{ candidate.framework }} / {{ candidate.api }} — {{ candidate.location }}</option>
+														}
+													</select>
+												</label>
+												@for (candidate of source.autoCandidates; track candidate.index) {
+													@if (candidate.index === source.selectedCandidateIndex) {
+														<div class="settings-state full-width">
+															<strong>{{ candidate.framework }} / {{ candidate.api }}</strong>
+															<div>Location: {{ candidate.location }}</div>
+															<div>Endpoints: {{ candidate.urlTemplates.join(', ') }}</div>
+															<div>Detected locales: {{ candidate.locales.join(', ') || 'none' }}</div>
+														</div>
+													}
+												}
+											} @else {
+												<p class="settings-state error full-width">No compatible loader candidate detected. Use an explicit HTTP source.</p>
+											}
+											@for (diagnostic of source.autoDiagnostics; track diagnostic.code + diagnostic.location.filePath + diagnostic.location.line) {
+												<p class="settings-state warning full-width">{{ diagnostic.code }} — {{ diagnostic.message }} ({{ diagnostic.location.filePath }}:{{ diagnostic.location.line }})</p>
+											}
+										}
 										<label class="setting-field full-width">
-											<span class="setting-label">Locales (comma separated)</span>
+											<span class="setting-label">Locales (comma separated{{ source.type === 'auto-http' ? ', optional override' : '' }})</span>
 											<input type="text" [value]="source.locales.join(', ')" placeholder="de, en" (input)="onSourceLocalesInput(source.draftId, ($any($event.target).value ?? '').toString())" />
 										</label>
 

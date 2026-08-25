@@ -17,8 +17,14 @@ declare global {
 		readFile(filePath: string): Promise<string>;
 		writeFile(filePath: string, content: string): Promise<void>;
 		readDirectory(directoryPath: string): Promise<IKeyLintDirectoryEntry[]>;
+		analyzeTranslationLoaders(files: IKeyLintLoaderAnalysisFile[]): Promise<unknown>;
 		fetchTranslationResource(request: IKeyLintTranslationFetchRequest): Promise<IKeyLintTranslationFetchResult>;
 		endTranslationScan(scanId: string): Promise<IKeyLintTranslationEndResult>;
+	}
+
+	interface IKeyLintLoaderAnalysisFile {
+		filePath: string;
+		content: string;
 	}
 
 	interface IKeyLintTranslationFetchRequest {
