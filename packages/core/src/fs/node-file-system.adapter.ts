@@ -10,6 +10,11 @@ import { IScannerGuardrails } from '../config/config.interfaces.js';
 
 export type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-system-warning.model.js';
 
+function isAbsoluteGlob(pattern: string): boolean {
+	const normalized = normalizePath(pattern);
+	return normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized);
+}
+
 /**
  * Filesystem adapter for headless Node runtimes (CLI, CI).
  * Enforces the scanner guardrails and never follows symlinks, so a scan can
@@ -40,6 +45,10 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 	async listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
 		const rootAbsolute = resolve(projectRoot);
 		const normalizedRoot = normalizePath(rootAbsolute);
+		const absoluteIncludeGlobs = includeGlobs.filter(isAbsoluteGlob);
+		const relativeIncludeGlobs = includeGlobs.filter((pattern) => !isAbsoluteGlob(pattern));
+		const absoluteExcludeGlobs = excludeGlobs.filter(isAbsoluteGlob);
+		const relativeExcludeGlobs = excludeGlobs.filter((pattern) => !isAbsoluteGlob(pattern));
 		const results: string[] = [];
 		const stack: string[] = [rootAbsolute];
 
@@ -78,7 +87,7 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 				}
 
 				if (entry.isDirectory()) {
-					if (matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativePath, excludeGlobs)) {
+					if (matchesAny(normalizedFullPath, absoluteExcludeGlobs) || matchesAny(relativePath, relativeExcludeGlobs)) {
 						continue;
 					}
 
@@ -91,9 +100,9 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 				}
 
 				const included =
-					matchesAny(normalizedFullPath, includeGlobs) || matchesAny(relativePath, includeGlobs);
+					matchesAny(normalizedFullPath, absoluteIncludeGlobs) || matchesAny(relativePath, relativeIncludeGlobs);
 				const excluded =
-					matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativePath, excludeGlobs);
+					matchesAny(normalizedFullPath, absoluteExcludeGlobs) || matchesAny(relativePath, relativeExcludeGlobs);
 
 				if (!included || excluded) {
 					continue;

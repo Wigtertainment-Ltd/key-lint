@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseCliArgs } from './args.js';
-import { runCli, ICliIo } from './cli.js';
+import { runCli } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
+import { ICliIo } from './cli.interfaces.js';
 
 const FIXTURE_ROOT = fileURLToPath(
 	new URL('../../core/test/fixtures/angular/ngx-translate-json/kitchen-sink', import.meta.url)
@@ -46,7 +47,7 @@ interface IJsonReport {
 	schemaVersion: number;
 	severityCounts: { error: number; warning: number; info: number };
 	metadata: { baseLocale?: string; baseLocaleSelectionSource?: string };
-	findings: Array<{ key: string; status: string; severity: string; language: string | null }>;
+	findings: { key: string; status: string; severity: string; language: string | null }[];
 }
 
 function parseJsonReport(io: ICapturedIo): IJsonReport {
@@ -292,9 +293,12 @@ describe('runCli', () => {
 
 			expect(exitCode).toBe(EXIT_OK);
 			expect(fetch).toHaveBeenCalledTimes(1);
-			expect(fetch.mock.calls[0]?.[1]).toMatchObject({
-				headers: { Authorization: 'Bearer test-secret' }
-			});
+			expect(fetch).toHaveBeenCalledWith(
+				new URL('https://translations.example/en.json'),
+				expect.objectContaining({
+					headers: { Authorization: 'Bearer test-secret' }
+				})
+			);
 			expect(report.metadata).toMatchObject({ translationReadOnly: true, translationFileCount: 0 });
 		} finally {
 			delete process.env[environmentName];
@@ -328,7 +332,10 @@ describe('runCli', () => {
 
 			expect(exitCode).toBe(EXIT_OK);
 			expect(fetch).toHaveBeenCalledTimes(1);
-			expect(fetch.mock.calls[0]?.[0].toString()).toBe('https://app.example/ngx/en.json');
+			expect(fetch).toHaveBeenCalledWith(
+				new URL('https://app.example/ngx/en.json'),
+				expect.objectContaining({ method: 'GET' })
+			);
 			expect(io.err.join('')).toContain('ngx-translate');
 			expect(io.err.join('')).toContain('ngx.config.ts');
 		} finally {
@@ -345,7 +352,11 @@ describe('runCli', () => {
 			const exitCode = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
 
 			expect(exitCode).toBe(EXIT_OK);
-			expect(fetch.mock.calls[0]?.[0].toString()).toBe('https://translations.example/transloco/de.json');
+			expect(fetch).toHaveBeenCalledTimes(1);
+			expect(fetch).toHaveBeenCalledWith(
+				new URL('https://translations.example/transloco/de.json'),
+				expect.objectContaining({ method: 'GET' })
+			);
 			expect(io.err.join('')).toContain('transloco');
 			expect(io.err.join('')).toContain('transloco.config.ts');
 		} finally {
