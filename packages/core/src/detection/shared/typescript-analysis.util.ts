@@ -1,13 +1,7 @@
 import ts from 'typescript';
 
 import { ILoaderAnalysisSourceFile, ILoaderResourceTemplate, ILoaderSourceLocation } from '../loader-detection.interfaces.js';
-import {
-	IAnalysisContext,
-	IConstantDeclaration,
-	IImportedSymbol,
-	IResolvedExpression,
-	IStaticExpressionFailure
-} from './typescript-analysis.interfaces.js';
+import { IAnalysisContext, IConstantDeclaration, IImportedSymbol, IResolvedExpression, IStaticExpressionFailure } from './typescript-analysis.interfaces.js';
 
 export function unwrapExpression(expression: ts.Expression): ts.Expression {
 	let current = expression;

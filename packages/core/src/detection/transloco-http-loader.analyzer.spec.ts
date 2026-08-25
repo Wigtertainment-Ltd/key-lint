@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import { analyzeTranslocoHttpLoaders } from './transloco-http-loader.analyzer.js';

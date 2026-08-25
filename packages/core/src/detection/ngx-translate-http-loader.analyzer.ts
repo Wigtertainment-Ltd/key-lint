@@ -1,29 +1,12 @@
 import ts from 'typescript';
 
 import {
-	ILoaderAnalysisSourceFile,
-	ILoaderDetectionDiagnostic,
-	ILoaderResourceTemplate,
-	ITranslationLoaderAnalysisResult,
-	ITranslationLoaderCandidate
+	ILoaderAnalysisSourceFile, ILoaderDetectionDiagnostic, ILoaderResourceTemplate, ITranslationLoaderAnalysisResult, ITranslationLoaderCandidate
 } from './loader-detection.interfaces.js';
 import { IAnalysisContext, IStaticExpressionFailure } from './shared/typescript-analysis.interfaces.js';
 import {
-	classifyStaticExpression,
-	collectAnalysisContext,
-	collectNamedLiteralStringArrays,
-	conditionalAncestor,
-	findProperty,
-	locationOf,
-	propertyExpression,
-	resolveExpression,
-	resolveFactoryDeclarations,
-	resolveImportedSymbol,
-	resolveStaticString,
-	templateResource,
-	uniqueDiagnostics,
-	unsafeObjectElement,
-	unwrapExpression
+	classifyStaticExpression, collectAnalysisContext, collectNamedLiteralStringArrays, conditionalAncestor, findProperty, locationOf, propertyExpression, resolveExpression,
+	resolveFactoryDeclarations, resolveImportedSymbol, resolveStaticString, templateResource, uniqueDiagnostics, unsafeObjectElement, unwrapExpression
 } from './shared/typescript-analysis.util.js';
 
 const HTTP_LOADER_MODULE = '@ngx-translate/http-loader';

@@ -1,29 +1,12 @@
 import ts from 'typescript';
 
 import {
-	ILoaderAnalysisSourceFile,
-	ILoaderDetectionDiagnostic,
-	ILoaderResourceTemplate,
-	ITranslationLoaderAnalysisResult,
-	ITranslationLoaderCandidate
+	ILoaderAnalysisSourceFile, ILoaderDetectionDiagnostic, ILoaderResourceTemplate, ITranslationLoaderAnalysisResult, ITranslationLoaderCandidate
 } from './loader-detection.interfaces.js';
 import { IAnalysisContext, IStaticExpressionFailure } from './shared/typescript-analysis.interfaces.js';
 import {
-	classifyStaticExpression,
-	collectAnalysisContext,
-	collectNamedLiteralStringArrays,
-	conditionalAncestor,
-	findProperty,
-	locationOf,
-	propertyExpression,
-	resolveClassDeclaration,
-	resolveExpression,
-	resolveImportedSymbol,
-	resolveStaticString,
-	templateResource,
-	uniqueDiagnostics,
-	unsafeObjectElement,
-	unwrapExpression
+	classifyStaticExpression, collectAnalysisContext, collectNamedLiteralStringArrays, conditionalAncestor, findProperty, locationOf, propertyExpression, resolveClassDeclaration,
+	resolveExpression, resolveImportedSymbol, resolveStaticString, templateResource, uniqueDiagnostics, unsafeObjectElement, unwrapExpression
 } from './shared/typescript-analysis.util.js';
 
 const TRANSLOCO_MODULES = new Set(['@jsverse/transloco', '@ngneat/transloco']);
@@ -137,11 +120,7 @@ function readConfigLocales(object: ts.ObjectLiteralExpression, context: IAnalysi
 	for (const failure of parsed.failures) diagnostics.push(diagnosticForFailure(failure, context));
 }
 
-function collectRegistrations(
-	contexts: IAnalysisContext[],
-	locales: string[],
-	diagnostics: ILoaderDetectionDiagnostic[]
-): IRegisteredLoader[] {
+function collectRegistrations(contexts: IAnalysisContext[], locales: string[], diagnostics: ILoaderDetectionDiagnostic[]): IRegisteredLoader[] {
 	const registrations: IRegisteredLoader[] = [];
 	for (const context of contexts) {
 		const visit = (node: ts.Node): void => {
