@@ -20,9 +20,9 @@ export interface ILoaderResourceTemplate {
 }
 
 export interface ITranslationLoaderCandidate {
-	framework: 'ngx-translate';
+	framework: 'ngx-translate' | 'transloco';
 	loader: 'http';
-	api: 'provideTranslateHttpLoader' | 'TranslateHttpLoader';
+	api: 'provideTranslateHttpLoader' | 'TranslateHttpLoader' | 'TranslocoLoader';
 	confidence: 'deterministic';
 	resources: ILoaderResourceTemplate[];
 	locales: string[];
@@ -39,7 +39,16 @@ export interface ILoaderDetectionDiagnostic {
 		| 'ngx-http-ambiguous-reference'
 		| 'ngx-http-unsupported-transformation'
 		| 'ngx-http-unsupported-expression'
-		| 'ngx-http-unsupported-factory';
+		| 'ngx-http-unsupported-factory'
+		| 'transloco-http-dynamic-environment'
+		| 'transloco-http-conditional-url'
+		| 'transloco-http-ambiguous-merge'
+		| 'transloco-http-ambiguous-reference'
+		| 'transloco-http-unsupported-transformation'
+		| 'transloco-http-unsupported-expression'
+		| 'transloco-http-unsupported-provider'
+		| 'transloco-http-unsupported-scope'
+		| 'transloco-http-interceptor';
 	category: LoaderDiagnosticCategory;
 	message: string;
 	location: ILoaderSourceLocation;
