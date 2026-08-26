@@ -39,6 +39,10 @@ inputs:
     description: Append the Markdown report to the GitHub job summary.
     required: false
     default: 'true'
+  allow-network:
+    description: Explicitly allow configured HTTP translation requests. Project configuration alone cannot enable networking.
+    required: false
+    default: 'false'
 
 outputs:
   exit-code:
@@ -74,6 +78,7 @@ runs:
         INPUT_IGNORE: ${{ inputs.ignore }}
         INPUT_REPORT_DIRECTORY: ${{ inputs.report-directory }}
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
+        INPUT_ALLOW_NETWORK: ${{ inputs.allow-network }}
       run: |
         set -euo pipefail
 
@@ -86,6 +91,12 @@ runs:
         args+=(--output "json=${json_report}")
         args+=(--output "markdown=${markdown_report}")
         args+=(--max-errors "${INPUT_MAX_ERRORS}")
+
+        case "${INPUT_ALLOW_NETWORK}" in
+          true) args+=(--allow-network) ;;
+          false) ;;
+          *) echo "allow-network must be 'true' or 'false'." >&2; exit 2 ;;
+        esac
 
         if [ -n "${INPUT_CONFIG}" ]; then
           args+=(--config "${INPUT_CONFIG}")

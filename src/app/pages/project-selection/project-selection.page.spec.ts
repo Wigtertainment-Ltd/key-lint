@@ -22,6 +22,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		scanService = jasmine.createSpyObj<ScanOrchestrationService>('ScanOrchestrationService', [
 			'reset',
 			'setNextScanConfigOverrides',
+			'setNextDetectedLoaderTypes',
 			'authorizeNextRemoteScan'
 		]);
 		configService = jasmine.createSpyObj<DesktopScannerConfigService>('DesktopScannerConfigService', ['load']);

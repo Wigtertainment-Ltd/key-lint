@@ -148,6 +148,7 @@ describe('DesktopRemoteTranslationService', () => {
 		expect(prepared.translationSources).toEqual([{
 			type: 'http', id: 'auto-http-1', urlTemplate: 'https://app.example/i18n/{locale}.json', locales: ['de']
 		}]);
+		expect(prepared.detectedLoaderTypes).toEqual(['ngx-translate']);
 		expect(prepared.confirmation).toEqual(jasmine.objectContaining({ expectedRequestCount: 1 }));
 	});
 });

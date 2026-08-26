@@ -31,6 +31,16 @@ public disclosure. We are happy to credit reporters in the advisory.
 ## Scope notes
 
 KeyLint reads source files and translation files from a directory you point it at, and
-writes report files. It does not transmit project contents anywhere. Reports may
+writes report files. It never uploads project files. Reports may
 contain translation keys and file paths from the scanned project – treat generated
 artifacts (`keylint-report/`, job summaries) accordingly when publishing CI logs.
+
+Filesystem-only scans perform no network requests. KeyLint contacts configured
+translation endpoints only after explicit runtime permission: `--allow-network`
+for the CLI, `allow-network: 'true'` for the GitHub Action, or per-scan confirmation
+in the desktop app. Project configuration alone cannot grant that permission.
+Requests are GET-only and bounded by timeout, redirect, count and response-size
+limits. Query values are redacted, authentication headers come from runtime
+environment variables or temporary desktop fields, and those values are excluded
+from reports, errors and persistent desktop state. Users remain responsible for
+trusting configured endpoints, especially plain HTTP and private/local targets.

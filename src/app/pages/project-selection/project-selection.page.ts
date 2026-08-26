@@ -285,6 +285,7 @@ export class ProjectSelectionPage implements OnInit {
 			guardrails: this.buildGuardrailOverrides(),
 			translationSources: prepared.translationSources
 		});
+		this.scanOrchestrationService.setNextDetectedLoaderTypes(prepared.detectedLoaderTypes);
 		if (authorizeRemote) {
 			this.scanOrchestrationService.authorizeNextRemoteScan(prepared.environment);
 		}

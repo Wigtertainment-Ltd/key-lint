@@ -93,3 +93,6 @@ enforces protocol, method, redirect, resource and serialization safety.
 
 Diagnostics redact all query values. Header values never appear in errors or IPC
 error envelopes. The main process does not log transport requests or failures.
+Successful scan metadata contains only source/request counts, loader framework
+identifiers and the read-only flag. Temporary values are excluded from scan
+results and persistent project history before and after authenticated scans.

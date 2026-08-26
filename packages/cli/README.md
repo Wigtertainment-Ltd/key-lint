@@ -117,8 +117,17 @@ KEYLINT_TRANSLATION_AUTH="Bearer ..." keylint scan . --allow-network
 A missing environment variable, request failure, invalid response, timeout or
 guardrail violation stops the scan with exit code `2` and no partial report.
 Remote translations are read-only. Requests use GET, a 15-second total timeout,
-at most three redirects and the configured `maxFileSizeBytes`; query values are
-redacted from errors.
+at most three redirects, at most 100 distinct URLs per scan and the configured
+`maxFileSizeBytes`; duplicate requests are reused and query values are redacted
+from errors. Plain HTTP and private/local endpoints are higher-risk targets.
+
+Use `{ "type": "auto-http", "origin": "https://app.example" }` to statically
+detect one ngx-translate or Transloco HTTP loader. `origin` is required only for
+relative detected URLs; `locales` may override static loader locales. Zero or
+multiple candidates, dynamic expressions, interceptors and unsupported patterns
+stop before networking and require an explicit `http` source. Later configured
+sources recursively override earlier ones; arrays, primitives, `null` and type
+conflicts replace earlier values.
 
 ## Reporters
 
@@ -140,6 +149,10 @@ Schema version 2 adds placeholder summary counters and structured
 `placeholderDetails` on placeholder findings. Mustache placeholders are checked
 automatically; `ignoreKeys` suppresses their findings in the same way as other
 key-specific findings.
+
+Remote integration adds only backward-compatible metadata keys for source and
+request counts, detected loader types and read-only state. Every reporter is
+post-processed to remove configured authentication environment values.
 
 ### Markdown reporter
 

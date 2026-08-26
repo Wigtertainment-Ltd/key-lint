@@ -56,6 +56,7 @@ export interface IRemoteScanConfirmation {
 
 export interface IPreparedDesktopRemoteScan {
 	translationSources: ITranslationSourceConfig[];
+	detectedLoaderTypes: ('ngx-translate' | 'transloco')[];
 	environment: Record<string, string>;
 	confirmation: IRemoteScanConfirmation;
 }

@@ -43,6 +43,7 @@ export class ScanOrchestrationService {
 	private readonly desktopScannerConfigService: DesktopScannerConfigService = inject(DesktopScannerConfigService);
 	private activeScannerConfig: IScannerConfig = DEFAULT_SCANNER_CONFIG;
 	private nextScanConfigOverrides: IScannerConfigOverrides = {};
+	private nextDetectedLoaderTypes: ('ngx-translate' | 'transloco')[] = [];
 	private nextRemoteEnvironment?: Record<string, string>;
 	private activeRemoteEnvironment?: Record<string, string>;
 	private remoteScanApproved = false;
@@ -93,6 +94,7 @@ export class ScanOrchestrationService {
 		}
 		this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
 		this.nextScanConfigOverrides = {};
+		this.nextDetectedLoaderTypes = [];
 		this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
 		this.stateSubject.next({ state: 'idle' });
 	}
@@ -108,6 +110,10 @@ export class ScanOrchestrationService {
 			...overrides,
 			guardrails: overrides.guardrails ? { ...overrides.guardrails } : undefined
 		};
+	}
+
+	setNextDetectedLoaderTypes(loaderTypes: readonly ('ngx-translate' | 'transloco')[]): void {
+		this.nextDetectedLoaderTypes = [...new Set(loaderTypes)];
 	}
 
 	async addTranslationKeyForLocale(locale: string, key: string, value: string, source: TranslationEventSource = 'unknown'): Promise<string> {
@@ -234,6 +240,8 @@ export class ScanOrchestrationService {
 		const executionId = ++this.scanExecutionId;
 		const remoteScanApproved = this.remoteScanApproved;
 		const remoteEnvironment = this.nextRemoteEnvironment ?? {};
+		const detectedLoaderTypes = this.nextDetectedLoaderTypes;
+		this.nextDetectedLoaderTypes = [];
 		this.nextRemoteEnvironment = undefined;
 		this.remoteScanApproved = false;
 		this.activeRemoteEnvironment = remoteEnvironment;
@@ -264,6 +272,7 @@ export class ScanOrchestrationService {
 				projectRoot: normalizedProjectRoot,
 				fs: this.fsAdapter,
 				config: loadedConfig.config,
+				detectedLoaderTypes,
 				remoteTranslations: hasRemoteSources ? {
 					allowNetwork: true,
 					fetcher: remoteFetcher,
