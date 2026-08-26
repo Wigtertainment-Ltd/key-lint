@@ -46,7 +46,16 @@ function createIo(): ICapturedIo {
 interface IJsonReport {
 	schemaVersion: number;
 	severityCounts: { error: number; warning: number; info: number };
-	metadata: { baseLocale?: string; baseLocaleSelectionSource?: string };
+	metadata: {
+		baseLocale?: string;
+		baseLocaleSelectionSource?: string;
+		translationSourceCount?: number;
+		localTranslationSourceCount?: number;
+		remoteTranslationSourceCount?: number;
+		remoteRequestCount?: number;
+		detectedLoaderTypes?: string[];
+		translationReadOnly?: boolean;
+	};
 	findings: { key: string; status: string; severity: string; language: string | null }[];
 }
 
@@ -299,7 +308,15 @@ describe('runCli', () => {
 					headers: { Authorization: 'Bearer test-secret' }
 				})
 			);
-			expect(report.metadata).toMatchObject({ translationReadOnly: true, translationFileCount: 0 });
+			expect(report.metadata).toMatchObject({
+				translationSourceCount: 1,
+				localTranslationSourceCount: 0,
+				remoteTranslationSourceCount: 1,
+				remoteRequestCount: 1,
+				detectedLoaderTypes: [],
+				translationReadOnly: true,
+				translationFileCount: 0
+			});
 		} finally {
 			delete process.env[environmentName];
 			await rm(root, { recursive: true, force: true });
@@ -338,6 +355,7 @@ describe('runCli', () => {
 			);
 			expect(io.err.join('')).toContain('ngx-translate');
 			expect(io.err.join('')).toContain('ngx.config.ts');
+			expect(parseJsonReport(io).metadata.detectedLoaderTypes).toEqual(['ngx-translate']);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -359,6 +377,7 @@ describe('runCli', () => {
 			);
 			expect(io.err.join('')).toContain('transloco');
 			expect(io.err.join('')).toContain('transloco.config.ts');
+			expect(parseJsonReport(io).metadata.detectedLoaderTypes).toEqual(['transloco']);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

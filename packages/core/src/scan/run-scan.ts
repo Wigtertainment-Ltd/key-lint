@@ -31,6 +31,8 @@ export interface IRunScanOptions {
 	registry?: AdapterRegistry;
 	onProgress?: (progress: IScanProgress) => void;
 	remoteTranslations?: IRemoteTranslationRuntime;
+	/** Loader frameworks confirmed by a preceding static auto-http analysis. */
+	detectedLoaderTypes?: readonly ('ngx-translate' | 'transloco')[];
 }
 
 const EMPTY_TRANSLATION_MATRIX: ITranslationMatrix = {
@@ -120,6 +122,15 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 		? rawFindings.filter((finding) => !matchesAny(finding.key, config.ignoreKeys))
 		: rawFindings;
 	const ignoredFindingCount = rawFindings.length - findings.length;
+	const translationSources = config.translationSources ?? [{ type: 'filesystem' as const }];
+	const localTranslationSourceCount = translationSources.filter((source) => source.type === 'filesystem').length;
+	const remoteSources = translationSources.filter((source) => source.type === 'http');
+	const remoteRequestUrls = new Set(
+		remoteSources.flatMap((source) => source.locales.map((locale) =>
+			source.urlTemplate.replace('{locale}', encodeURIComponent(locale))
+		))
+	);
+	const detectedLoaderTypes = [...new Set(options.detectedLoaderTypes ?? [])].sort();
 
 	const finishedAt = new Date();
 	const result: IProjectScanResult = {
@@ -137,6 +148,11 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 			adapterDetectionReason: adapterMatch.detection.reason,
 			adapterDetectionConfidence: adapterMatch.detection.confidence,
 			translationFileCount: translationFiles.length,
+			translationSourceCount: translationSources.length,
+			localTranslationSourceCount,
+			remoteTranslationSourceCount: remoteSources.length,
+			remoteRequestCount: remoteRequestUrls.size,
+			detectedLoaderTypes,
 			translationReadOnly: translationResources?.some((resource) => !resource.writable) ?? false,
 			usedKeyEvidenceCount: usedKeys.length,
 			translationLocaleCount: translationMatrix.locales.length,

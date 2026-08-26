@@ -231,16 +231,20 @@ export class DesktopRemoteTranslationService {
 		this.drafts.forEach((source, index) => {
 			if (source.type === 'auto-http' && source.selectedCandidateIndex !== undefined) selections.set(index, source.selectedCandidateIndex);
 		});
-		const translationSources = this.autoAnalysis
-			? expandAutoHttpTranslationSources(configuredSources, this.autoAnalysis, selections).translationSources
-			: configuredSources;
+		const expanded = this.autoAnalysis
+			? expandAutoHttpTranslationSources(configuredSources, this.autoAnalysis, selections)
+			: undefined;
+		const translationSources = expanded?.translationSources ?? configuredSources;
+		const detectedLoaderTypes = [...new Set(
+			expanded?.resolved.map((item) => item.candidate.framework) ?? []
+		)];
 		const environment: Record<string, string> = {};
 		for (const source of this.drafts) {
 			for (const header of source.headers) {
 				environment[header.environmentName] = header.value;
 			}
 		}
-		return { translationSources, environment, confirmation: this.buildConfirmation(translationSources) };
+		return { translationSources, detectedLoaderTypes, environment, confirmation: this.buildConfirmation(translationSources) };
 	}
 
 	private buildConfirmation(configuredSources: ITranslationSourceConfig[]): IRemoteScanConfirmation {

@@ -22,6 +22,7 @@ npx @key-lint/cli scan . \
 | `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited. |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Replaces `ignoreKeys` from the config file. |
+| `--allow-network` | Explicitly enable configured remote translation requests. Disabled by default. |
 | `--quiet` | No progress output on stderr. |
 | `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
 
@@ -70,6 +71,12 @@ most complete locale overall. A configured locale that is not found is an error.
 
 Precedence: built-in defaults < `package.json` < config file < CLI flags.
 Arrays are replaced, never merged. Unknown keys fail the run.
+
+The GitHub Action exposes the equivalent `allow-network` input, defaulting to
+`false`. For authenticated sources, map header names to environment names in
+configuration and GitHub Secrets to those names in the step environment.
+Credential values are removed before the Action writes reports or a job summary.
+See the [Action reference](../../packages/action/README.md).
 
 ## Pipeline examples
 

@@ -100,11 +100,23 @@ at scan time. Core performs no network I/O itself: callers must explicitly set
 `allowNetwork` and inject an `IRemoteTranslationFetcher`. Remote resources are
 marked read-only, and later sources still override earlier sources recursively.
 
+Automatic sources use `{ "type": "auto-http" }`. A preceding static analysis
+must select exactly one supported ngx-translate or Transloco HTTP loader and
+expand it before `runScan()`. Dynamic project code is never executed;
+unsupported or ambiguous patterns require an explicit `http` source. Relative
+detected URLs also require an `origin` on the automatic source.
+
 The Node transport exported from `@key-lint/core/node` uses GET, a 15-second
 total timeout, at most three redirects, the configured file-size limit and at
 most 100 distinct URLs per scan. Sensitive headers are removed on cross-origin
 redirects, duplicate URLs are fetched once, and query values are redacted from
 diagnostics.
+
+Successful results add backward-compatible safe metadata fields:
+`translationSourceCount`, `localTranslationSourceCount`,
+`remoteTranslationSourceCount`, `remoteRequestCount`, `detectedLoaderTypes` and
+`translationReadOnly`. They contain counts and framework identifiers only—never
+URLs, headers, environment values or credentials.
 
 `resolveScannerConfigSources` also returns `guardrailSources`, identifying the
 winning source (`default`, `package-json`, `config-file` or `override`) for each

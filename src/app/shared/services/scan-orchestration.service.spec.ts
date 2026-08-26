@@ -154,6 +154,7 @@ describe('ScanOrchestrationService translation updates', () => {
 		});
 		const service = TestBed.inject(ScanOrchestrationService);
 		service.authorizeNextRemoteScan({ KEYLINT_AUTH: 'Bearer temporary-secret' });
+		service.setNextDetectedLoaderTypes(['ngx-translate']);
 
 		const result = await service.scanProject('C:/project');
 
@@ -161,6 +162,13 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(remoteRequests[0].headers).toEqual({ Authorization: 'Bearer temporary-secret' });
 		expect(result.metadata?.['translationReadOnly']).toBeTrue();
 		expect(result.metadata?.['translationFileCount']).toBe(0);
+		expect(result.metadata).toEqual(jasmine.objectContaining({
+			translationSourceCount: 1,
+			localTranslationSourceCount: 0,
+			remoteTranslationSourceCount: 1,
+			remoteRequestCount: 1,
+			detectedLoaderTypes: ['ngx-translate']
+		}));
 		expect(result.translationMatrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
 		expect(JSON.stringify(result)).not.toContain('temporary-secret');
 		expect(JSON.stringify(historyService.addEvent.calls.allArgs())).not.toContain('temporary-secret');
@@ -186,6 +194,12 @@ describe('ScanOrchestrationService translation updates', () => {
 
 		expect(result.translationMatrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
 		expect(result.metadata?.['translationReadOnly']).toBeTrue();
+		expect(result.metadata).toEqual(jasmine.objectContaining({
+			translationSourceCount: 2,
+			localTranslationSourceCount: 1,
+			remoteTranslationSourceCount: 1,
+			remoteRequestCount: 1
+		}));
 	});
 
 	it('clears pending remote authorization on reset', async () => {

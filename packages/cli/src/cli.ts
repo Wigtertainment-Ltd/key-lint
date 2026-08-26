@@ -7,7 +7,7 @@ import { loadScannerConfig, NodeFileSystemAdapter, NodeRemoteTranslationFetcher 
 
 import { parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
-import { countSeverities, REPORTERS, IReporterContext } from './reporters/index.js';
+import { countSeverities, redactReporterText, REPORTERS, IReporterContext } from './reporters/index.js';
 import { ICliIo, ICliOptions, CliUsageError } from './cli.interfaces.js';
 
 const defaultIo: ICliIo = {
@@ -56,10 +56,10 @@ function determineExitCode(options: ICliOptions, errors: number, warnings: numbe
 async function emitReports(options: ICliOptions, result: IProjectScanResult, context: IReporterContext, io: ICliIo): Promise<void> {
 	for (const name of options.reporters) {
 		const targetFile = options.outputs.get(name);
-		const output = REPORTERS[name].format(result, {
+		const output = redactReporterText(REPORTERS[name].format(result, {
 			...context,
 			color: context.color && !targetFile
-		});
+		}), context.sensitiveValues ?? []);
 
 		if (targetFile) {
 			await io.writeFile(resolve(targetFile), output.endsWith('\n') ? output : `${output}\n`);
@@ -72,6 +72,7 @@ async function emitReports(options: ICliOptions, result: IProjectScanResult, con
 
 export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<number> {
 	let options: ICliOptions;
+	let sensitiveValues: string[] = [];
 
 	try {
 		options = parseCliArgs(argv);
@@ -102,6 +103,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		let config = loaded.config;
 		const configFilePath = loaded.configFilePath;
 		const fs = new NodeFileSystemAdapter(config.guardrails);
+		let detectedLoaderTypes: ('ngx-translate' | 'transloco')[] = [];
 		if (config.translationSources?.some((source) => source.type === 'auto-http')) {
 			if (!options.allowNetwork) {
 				throw new CliUsageError('auto-http translation sources require --allow-network. No request was made.');
@@ -109,11 +111,17 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 			const analysis = await analyzeProjectTranslationLoaders(projectRoot, fs, config);
 			const expanded = expandAutoHttpTranslationSources(config.translationSources, analysis);
 			config = { ...config, translationSources: expanded.translationSources };
+			detectedLoaderTypes = [...new Set(expanded.resolved.map((item) => item.candidate.framework))];
 			for (const resolved of expanded.resolved) {
 				io.stderr(`Resolved auto-http source ${resolved.sourceIndex + 1}: ${formatAutoHttpCandidate(resolved.candidate, resolved.candidateIndex)}\n`);
 				io.stderr(`Locales: ${resolved.sources[0]?.locales.join(', ')}; endpoints: ${resolved.sources.map((source) => redactAutoHttpUrlTemplate(source.urlTemplate)).join(', ')}\n`);
 			}
 		}
+		sensitiveValues = (config.translationSources ?? [])
+			.filter((source) => source.type === 'http')
+			.flatMap((source) => Object.values(source.headersFromEnv ?? {}))
+			.map((environmentName) => process.env[environmentName])
+			.filter((value): value is string => typeof value === 'string' && value.length > 0);
 		const remoteTranslations = {
 			allowNetwork: options.allowNetwork,
 			fetcher: options.allowNetwork ? new NodeRemoteTranslationFetcher() : undefined,
@@ -124,6 +132,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 			fs,
 			config,
 			remoteTranslations,
+			detectedLoaderTypes,
 			onProgress: (progress) => {
 				if (!options.quiet) {
 					io.stderr(`${progress.message}\n`);
@@ -139,7 +148,8 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 			),
 			color: options.color,
 			thresholds: { maxErrors: options.maxErrors, maxWarnings: options.maxWarnings },
-			counts
+			counts,
+			sensitiveValues
 		};
 
 		await emitReports(options, result, context, io);
@@ -147,11 +157,11 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		return determineExitCode(options, counts.error, counts.warning);
 	} catch (error) {
 		if (error instanceof CliUsageError || error instanceof ScannerConfigError) {
-			io.stderr(`${error.message}\n`);
+			io.stderr(`${redactReporterText(error.message, sensitiveValues)}\n`);
 			return EXIT_USAGE_OR_RUNTIME_ERROR;
 		}
 
-		io.stderr(`${error instanceof Error ? error.message : 'Unknown error during scan.'}\n`);
+		io.stderr(`${redactReporterText(error instanceof Error ? error.message : 'Unknown error during scan.', sensitiveValues)}\n`);
 		return EXIT_USAGE_OR_RUNTIME_ERROR;
 	}
 }

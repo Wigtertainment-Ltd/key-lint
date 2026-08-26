@@ -127,6 +127,14 @@ describe('runScan integration fixtures', () => {
 
 			expect(result.summary).toEqual(expected.summary);
 			expect(normalizedFindings).toEqual(expectedFindings);
+			expect(result.metadata).toMatchObject({
+				translationSourceCount: 1,
+				localTranslationSourceCount: 1,
+				remoteTranslationSourceCount: 0,
+				remoteRequestCount: 0,
+				detectedLoaderTypes: [],
+				translationReadOnly: false
+			});
 		});
 	}
 });

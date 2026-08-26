@@ -154,6 +154,7 @@ keylint scan . \
 | `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings. Default unlimited. |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. |
+| `--allow-network` | Explicitly allow configured HTTP translation requests. Disabled by default. |
 | `--quiet` | No progress output on stderr. |
 | `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
 
@@ -184,6 +185,7 @@ Fail the build the moment a translation key goes missing.
   with:
     path: .
     max-errors: '0'
+    allow-network: 'false'
     ignore: |
       LEGACY.**
 
@@ -197,6 +199,11 @@ Fail the build the moment a translation key goes missing.
 
 The action appends a Markdown summary to the GitHub job summary and exposes
 `exit-code`, `total-findings`, `error-count` and `warning-count` as outputs.
+Remote sources require `allow-network: 'true'`; configuration alone never enables
+traffic. Map authentication headers to environment names in configuration and
+provide their values from GitHub Secrets. See the
+[Action reference](packages/action/README.md) and
+[remote translation guide](docs/remote-translations.md).
 
 ### Docker
 

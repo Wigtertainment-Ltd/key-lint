@@ -12,6 +12,8 @@ export interface IReporterContext {
 		maxWarnings: number;
 	};
 	counts: ISeverityCounts;
+	/** Runtime-only credential values removed after reporter formatting. */
+	sensitiveValues?: readonly string[];
 }
 
 export interface IReporter {
