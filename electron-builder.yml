@@ -60,7 +60,10 @@ linux:
   vendor: Wigtertainment Ltd
   synopsis: Audit Angular translation keys
   description: Desktop tool for auditing i18n translation keys in Angular projects.
-  artifactName: KeyLint-${version}-linux-${arch}.${ext}
+  # electron-builder maps ${arch} to format-specific Linux names (x86_64 for
+  # AppImage and amd64 for DEB). Keep the public release architecture stable
+  # and consistent across both x64 artifacts.
+  artifactName: KeyLint-${version}-linux-x64.${ext}
   target:
     - target: AppImage
       arch:

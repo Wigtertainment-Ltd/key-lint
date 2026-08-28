@@ -220,7 +220,6 @@ jobs:
             - name: Build, sign and notarize macOS artifacts
               timeout-minutes: 60
               env:
-                  DEBUG: electron-builder
                   CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
                   CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
                   APPLE_ID: ${{ secrets.APPLE_ID }}
