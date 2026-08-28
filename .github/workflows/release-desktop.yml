@@ -218,7 +218,9 @@ jobs:
                   done
 
             - name: Build, sign and notarize macOS artifacts
+              timeout-minutes: 60
               env:
+                  DEBUG: electron-builder
                   CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
                   CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
                   APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -287,18 +289,33 @@ jobs:
             - name: Verify Linux artifacts
               shell: bash
               run: |
+                  fail() {
+                    echo "::error::$1" >&2
+                    exit 1
+                  }
+
                   appimage_path="$(find release -maxdepth 1 -name 'KeyLint-*-linux-x64.AppImage' -print -quit)"
                   deb_path="$(find release -maxdepth 1 -name 'KeyLint-*-linux-x64.deb' -print -quit)"
-                  [[ -n "${appimage_path}" && -x "${appimage_path}" ]]
-                  [[ -n "${deb_path}" ]]
-                  "${appimage_path}" --appimage-extract >/dev/null
-                  test -x squashfs-root/AppRun
-                  dpkg-deb --info "${deb_path}" >/dev/null
-                  # Match any desktop-entry path below applications/ and require a literal .desktop suffix.
-                  dpkg-deb --contents "${deb_path}" | grep -q 'applications/.*\.desktop'
-                  # Match the literal icon-theme directory path in the package contents.
-                  dpkg-deb --contents "${deb_path}" | grep -q 'icons/hicolor/'
-                  test -f release/latest-linux.yml
+                  [[ -n "${appimage_path}" ]] || fail "Missing Linux x64 AppImage artifact."
+                  [[ -x "${appimage_path}" ]] || fail "AppImage is not executable: ${appimage_path}"
+                  [[ -n "${deb_path}" ]] || fail "Missing Linux x64 DEB artifact."
+
+                  "${appimage_path}" --appimage-extract >/dev/null \
+                    || fail "Could not extract AppImage: ${appimage_path}"
+                  [[ -x squashfs-root/AppRun ]] \
+                    || fail "Extracted AppImage does not contain an executable AppRun."
+
+                  dpkg-deb --info "${deb_path}" >/dev/null \
+                    || fail "Invalid DEB package: ${deb_path}"
+                  deb_contents="${RUNNER_TEMP}/keylint-deb-contents.txt"
+                  dpkg-deb --contents "${deb_path}" > "${deb_contents}" \
+                    || fail "Could not inspect DEB package contents: ${deb_path}"
+                  grep -Eq 'applications/.*\.desktop$' "${deb_contents}" \
+                    || fail "DEB package does not contain a desktop entry."
+                  grep -q 'icons/hicolor/' "${deb_contents}" \
+                    || fail "DEB package does not contain hicolor icon metadata."
+                  [[ -f release/latest-linux.yml ]] \
+                    || fail "Missing Linux auto-update metadata: release/latest-linux.yml"
 
             - name: Upload Linux artifacts
               uses: actions/upload-artifact@v4
