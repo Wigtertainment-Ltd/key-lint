@@ -211,6 +211,9 @@ The action appends a Markdown summary to the GitHub job summary and exposes
 finding counts plus the generated JSON, Markdown and HTML paths as outputs. The
 `site-directory` output contains only the directly publishable HTML site; JSON
 and Markdown stay outside that directory.
+The [GitHub Pages example](docs/ci/github-actions.yml) publishes that directory
+only from the repository's default branch and keeps pull-request reports as
+ordinary workflow artifacts.
 Remote sources require `allow-network: 'true'`; configuration alone never enables
 traffic. Map authentication headers to environment names in configuration and
 provide their values from GitHub Secrets. See the

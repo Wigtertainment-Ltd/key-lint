@@ -1,8 +1,10 @@
 const { readFile } = require('node:fs/promises');
+const { resolve } = require('node:path');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const actionPath = require.resolve('./action.yml');
+const pagesWorkflowPath = resolve(__dirname, '../../docs/ci/github-actions.yml');
 
 test('network access is disabled by default and forwarded only after explicit opt-in', async () => {
 	const manifest = await readFile(actionPath, 'utf8');
@@ -52,4 +54,26 @@ test('exposes the HTML report and site directory after the CLI finishes', async 
 	assert.ok(invocationOffset >= 0);
 	assert.ok(htmlOutputOffset > invocationOffset);
 	assert.ok(finalExitOffset > htmlOutputOffset);
+});
+
+test('documents a syntax-valid and default-branch-only GitHub Pages deployment', async () => {
+	const workflow = await readFile(pagesWorkflowPath, 'utf8');
+	const prettier = await import('prettier');
+
+	await assert.doesNotReject(() => prettier.format(workflow, { filepath: pagesWorkflowPath }));
+	assert.match(workflow, /uses: actions\/configure-pages@v5/);
+	assert.match(workflow, /uses: actions\/upload-pages-artifact@v4/);
+	assert.match(workflow, /uses: actions\/deploy-pages@v4/);
+	assert.match(workflow, /pages: write/);
+	assert.match(workflow, /id-token: write/);
+	assert.match(workflow, /name: github-pages/);
+	assert.match(workflow, /url: \$\{\{ steps\.deployment\.outputs\.page_url \}\}/);
+	assert.match(workflow, /steps\.i18n\.outputs\.site-directory/);
+	assert.match(workflow, /\[ -f "\$\{HTML_REPORT\}" \]/);
+	assert.match(workflow, /if: always\(\)/);
+	assert.match(workflow, /pull_request:/);
+	assert.match(workflow, /github\.event_name == 'push'/);
+	assert.match(workflow, /github\.event\.repository\.default_branch/g);
+	assert.match(workflow, /uses: actions\/upload-artifact@v4/);
+	assert.match(workflow, /uses: actions\/download-artifact@v4/);
 });
