@@ -168,11 +168,18 @@ published on any static host:
 keylint scan . --output html=keylint-report/keylint.html
 ```
 
-The report includes scan status, metadata, thresholds, summary metrics, scan
-warnings and every finding. Styles are embedded and no external scripts, fonts
-or other assets are loaded. Absolute project roots, source snippets and
-translation values are intentionally omitted; evidence locations are shown
-relative to the scanned project.
+The report includes a responsive KPI dashboard, scan status, metadata,
+thresholds, scan warnings and every finding. Findings can be searched, filtered
+by severity, status and locale, sorted by column and expanded to show all
+evidence locations and structured placeholder details. The most relevant
+available severity is selected initially, while Reset reveals the complete
+result set.
+
+Styles and dashboard behavior are embedded; no external scripts, fonts or other
+assets are loaded. The complete report remains readable without JavaScript and
+includes print and light/dark color-scheme styling. Absolute project roots,
+source snippets and translation values are intentionally omitted; evidence
+locations are shown relative to the scanned project.
 
 ## Docker
 

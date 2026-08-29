@@ -35,12 +35,25 @@ function createResult(projectRoot: string): IProjectScanResult {
 				severity: 'error',
 				message: `Missing <img src=x onerror="alert(1)"> in ${projectRoot}`,
 				language: 'de',
-				evidence: [{
-					filePath: join(projectRoot, 'src', 'app', 'app.component.html'),
-					line: 7,
-					column: 4,
-					snippet: 'PRIVATE SOURCE SNIPPET'
-				}]
+				evidence: [
+					{
+						filePath: join(projectRoot, 'src', 'app', 'app.component.html'),
+						line: 7,
+						column: 4,
+						snippet: 'PRIVATE SOURCE SNIPPET',
+						matchType: 'template'
+					},
+					{
+						filePath: join(projectRoot, 'src', 'app', 'second.component.ts'),
+						line: 12,
+						matchType: '<unsafe-match>'
+					}
+				],
+				placeholderDetails: {
+					required: ['name', '<unsafe-placeholder>'],
+					provided: ['name'],
+					missing: ['<unsafe-placeholder>']
+				}
 			},
 			{
 				id: 'unused',
@@ -82,23 +95,61 @@ function createContext(projectRoot: string): IReporterContext {
 }
 
 describe('htmlReporter', () => {
-	it('renders a standalone failed report with every finding and summary metric', () => {
+	it('renders a standalone stakeholder dashboard with every finding and summary metric', () => {
 		const projectRoot = resolve('fixtures', 'private-project');
 		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
 
 		expect(output).toContain('<!doctype html>');
 		expect(output).toContain('Content-Security-Policy');
+		expect(output).toMatch(/script-src 'sha256-[A-Za-z0-9+/]+=*'/);
+		expect(output).not.toContain("script-src 'unsafe-inline'");
 		expect(output).toContain('<span class="status">failed</span>');
 		expect(output).toContain('Translation keys');
 		expect(output).toContain('Total findings');
+		expect(output).toContain('<dl class="metrics">');
+		expect(output).toContain('metric--error');
 		expect(output).toContain('Findings (3)');
-		expect(output).toContain('<table class="findings-table">');
+		expect(output).toContain('<table class="findings-table" data-default-severity="error">');
 		expect(output).toContain('<col class="col-key">');
 		expect(output).toContain('APP.&lt;unsafe&gt;');
 		expect(output).toContain('src/app/app.component.html:7:4');
 		expect(output).toContain('external/outside.ts:2');
 		expect(output).toContain('keylint.config.json');
 		expect(output).toContain('warnings unlimited');
+	});
+
+	it('adds local filtering, full-text search, sorting, result counts, and reset controls', () => {
+		const projectRoot = resolve('fixtures', 'dashboard-project');
+		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+
+		expect(output).toContain('id="finding-search"');
+		expect(output).toContain('id="severity-filter"');
+		expect(output).toContain('id="status-filter"');
+		expect(output).toContain('id="locale-filter"');
+		expect(output).toContain('id="reset-filters"');
+		expect(output).toContain('Showing 3 of 3 findings');
+		expect(output).toContain('data-sort="severity"');
+		expect(output).toContain('data-sort="location"');
+		expect(output).toContain('data-severity="error"');
+		expect(output).toContain('data-status="missing-in-language"');
+		expect(output).toContain('data-locale="de"');
+		expect(output).toContain('<option value="__none__">No locale</option>');
+		expect(output).toContain("row.textContent.toLocaleLowerCase().includes(query)");
+		expect(output).toContain('<noscript>');
+	});
+
+	it('renders every evidence location and structured placeholder detail safely', () => {
+		const projectRoot = resolve('fixtures', 'details-project');
+		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+
+		expect(output).toContain('<details><summary>View details</summary>');
+		expect(output).toContain('src/app/app.component.html:7:4');
+		expect(output).toContain('src/app/second.component.ts:12');
+		expect(output).toContain('(template)');
+		expect(output).toContain('(&lt;unsafe-match&gt;)');
+		expect(output).toContain('<strong>Placeholders</strong>');
+		expect(output).toContain('<dt>Required</dt>');
+		expect(output).toContain('&lt;unsafe-placeholder&gt;');
 	});
 
 	it('does not expose absolute roots, snippets, translation values, or executable markup', () => {
@@ -125,7 +176,20 @@ describe('htmlReporter', () => {
 		const output = htmlReporter.format(result, context);
 
 		expect(output).toContain('<span class="status">passed</span>');
-		expect(output).toContain('<td colspan="6" class="empty">No findings.</td>');
+		expect(output).toContain('<td colspan="7" class="empty">No findings.</td>');
+		expect(output).toContain('data-default-severity="all"');
+	});
+
+	it('defaults to warnings when a report contains no errors', () => {
+		const projectRoot = resolve('fixtures', 'warning-only-project');
+		const result = createResult(projectRoot);
+		result.findings = result.findings.filter((finding) => finding.severity !== 'error');
+		const context = createContext(projectRoot);
+		context.counts = { error: 0, warning: 1, info: 1 };
+
+		const output = htmlReporter.format(result, context);
+
+		expect(output).toContain('data-default-severity="warning"');
 	});
 
 	it('fails when the warning threshold is exceeded even if errors are allowed', () => {
