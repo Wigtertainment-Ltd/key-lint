@@ -32,7 +32,7 @@ inputs:
     required: false
     default: ''
   report-directory:
-    description: Directory the JSON and Markdown reports are written to.
+    description: Directory the JSON, Markdown, and publishable HTML site reports are written to.
     required: false
     default: keylint-report
   job-summary:
@@ -63,6 +63,12 @@ outputs:
   markdown-report:
     description: Path of the generated Markdown report.
     value: ${{ steps.scan.outputs.markdown-report }}
+  html-report:
+    description: Path of the generated publishable HTML report.
+    value: ${{ steps.scan.outputs.html-report }}
+  site-directory:
+    description: Path of the directory ready for static-site deployment.
+    value: ${{ steps.scan.outputs.site-directory }}
 
 runs:
   using: composite
@@ -83,13 +89,16 @@ runs:
         set -euo pipefail
 
         report_dir="${INPUT_REPORT_DIRECTORY}"
-        mkdir -p "${report_dir}"
+        site_dir="${report_dir}/site"
+        mkdir -p "${site_dir}"
         json_report="${report_dir}/keylint.json"
         markdown_report="${report_dir}/keylint.md"
+        html_report="${site_dir}/index.html"
 
         args=(scan "${INPUT_PATH}" --no-color)
         args+=(--output "json=${json_report}")
         args+=(--output "markdown=${markdown_report}")
+        args+=(--output "html=${html_report}")
         args+=(--max-errors "${INPUT_MAX_ERRORS}")
 
         case "${INPUT_ALLOW_NETWORK}" in
@@ -118,6 +127,8 @@ runs:
         echo "exit-code=${exit_code}" >> "$GITHUB_OUTPUT"
         echo "json-report=${json_report}" >> "$GITHUB_OUTPUT"
         echo "markdown-report=${markdown_report}" >> "$GITHUB_OUTPUT"
+        echo "html-report=${html_report}" >> "$GITHUB_OUTPUT"
+        echo "site-directory=${site_dir}" >> "$GITHUB_OUTPUT"
 
         if [ -f "${json_report}" ]; then
           node -e '

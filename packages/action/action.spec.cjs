@@ -22,3 +22,34 @@ test('invalid allow-network values fail before the CLI is invoked', async () => 
 	assert.ok(validationOffset >= 0);
 	assert.ok(invocationOffset > validationOffset);
 });
+
+test('generates a directly publishable HTML site alongside private reports', async () => {
+	const manifest = await readFile(actionPath, 'utf8');
+
+	assert.match(manifest, /site_dir="\$\{report_dir\}\/site"/);
+	assert.match(manifest, /mkdir -p "\$\{site_dir\}"/);
+	assert.match(manifest, /json_report="\$\{report_dir\}\/keylint\.json"/);
+	assert.match(manifest, /markdown_report="\$\{report_dir\}\/keylint\.md"/);
+	assert.match(manifest, /html_report="\$\{site_dir\}\/index\.html"/);
+	assert.match(manifest, /args\+=\(--output "html=\$\{html_report\}"\)/);
+	assert.doesNotMatch(manifest, /json_report="\$\{site_dir\}/);
+	assert.doesNotMatch(manifest, /markdown_report="\$\{site_dir\}/);
+});
+
+test('exposes the HTML report and site directory after the CLI finishes', async () => {
+	const manifest = await readFile(actionPath, 'utf8');
+
+	assert.match(manifest, /value: \$\{\{ steps\.scan\.outputs\.json-report \}\}/);
+	assert.match(manifest, /value: \$\{\{ steps\.scan\.outputs\.markdown-report \}\}/);
+	assert.match(manifest, /html-report:\s*\r?\n\s+description:.*\r?\n\s+value: \$\{\{ steps\.scan\.outputs\.html-report \}\}/);
+	assert.match(manifest, /site-directory:\s*\r?\n\s+description:.*\r?\n\s+value: \$\{\{ steps\.scan\.outputs\.site-directory \}\}/);
+	assert.match(manifest, /echo "html-report=\$\{html_report\}" >> "\$GITHUB_OUTPUT"/);
+	assert.match(manifest, /echo "site-directory=\$\{site_dir\}" >> "\$GITHUB_OUTPUT"/);
+
+	const invocationOffset = manifest.indexOf('npx --yes');
+	const htmlOutputOffset = manifest.indexOf('echo "html-report=${html_report}"');
+	const finalExitOffset = manifest.lastIndexOf('exit "${exit_code}"');
+	assert.ok(invocationOffset >= 0);
+	assert.ok(htmlOutputOffset > invocationOffset);
+	assert.ok(finalExitOffset > htmlOutputOffset);
+});
