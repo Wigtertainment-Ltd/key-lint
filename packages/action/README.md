@@ -5,6 +5,9 @@ generates a directly publishable HTML site and optionally appends the Markdown
 report to the job summary. Network access is disabled by default and cannot be
 enabled by project configuration.
 
+The CLI supports the `text`, `json`, `markdown` and `html` reporters. The Action
+generates the three file-based formats—JSON, Markdown, and HTML—in one scan.
+
 ```yaml
 - uses: Wigtertainment-Ltd/key-lint/packages/action@v1
   env:
@@ -35,7 +38,7 @@ hosting or artifact action:
 - id: keylint
   uses: Wigtertainment-Ltd/key-lint/packages/action@v1
 
-- if: always() && steps.keylint.outputs.html-report != ''
+- if: always() && hashFiles('keylint-report/site/index.html') != ''
   uses: actions/upload-artifact@v4
   with:
     name: keylint-site
@@ -48,6 +51,11 @@ A runtime or configuration failure with exit code `2` may not produce reports.
 For a complete default-branch-only deployment using GitHub Pages, see the
 [GitHub Actions example](../../docs/ci/github-actions.yml) and its
 [setup notes](../../docs/ci/README.md#publishing-the-report-with-github-pages).
+
+The publishable HTML omits absolute project roots, translation values, and
+source snippets. Configured credential values remain covered by the CLI's shared
+reporter redaction. Hosting tokens, cloud roles, and deployment credentials are
+owned by the surrounding CI workflow and are never inputs to the KeyLint Action.
 
 Configuration contains environment-variable names, never values:
 

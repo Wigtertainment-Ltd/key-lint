@@ -79,6 +79,12 @@ configuration and GitHub Secrets to those names in the step environment.
 Credential values are removed before the Action writes reports or a job summary.
 See the [Action reference](../../packages/action/README.md).
 
+The HTML report follows a deliberately restricted privacy model: it omits
+absolute project roots, translation values, and source snippets, and it retains
+the shared credential-redaction pass used by all reporters. Relative evidence
+locations remain available for remediation. Hosting credentials belong to the
+CI or hosting provider and must never be supplied to KeyLint.
+
 ## Pipeline examples
 
 - [GitHub Actions](github-actions.yml)

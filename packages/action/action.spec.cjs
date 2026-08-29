@@ -9,6 +9,33 @@ const actionPath = require.resolve('./action.yml');
 const pagesWorkflowPath = resolve(__dirname, '../../docs/ci/github-actions.yml');
 const ciDocsDirectory = resolve(__dirname, '../../docs/ci');
 
+test('keeps the original Action interface backward compatible', async () => {
+	const manifest = await readFile(actionPath, 'utf8');
+
+	for (const input of ['path', 'config', 'version', 'max-errors', 'max-warnings', 'ignore', 'report-directory', 'job-summary', 'allow-network']) {
+		assert.match(manifest, new RegExp(`^  ${input}:`, 'm'));
+	}
+	for (const output of ['exit-code', 'total-findings', 'error-count', 'warning-count', 'json-report', 'markdown-report']) {
+		assert.match(manifest, new RegExp(`^  ${output}:`, 'm'));
+	}
+	assert.match(manifest, /--output "json=\$\{json_report\}"/);
+	assert.match(manifest, /--output "markdown=\$\{markdown_report\}"/);
+});
+
+test('lists all reporters consistently in public documentation', async () => {
+	const documentationPaths = [
+		resolve(__dirname, '../../README.md'),
+		resolve(__dirname, '../cli/README.md'),
+		resolve(__dirname, 'README.md'),
+		resolve(ciDocsDirectory, 'README.md')
+	];
+
+	for (const documentationPath of documentationPaths) {
+		const documentation = await readFile(documentationPath, 'utf8');
+		assert.match(documentation, /`text`, `json`, `markdown` (?:or|and) `html`/);
+	}
+});
+
 test('network access is disabled by default and forwarded only after explicit opt-in', async () => {
 	const manifest = await readFile(actionPath, 'utf8');
 

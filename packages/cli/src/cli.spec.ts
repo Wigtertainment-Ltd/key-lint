@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { normalizePath } from '@key-lint/core';
-import { parseCliArgs } from './args.js';
+import { parseCliArgs, USAGE } from './args.js';
 import { runCli } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
 import { ICliIo } from './cli.interfaces.js';
@@ -443,6 +443,13 @@ describe('runCli', () => {
 });
 
 describe('parseCliArgs', () => {
+	it('documents every reporter and the publishable HTML output path', () => {
+		expect(USAGE).toContain('text, json, markdown, html');
+		expect(USAGE).toContain('--output json=keylint-report/keylint.json');
+		expect(USAGE).toContain('--output markdown=keylint-report/keylint.md');
+		expect(USAGE).toContain('--output html=keylint-report/site/index.html');
+	});
+
 	it('defaults to the text reporter and the current directory', () => {
 		const options = parseCliArgs([]);
 

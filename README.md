@@ -143,7 +143,7 @@ keylint scan . \
   --reporter text \
   --output json=keylint-report/keylint.json \
   --output markdown=keylint-report/keylint.md \
-  --output html=keylint-report/keylint.html \
+  --output html=keylint-report/site/index.html \
   --max-errors 0
 ```
 
@@ -162,6 +162,11 @@ keylint scan . \
 Progress goes to **stderr**, reports go to **stdout**, so `--reporter json` pipes
 cleanly. Exit code `0` means thresholds were respected, `1` means they were
 exceeded, `2` means the run itself failed.
+
+Requested reports are written before exit code `1` is returned, so a failed
+quality gate can still publish `keylint-report/site/index.html`. A usage,
+configuration, or runtime failure with exit code `2` may produce no HTML report;
+deployment steps must check that `index.html` exists.
 
 Full option reference and reporter details:
 [packages/cli/README.md](packages/cli/README.md).
@@ -199,8 +204,8 @@ Fail the build the moment a translation key goes missing.
       ${{ steps.keylint.outputs.json-report }}
       ${{ steps.keylint.outputs.markdown-report }}
 
-# Upload only the publishable HTML site
-- if: always()
+# Upload only an existing publishable HTML site
+- if: always() && hashFiles('keylint-report/site/index.html') != ''
   uses: actions/upload-artifact@v4
   with:
     name: keylint-site
@@ -214,6 +219,11 @@ and Markdown stay outside that directory.
 The [GitHub Pages example](docs/ci/github-actions.yml) publishes that directory
 only from the repository's default branch and keeps pull-request reports as
 ordinary workflow artifacts.
+
+The public HTML site is deliberately less detailed than the private reports. It
+omits absolute project roots, translation values, and source snippets, while the
+same credential-redaction pass used by every reporter remains active. Hosting
+credentials are handled by CI and hosting providers, never by KeyLint.
 Remote sources require `allow-network: 'true'`; configuration alone never enables
 traffic. Map authentication headers to environment names in configuration and
 provide their values from GitHub Secrets. See the
@@ -233,7 +243,9 @@ Ready-to-use snippets for GitLab CI, Azure DevOps and Jenkins live in
 [docs/ci/README.md](docs/ci/README.md), alongside the full configuration schema.
 
 ```bash
-npx @key-lint/cli scan . --max-errors 0 --output markdown=keylint.md
+npx @key-lint/cli scan . --max-errors 0 \
+  --output markdown=keylint-report/keylint.md \
+  --output html=keylint-report/site/index.html
 ```
 
 ---
