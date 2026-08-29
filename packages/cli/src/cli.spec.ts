@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { normalizePath } from '@key-lint/core';
 import { parseCliArgs } from './args.js';
 import { runCli } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
@@ -254,6 +255,34 @@ describe('runCli', () => {
 		expect([...io.files.keys()].some((file) => file.endsWith('report.json'))).toBe(true);
 	});
 
+	it('writes a standalone HTML report without exposing the absolute project root', async () => {
+		const io = createIo();
+		const exitCode = await runCli(
+			['scan', FIXTURE_ROOT, '--quiet', '--output', 'html=reports/keylint.html', '--max-errors', '9'],
+			io
+		);
+		const htmlEntry = [...io.files.entries()].find(([file]) => normalizePath(file).endsWith('reports/keylint.html'));
+
+		expect(exitCode).toBe(EXIT_OK);
+		expect(io.out).toHaveLength(0);
+		expect(htmlEntry).toBeDefined();
+		expect(htmlEntry?.[1]).toContain('<!doctype html>');
+		expect(htmlEntry?.[1]).toContain('APP.MISSING');
+		expect(htmlEntry?.[1]).not.toContain(FIXTURE_ROOT);
+	});
+
+	it('writes the HTML reporter to stdout when selected explicitly', async () => {
+		const io = createIo();
+		const exitCode = await runCli(
+			['scan', FIXTURE_ROOT, '--quiet', '--reporter', 'html', '--max-errors', '9'],
+			io
+		);
+
+		expect(exitCode).toBe(EXIT_OK);
+		expect(io.files.size).toBe(0);
+		expect(io.out.join('')).toContain('<!doctype html>');
+	});
+
 	it('exits with the runtime error code for a missing project path', async () => {
 		const io = createIo();
 		const exitCode = await runCli(['scan', `${FIXTURE_ROOT}-does-not-exist`, '--quiet'], io);
@@ -430,6 +459,13 @@ describe('parseCliArgs', () => {
 
 		expect(options.reporters).toEqual(['markdown']);
 		expect(options.outputs.get('markdown')).toBe('summary.md');
+	});
+
+	it('registers the HTML reporter referenced by --output', () => {
+		const options = parseCliArgs(['scan', '.', '--output', 'html=report.html']);
+
+		expect(options.reporters).toEqual(['html']);
+		expect(options.outputs.get('html')).toBe('report.html');
 	});
 
 	it('rejects malformed --output values', () => {

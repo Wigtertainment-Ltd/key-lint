@@ -19,6 +19,7 @@ keylint scan /path/to/project \
   --reporter text \
   --output json=keylint-report/keylint.json \
   --output markdown=keylint-report/keylint.md \
+  --output html=keylint-report/keylint.html \
   --max-errors 0
 ```
 
@@ -27,7 +28,7 @@ keylint scan /path/to/project \
 | Option | Description |
 | --- | --- |
 | `--config <file>` | Path to a `keylint.config.json`. Missing file is an error. |
-| `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
+| `--reporter <name>` | `text`, `json`, `markdown` or `html`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
 | `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited (`-1`). |
@@ -157,6 +158,21 @@ post-processed to remove configured authentication environment values.
 ### Markdown reporter
 
 Human-readable table with metric summary, error/warning tables and scan warnings. Ideal for CI artifacts or GitHub Actions step summaries.
+
+### HTML reporter
+
+Produces a self-contained, human-readable report that can be opened directly or
+published on any static host:
+
+```bash
+keylint scan . --output html=keylint-report/keylint.html
+```
+
+The report includes scan status, metadata, thresholds, summary metrics, scan
+warnings and every finding. Styles are embedded and no external scripts, fonts
+or other assets are loaded. Absolute project roots, source snippets and
+translation values are intentionally omitted; evidence locations are shown
+relative to the scanned project.
 
 ## Docker
 

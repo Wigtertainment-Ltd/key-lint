@@ -21,7 +21,7 @@ export interface IReporter {
 	format(result: IProjectScanResult, context: IReporterContext): string;
 }
 
-export type ReporterName = 'text' | 'json' | 'markdown';
+export type ReporterName = 'text' | 'json' | 'markdown' | 'html';
 
 export interface ISeverityCounts {
 	error: number;

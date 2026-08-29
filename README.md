@@ -143,13 +143,14 @@ keylint scan . \
   --reporter text \
   --output json=keylint-report/keylint.json \
   --output markdown=keylint-report/keylint.md \
+  --output html=keylint-report/keylint.html \
   --max-errors 0
 ```
 
 | Option | Description |
 | --- | --- |
 | `--config <file>` | Path to a `keylint.config.json`. |
-| `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
+| `--reporter <name>` | `text`, `json`, `markdown` or `html`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file (also enables it). |
 | `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings. Default unlimited. |
