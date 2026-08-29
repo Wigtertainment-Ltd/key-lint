@@ -190,16 +190,27 @@ Fail the build the moment a translation key goes missing.
     ignore: |
       LEGACY.**
 
-# Upload the generated reports
+# Upload the private JSON and Markdown reports
 - if: always()
   uses: actions/upload-artifact@v4
   with:
     name: keylint-report
-    path: keylint-report/
+    path: |
+      ${{ steps.keylint.outputs.json-report }}
+      ${{ steps.keylint.outputs.markdown-report }}
+
+# Upload only the publishable HTML site
+- if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: keylint-site
+    path: ${{ steps.keylint.outputs.site-directory }}
 ```
 
 The action appends a Markdown summary to the GitHub job summary and exposes
-`exit-code`, `total-findings`, `error-count` and `warning-count` as outputs.
+finding counts plus the generated JSON, Markdown and HTML paths as outputs. The
+`site-directory` output contains only the directly publishable HTML site; JSON
+and Markdown stay outside that directory.
 Remote sources require `allow-network: 'true'`; configuration alone never enables
 traffic. Map authentication headers to environment names in configuration and
 provide their values from GitHub Secrets. See the
