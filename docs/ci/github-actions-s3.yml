@@ -1,0 +1,50 @@
+name: Publish KeyLint report to S3
+
+on:
+  push:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - id: keylint
+        uses: Wigtertainment-Ltd/key-lint/packages/action@v1
+        with:
+          path: .
+          max-errors: '0'
+
+      - name: Upload CI reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keylint-report
+          path: keylint-report/
+          if-no-files-found: warn
+
+      - name: Authenticate to AWS with OIDC
+        if: >-
+          ${{ always() && hashFiles('keylint-report/site/index.html') != '' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.KEYLINT_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.KEYLINT_AWS_REGION }}
+
+      - name: Publish public HTML report to S3
+        if: >-
+          ${{ always() && hashFiles('keylint-report/site/index.html') != '' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+        env:
+          KEYLINT_SITE_DIRECTORY: keylint-report/site
+          KEYLINT_S3_URI: s3://${{ vars.KEYLINT_S3_BUCKET }}/keylint
+        run: sh ./docs/ci/publish-s3.sh

@@ -11,13 +11,14 @@ npx @key-lint/cli scan . \
   --reporter text \
   --output json=keylint-report/keylint.json \
   --output markdown=keylint-report/keylint.md \
+  --output html=keylint-report/site/index.html \
   --max-errors 0
 ```
 
 | Option | Description |
 | --- | --- |
 | `--config <file>` | Path to a `keylint.config.json`. Missing file is an error. |
-| `--reporter <name>` | `text`, `json` or `markdown`. Repeatable. Default `text`. |
+| `--reporter <name>` | `text`, `json`, `markdown` or `html`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
 | `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited. |
@@ -85,6 +86,13 @@ See the [Action reference](../../packages/action/README.md).
 - [Azure DevOps](azure-pipelines.yml)
 - [Jenkins](Jenkinsfile)
 
+The GitLab, Azure DevOps, and Jenkins templates generate
+`keylint-report/site/index.html` and retain it through their respective
+always-run artifact mechanisms. Because the CLI writes requested reports before
+returning exit code `1`, threshold failures still produce a downloadable HTML
+site. Runtime failures may produce no HTML; provider publication must therefore
+check for `site/index.html` rather than relying on the scan exit status alone.
+
 ### Publishing the report with GitHub Pages
 
 The [GitHub Actions example](github-actions.yml) uploads the complete report
@@ -112,6 +120,77 @@ workflow also checks the branch itself and verifies that `index.html` exists
 before creating the Pages artifact. Consequently, successful scans and threshold
 failures with exit code `1` can publish a report, while a runtime failure without
 HTML output skips the deployment.
+
+### Publishing to Amazon S3
+
+The [S3 publication script](publish-s3.sh) uploads only the self-contained public
+`site/index.html`; JSON and Markdown never leave the private CI artifact. It sets
+an explicit `text/html` content type and a revalidation-oriented cache policy so
+the stable report URL updates promptly. It intentionally does not use a public
+object ACL. Configure access at the bucket, CloudFront, or another protected
+delivery layer instead.
+
+A complete default-branch example using GitHub OIDC is available in
+[github-actions-s3.yml](github-actions-s3.yml). It uses repository variables for
+the role ARN, AWS region, and bucket name; no long-lived AWS access key is stored
+in the workflow.
+
+Authenticate the AWS CLI through the CI platform's native identity mechanism.
+For example, GitHub Actions and GitLab CI can exchange their OIDC identity for a
+short-lived, least-privilege AWS role; AWS-hosted build services should use their
+assigned role. Do not pass AWS credentials to KeyLint.
+
+Run the script after the scan with the site directory and destination URI:
+
+```bash
+KEYLINT_SITE_DIRECTORY=keylint-report/site \
+KEYLINT_S3_URI=s3://example-report-bucket/keylint \
+sh ./docs/ci/publish-s3.sh
+```
+
+The script exits successfully without contacting AWS when `index.html` is
+missing. CI systems can therefore invoke it from an `always`/post step: exit code
+`1` publishes the generated report, while exit code `2` without HTML does not.
+
+### Publishing to Netlify
+
+Install `netlify-cli` as a pinned development dependency so the existing lock
+file controls the CI version. Store `NETLIFY_AUTH_TOKEN` and `NETLIFY_SITE_ID` in
+the CI provider's protected secret store; they are consumed by Netlify CLI and
+are never passed to KeyLint.
+
+The complete [Netlify workflow](github-actions-netlify.yml) creates previews for
+pull requests and reserves production publication for the default branch. CI
+providers do not expose protected secrets to every pull request, so untrusted
+forks should rely on the ordinary downloadable report artifact instead.
+
+Create a unique preview deployment for pull requests or temporary branches:
+
+```bash
+KEYLINT_SITE_DIRECTORY=keylint-report/site \
+KEYLINT_NETLIFY_DEPLOY_MODE=preview \
+sh ./docs/ci/publish-netlify.sh
+```
+
+Production publication is a separate, explicit operation and should be guarded
+to the default branch in the surrounding pipeline:
+
+```bash
+KEYLINT_SITE_DIRECTORY=keylint-report/site \
+KEYLINT_NETLIFY_DEPLOY_MODE=production \
+sh ./docs/ci/publish-netlify.sh
+```
+
+Production mode adds Netlify's `--prod` flag; preview mode deliberately omits it.
+Both modes skip deployment when `site/index.html` is absent and upload only the
+public site directory.
+
+### Other static hosts
+
+`keylint-report/site` is provider-neutral and can be copied to any static host.
+KeyLint neither receives nor processes hosting credentials. Public hosting is an
+explicit choice: reports intended only for employees or customers should be
+published behind the organization's existing access controls.
 
 ## Docker
 

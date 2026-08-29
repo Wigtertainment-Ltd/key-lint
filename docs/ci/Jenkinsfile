@@ -10,7 +10,8 @@ pipeline {
                     npx --yes @key-lint/cli scan . --no-color --quiet \
                         --max-errors 0 \
                         --output json=keylint-report/keylint.json \
-                        --output markdown=keylint-report/keylint.md
+                        --output markdown=keylint-report/keylint.md \
+                        --output html=keylint-report/site/index.html
                 '''
             }
         }

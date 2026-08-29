@@ -1,0 +1,59 @@
+name: Publish KeyLint report to Netlify
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Add netlify-cli as a pinned dev dependency and commit the lock file.
+      - run: npm ci
+
+      - id: keylint
+        uses: Wigtertainment-Ltd/key-lint/packages/action@v1
+        with:
+          path: .
+          max-errors: '0'
+
+      - name: Upload CI reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keylint-report
+          path: keylint-report/
+          if-no-files-found: warn
+
+      - name: Publish Netlify preview
+        if: >-
+          ${{ always() && github.event_name == 'pull_request' &&
+          hashFiles('keylint-report/site/index.html') != '' }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          KEYLINT_SITE_DIRECTORY: keylint-report/site
+          KEYLINT_NETLIFY_DEPLOY_MODE: preview
+        run: sh ./docs/ci/publish-netlify.sh
+
+      - name: Publish Netlify production site
+        if: >-
+          ${{ always() && github.event_name == 'push' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+          hashFiles('keylint-report/site/index.html') != '' }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          KEYLINT_SITE_DIRECTORY: keylint-report/site
+          KEYLINT_NETLIFY_DEPLOY_MODE: production
+        run: sh ./docs/ci/publish-netlify.sh

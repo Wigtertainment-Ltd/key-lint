@@ -15,7 +15,8 @@ steps:
       npx --yes @key-lint/cli scan . --no-color --quiet \
         --max-errors 0 \
         --output json=$(Build.ArtifactStagingDirectory)/keylint.json \
-        --output markdown=$(Build.ArtifactStagingDirectory)/keylint.md
+        --output markdown=$(Build.ArtifactStagingDirectory)/keylint.md \
+        --output html=$(Build.ArtifactStagingDirectory)/site/index.html
     displayName: KeyLint scan
 
   - script: |
