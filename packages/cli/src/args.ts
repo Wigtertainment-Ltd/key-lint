@@ -20,6 +20,11 @@ Options:
   -h, --help               Show this help
   -v, --version            Show the CLI version
 
+Examples:
+  keylint scan . --reporter text
+  keylint scan . --output json=keylint-report/keylint.json --output markdown=keylint-report/keylint.md
+  keylint scan . --output html=keylint-report/site/index.html
+
 Exit codes:
   0  thresholds respected
   1  thresholds exceeded

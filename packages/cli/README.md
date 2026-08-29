@@ -19,7 +19,7 @@ keylint scan /path/to/project \
   --reporter text \
   --output json=keylint-report/keylint.json \
   --output markdown=keylint-report/keylint.md \
-  --output html=keylint-report/keylint.html \
+  --output html=keylint-report/site/index.html \
   --max-errors 0
 ```
 
@@ -46,6 +46,11 @@ Progress goes to **stderr**, reports go to **stdout** — so JSON output can be 
 | `0` | Thresholds respected, no errors or warnings exceeded |
 | `1` | Error or warning threshold exceeded |
 | `2` | Usage/runtime error: invalid arguments, missing project path, unreadable config or translation file, invalid translation JSON, no adapter detected |
+
+All requested reporters finish writing before a threshold failure returns exit
+code `1`, so their files remain available to artifact and deployment steps. A
+usage, configuration, or runtime failure with exit code `2` may stop before an
+HTML file exists; publishing automation must verify the file before deployment.
 
 ### Severity mapping
 
@@ -165,7 +170,7 @@ Produces a self-contained, human-readable report that can be opened directly or
 published on any static host:
 
 ```bash
-keylint scan . --output html=keylint-report/keylint.html
+keylint scan . --output html=keylint-report/site/index.html
 ```
 
 The report includes a responsive KPI dashboard, scan status, metadata,
@@ -180,6 +185,8 @@ assets are loaded. The complete report remains readable without JavaScript and
 includes print and light/dark color-scheme styling. Absolute project roots,
 source snippets and translation values are intentionally omitted; evidence
 locations are shown relative to the scanned project.
+Configured sensitive values pass through the same credential-redaction layer as
+every other reporter before any HTML escaping or file output occurs.
 
 ## Docker
 
