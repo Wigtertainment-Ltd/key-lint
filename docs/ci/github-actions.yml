@@ -3,11 +3,16 @@ name: i18n
 on:
   pull_request:
   push:
-    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   keylint:
     runs-on: ubuntu-latest
+    outputs:
+      site-exists: ${{ steps.site.outputs.exists }}
+      site-directory: ${{ steps.i18n.outputs.site-directory }}
     steps:
       - uses: actions/checkout@v4
 
@@ -16,7 +21,6 @@ jobs:
           node-version: 20
           cache: npm
 
-      # Option A: the packaged composite action
       - id: i18n
         uses: Wigtertainment-Ltd/key-lint/packages/action@v1
         with:
@@ -25,13 +29,65 @@ jobs:
           ignore: |
             LEGACY.**
 
-      # Option B: call the CLI directly
-      # - run: npx --yes @key-lint/cli scan . --no-color --max-errors 0
-      #     --output json=keylint-report/keylint.json
-      #     --output markdown=keylint-report/keylint.md
+      - name: Check for a publishable report
+        id: site
+        if: always()
+        shell: bash
+        env:
+          HTML_REPORT: ${{ steps.i18n.outputs.html-report }}
+        run: |
+          if [ -n "${HTML_REPORT}" ] && [ -f "${HTML_REPORT}" ]; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
 
-      - if: always()
+      # Pull requests retain an ordinary downloadable CI artifact and cannot
+      # replace the stable Pages deployment.
+      - name: Upload CI reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: keylint-report
           path: keylint-report/
+          if-no-files-found: warn
+
+  prepare-pages:
+    name: Prepare GitHub Pages artifact
+    needs: keylint
+    if: >-
+      ${{ always() && needs.keylint.outputs.site-exists == 'true' &&
+      github.event_name == 'push' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+    steps:
+      - name: Download generated reports
+        uses: actions/download-artifact@v4
+        with:
+          name: keylint-report
+          path: keylint-report
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ needs.keylint.outputs.site-directory }}
+
+  deploy:
+    name: Deploy report to GitHub Pages
+    needs: prepare-pages
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

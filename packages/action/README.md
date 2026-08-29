@@ -45,6 +45,9 @@ hosting or artifact action:
 The CLI writes all requested reports before returning a threshold failure. This
 means `site/index.html` remains available when the Action exits with code `1`.
 A runtime or configuration failure with exit code `2` may not produce reports.
+For a complete default-branch-only deployment using GitHub Pages, see the
+[GitHub Actions example](../../docs/ci/github-actions.yml) and its
+[setup notes](../../docs/ci/README.md#publishing-the-report-with-github-pages).
 
 Configuration contains environment-variable names, never values:
 

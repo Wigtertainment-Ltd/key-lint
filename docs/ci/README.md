@@ -85,6 +85,34 @@ See the [Action reference](../../packages/action/README.md).
 - [Azure DevOps](azure-pipelines.yml)
 - [Jenkins](Jenkinsfile)
 
+### Publishing the report with GitHub Pages
+
+The [GitHub Actions example](github-actions.yml) uploads the complete report
+directory as a normal CI artifact on every run. Pull requests therefore expose a
+downloadable report without being allowed to replace the stable public site.
+
+On a push to the repository's default branch, the workflow additionally passes
+the Action's `site-directory` output to the official
+`actions/configure-pages`, `actions/upload-pages-artifact` and
+`actions/deploy-pages` flow. The deployment runs in the `github-pages`
+environment and exposes its URL through `steps.deployment.outputs.page_url`.
+
+The deploy job requires these permissions:
+
+```yaml
+permissions:
+  pages: write
+  id-token: write
+```
+
+In the repository settings, select **GitHub Actions** as the Pages publishing
+source. Configure the `github-pages` environment with a deployment protection
+rule for the default branch if the environment does not already enforce it. The
+workflow also checks the branch itself and verifies that `index.html` exists
+before creating the Pages artifact. Consequently, successful scans and threshold
+failures with exit code `1` can publish a report, while a runtime failure without
+HTML output skips the deployment.
+
 ## Docker
 
 ```bash
