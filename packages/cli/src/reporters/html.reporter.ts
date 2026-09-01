@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { basename, isAbsolute, relative, resolve } from 'node:path';
 
-import { IFinding, IProjectScanResult, normalizePath } from '@key-lint/core';
+import { IFinding, FindingSeverity, FindingStatus, IProjectScanResult, normalizePath, IFileEvidence } from '@key-lint/core';
 import { redactReporterText, severityRank } from './reporter.js';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
@@ -86,6 +86,54 @@ const DASHBOARD_SCRIPT = `(() => {
 	applyFilters();
 })();`;
 
+const STATUS_GUIDE: readonly { status: FindingStatus; severity: FindingSeverity; description: string; }[] = [
+	{
+		status: 'used',
+		severity: 'info',
+		description: 'The key is referenced by a translation pattern that KeyLint can resolve statically.'
+	},
+	{
+		status: 'unused',
+		severity: 'warning',
+		description: 'The key exists in the translation files but no confirmed usage was found. Check dynamic usage before removing it.'
+	},
+	{
+		status: 'dynamic-uncertain',
+		severity: 'warning',
+		description: 'A dynamic translation expression may use this key, but the final key cannot be confirmed without running the application.'
+	},
+	{
+		status: 'indirect-uncertain',
+		severity: 'warning',
+		description: 'The key appears as a string literal, but not in a directly recognized translation call or template binding.'
+	},
+	{
+		status: 'missing-in-language',
+		severity: 'error',
+		description: 'The key is used or defined in the base locale but is missing from one or more required locale files.'
+	},
+	{
+		status: 'extra-in-language',
+		severity: 'warning',
+		description: 'The key exists in another locale but not in the configured base locale.'
+	},
+	{
+		status: 'placeholder-missing',
+		severity: 'error',
+		description: 'A translation requires placeholder parameters that are not supplied at the usage location.'
+	},
+	{
+		status: 'placeholder-uncertain',
+		severity: 'warning',
+		description: 'The supplied placeholder parameters are dynamic, so KeyLint cannot confirm that every required value is present.'
+	},
+	{
+		status: 'placeholder-mismatch',
+		severity: 'error',
+		description: 'A locale uses a different set of placeholders than the configured base locale.'
+	}
+];
+
 function redact(value: unknown, context: IReporterContext): string {
 	return redactReporterText(String(value ?? ''), context.sensitiveValues ?? []);
 }
@@ -108,9 +156,9 @@ function isOutsideProject(relativePath: string): boolean {
 }
 
 function displayPath(projectRoot: string, filePath: string): string {
-	const resolvedRoot = resolve(projectRoot);
-	const resolvedFile = isAbsolute(filePath) ? resolve(filePath) : resolve(resolvedRoot, filePath);
-	const projectRelative = normalizePath(relative(resolvedRoot, resolvedFile));
+	const resolvedRoot: string = resolve(projectRoot);
+	const resolvedFile: string = isAbsolute(filePath) ? resolve(filePath) : resolve(resolvedRoot, filePath);
+	const projectRelative: string = normalizePath(relative(resolvedRoot, resolvedFile));
 
 	if (!projectRelative) {
 		return '.';
@@ -124,18 +172,18 @@ function displayPath(projectRoot: string, filePath: string): string {
 }
 
 function stripProjectRoot(value: string, projectRoot: string): string {
-	const candidates = [...new Set([
-		projectRoot,
-		resolve(projectRoot),
-		normalizePath(projectRoot),
-		normalizePath(resolve(projectRoot))
-	])]
-		.filter(Boolean)
-		.sort((left, right) => right.length - left.length);
+	const candidates: string[] = [
+		...new Set([
+			projectRoot,
+			resolve(projectRoot),
+			normalizePath(projectRoot),
+			normalizePath(resolve(projectRoot))
+		])
+	].filter(Boolean).sort((left, right) => right.length - left.length);
 
 	return candidates.reduce((text, candidate) => {
-		let sanitized = text;
-		let offset = sanitized.toLowerCase().indexOf(candidate.toLowerCase());
+		let sanitized: string = text;
+		let offset: number = sanitized.toLowerCase().indexOf(candidate.toLowerCase());
 		while (offset >= 0) {
 			sanitized = `${sanitized.slice(0, offset)}.${sanitized.slice(offset + candidate.length)}`;
 			offset = sanitized.toLowerCase().indexOf(candidate.toLowerCase(), offset + 1);
@@ -145,12 +193,12 @@ function stripProjectRoot(value: string, projectRoot: string): string {
 }
 
 function locationOf(finding: IFinding, projectRoot: string): string {
-	const evidence = finding.evidence[0];
+	const evidence: IFileEvidence = finding.evidence[0];
 	if (!evidence) {
 		return '-';
 	}
 
-	const path = displayPath(projectRoot, evidence.filePath);
+	const path: string = displayPath(projectRoot, evidence.filePath);
 	if (evidence.line === undefined) {
 		return path;
 	}
@@ -161,7 +209,7 @@ function locationOf(finding: IFinding, projectRoot: string): string {
 }
 
 function thresholdStatus(context: IReporterContext): 'passed' | 'failed' {
-	const warningsExceeded = context.thresholds.maxWarnings >= 0
+	const warningsExceeded: boolean = context.thresholds.maxWarnings >= 0
 		&& context.counts.warning > context.thresholds.maxWarnings;
 	return context.counts.error > context.thresholds.maxErrors || warningsExceeded ? 'failed' : 'passed';
 }
@@ -174,14 +222,22 @@ function option(value: string, label: string, context: IReporterContext): string
 	return `<option value="${escapeHtml(value, context)}">${escapeHtml(label, context)}</option>`;
 }
 
+function statusGuide(context: IReporterContext): string {
+	return STATUS_GUIDE.map((item) => `
+				<div class="status-guide-item">
+					<div class="status-guide-heading"><code>${escapeHtml(item.status, context)}</code><span class="badge badge--${item.severity}">${item.severity}</span></div>
+					<p>${escapeHtml(item.description, context)}</p>
+				</div>`).join('');
+}
+
 function evidenceDetails(finding: IFinding, result: IProjectScanResult, context: IReporterContext): string {
 	if (finding.evidence.length === 0) {
 		return '';
 	}
 
-	const items = finding.evidence.map((evidence) => {
-		const location = locationOf({ ...finding, evidence: [evidence] }, result.projectRoot);
-		const matchType = evidence.matchType
+	const items: string = finding.evidence.map((evidence) => {
+		const location: string = locationOf({ ...finding, evidence: [evidence] }, result.projectRoot);
+		const matchType: string = evidence.matchType
 			? ` <span class="detail-meta">(${escapeHtml(evidence.matchType, context)})</span>`
 			: '';
 		return `<li><code>${escapeHtml(location, context)}</code>${matchType}</li>`;
@@ -202,7 +258,7 @@ function placeholderDetails(finding: IFinding, context: IReporterContext): strin
 		['Expected', finding.placeholderDetails.expected],
 		['Actual', finding.placeholderDetails.actual]
 	];
-	const rows = entries
+	const rows: string = entries
 		.filter((entry): entry is [string, string[]] => entry[1] !== undefined)
 		.map(([label, values]) => `<div><dt>${escapeHtml(label, context)}</dt><dd>${values.length > 0
 			? values.map((value) => `<code>${escapeHtml(value, context)}</code>`).join(', ')
@@ -213,7 +269,7 @@ function placeholderDetails(finding: IFinding, context: IReporterContext): strin
 }
 
 function findingDetails(finding: IFinding, result: IProjectScanResult, context: IReporterContext): string {
-	const details = `${evidenceDetails(finding, result, context)}${placeholderDetails(finding, context)}`;
+	const details: string = `${evidenceDetails(finding, result, context)}${placeholderDetails(finding, context)}`;
 	if (!details) {
 		return '<span class="detail-meta">No details</span>';
 	}
@@ -221,15 +277,10 @@ function findingDetails(finding: IFinding, result: IProjectScanResult, context: 
 	return `<details><summary>View details</summary><div class="details-content">${details}</div></details>`;
 }
 
-function findingRow(
-	finding: IFinding,
-	index: number,
-	result: IProjectScanResult,
-	context: IReporterContext
-): string {
-	const locale = finding.language ?? '';
-	const message = stripProjectRoot(finding.message, result.projectRoot);
-	const location = locationOf(finding, result.projectRoot);
+function findingRow(finding: IFinding, index: number, result: IProjectScanResult, context: IReporterContext): string {
+	const locale: string = finding.language ?? '';
+	const message: string = stripProjectRoot(finding.message, result.projectRoot);
+	const location: string = locationOf(finding, result.projectRoot);
 	return [
 		`<tr class="finding finding--${escapeHtml(finding.severity, context)}"`,
 		` data-severity="${escapeHtml(finding.severity, context)}"`,
@@ -256,33 +307,33 @@ function findingRow(
 export const htmlReporter: IReporter = {
 	name: 'html',
 	format(result: IProjectScanResult, context: IReporterContext): string {
-		const status = thresholdStatus(context);
-		const baseLocale = result.metadata?.['baseLocale'];
-		const findings = [...result.findings].sort((left, right) =>
+		const status: 'passed' | 'failed' = thresholdStatus(context);
+		const baseLocale: unknown = result.metadata?.['baseLocale'];
+		const findings: IFinding[] = [...result.findings].sort((left, right) =>
 			severityRank(left.severity) - severityRank(right.severity)
 			|| left.key.localeCompare(right.key)
 			|| left.id.localeCompare(right.id)
 		);
-		const defaultSeverity = findings.some((finding) => finding.severity === 'error')
+		const defaultSeverity: 'warning' | 'error' | 'all' = findings.some((finding) => finding.severity === 'error')
 			? 'error'
 			: findings.some((finding) => finding.severity === 'warning') ? 'warning' : 'all';
-		const findingRows = findings.length > 0
+		const findingRows: string = findings.length > 0
 			? findings.map((finding, index) => findingRow(finding, index, result, context)).join('\n')
 			: '<tr><td colspan="7" class="empty">No findings.</td></tr>';
-		const statuses = [...new Set(findings.map((finding) => finding.status))].sort();
-		const locales = [...new Set(findings.map((finding) => finding.language).filter((value): value is string => Boolean(value)))]
+		const statuses: FindingStatus[] = [...new Set(findings.map((finding) => finding.status))].sort();
+		const locales: string[] = [...new Set(findings.map((finding) => finding.language).filter((value): value is string => Boolean(value)))]
 			.sort((left, right) => left.localeCompare(right));
-		const hasFindingsWithoutLocale = findings.some((finding) => !finding.language);
-		const warningItems = context.warnings
+		const hasFindingsWithoutLocale: boolean = findings.some((finding) => !finding.language);
+		const warningItems: string = context.warnings
 			.map((warning) => `<li>${escapeHtml(stripProjectRoot(warning, result.projectRoot), context)}</li>`)
 			.join('\n');
-		const configPath = context.configFilePath
+		const configPath: string | undefined = context.configFilePath
 			? displayPath(result.projectRoot, context.configFilePath)
 			: undefined;
-		const maxWarnings = context.thresholds.maxWarnings < 0
+		const maxWarnings: string = context.thresholds.maxWarnings < 0
 			? 'unlimited'
 			: String(context.thresholds.maxWarnings);
-		const scriptHash = createHash('sha256').update(DASHBOARD_SCRIPT).digest('base64');
+		const scriptHash: string = createHash('sha256').update(DASHBOARD_SCRIPT).digest('base64');
 
 		return `<!doctype html>
 <html lang="en">
@@ -315,6 +366,13 @@ export const htmlReporter: IReporter = {
 		.metric--error { border-color: var(--fail); background: var(--fail-bg); }
 		.metric--warning { border-color: var(--warning); background: var(--warning-bg); }
 		.thresholds { margin: 16px 0 0; }
+		.introduction { margin: 0; max-width: 90ch; color: var(--muted); font-size: 1rem; }
+		.result-explanation { margin: 12px 0 0; }
+		.status-guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+		.status-guide-item { padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
+		.status-guide-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+		.status-guide-heading code { font-weight: 750; }
+		.status-guide-item p { margin: 8px 0 0; color: var(--muted); }
 		.toolbar { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto; gap: 12px; align-items: end; margin-bottom: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
 		.control { display: grid; gap: 4px; min-width: 0; }
 		.control label { color: var(--muted); font-size: .78rem; font-weight: 700; text-transform: uppercase; }
@@ -375,6 +433,21 @@ export const htmlReporter: IReporter = {
 				${configPath ? `<div><dt>Configuration</dt><dd><code>${escapeHtml(configPath, context)}</code></dd></div>` : ''}
 			</dl>
 		</header>
+
+		<section aria-labelledby="introduction-heading">
+			<div class="section-heading"><h2 id="introduction-heading">About this report</h2></div>
+			<p class="introduction">This report summarizes how translation keys are defined and used across the project. Start with errors that require action, then review warnings where KeyLint needs confirmation. Informational findings show confirmed usage.</p>
+			<p class="result-explanation"><strong>Overall result:</strong> ${status === 'passed'
+				? 'The scan stayed within the configured error and warning thresholds.'
+				: 'The scan exceeded at least one configured error or warning threshold.'}</p>
+		</section>
+
+		<section aria-labelledby="status-guide-heading">
+			<div class="section-heading"><h2 id="status-guide-heading">Status guide</h2></div>
+			<div class="status-guide">
+				${statusGuide(context)}
+			</div>
+		</section>
 
 		<section aria-labelledby="summary-heading">
 			<div class="section-heading"><h2 id="summary-heading">Summary</h2></div>

@@ -1,13 +1,13 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { normalizePath, IProjectScanResult, redactAutoHttpUrlTemplate, runScan, ScannerConfigError } from '@key-lint/core';
+import { normalizePath, IProjectScanResult, redactAutoHttpUrlTemplate, runScan, ScannerConfigError, ILoadedScannerConfig, IScannerConfig, IExpandedAutoHttpSources, IAutoHttpProjectAnalysis } from '@key-lint/core';
 import { analyzeProjectTranslationLoaders, expandAutoHttpTranslationSources, formatAutoHttpCandidate } from '@key-lint/core/detection';
 import { loadScannerConfig, NodeFileSystemAdapter, NodeRemoteTranslationFetcher } from '@key-lint/core/node';
 
 import { parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
-import { countSeverities, redactReporterText, REPORTERS, IReporterContext } from './reporters/index.js';
+import { countSeverities, redactReporterText, REPORTERS, IReporterContext, ISeverityCounts } from './reporters/index.js';
 import { ICliIo, ICliOptions, CliUsageError } from './cli.interfaces.js';
 
 const defaultIo: ICliIo = {
@@ -21,7 +21,7 @@ const defaultIo: ICliIo = {
 
 async function readVersion(): Promise<string> {
 	try {
-		const raw = await readFile(new URL('../package.json', import.meta.url), 'utf8');
+		const raw: string = await readFile(new URL('../package.json', import.meta.url), 'utf8');
 		return (JSON.parse(raw) as { version?: string }).version ?? '0.0.0';
 	} catch {
 		return '0.0.0';
@@ -55,8 +55,8 @@ function determineExitCode(options: ICliOptions, errors: number, warnings: numbe
 
 async function emitReports(options: ICliOptions, result: IProjectScanResult, context: IReporterContext, io: ICliIo): Promise<void> {
 	for (const name of options.reporters) {
-		const targetFile = options.outputs.get(name);
-		const output = redactReporterText(REPORTERS[name].format(result, {
+		const targetFile: string | undefined = options.outputs.get(name);
+		const output: string = redactReporterText(REPORTERS[name].format(result, {
 			...context,
 			color: context.color && !targetFile
 		}), context.sensitiveValues ?? []);
@@ -92,24 +92,24 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 	}
 
 	try {
-		const projectRoot = resolve(process.cwd(), options.projectPath);
+		const projectRoot: string = resolve(process.cwd(), options.projectPath);
 		await assertDirectory(projectRoot);
 
-		const loaded = await loadScannerConfig({
+		const loaded: ILoadedScannerConfig = await loadScannerConfig({
 			projectRoot,
 			configPath: options.configPath,
 			overrides: options.ignoreKeys.length > 0 ? { ignoreKeys: options.ignoreKeys } : {}
 		});
-		let config = loaded.config;
-		const configFilePath = loaded.configFilePath;
-		const fs = new NodeFileSystemAdapter(config.guardrails);
+		let config: IScannerConfig = loaded.config;
+		const configFilePath: string | undefined = loaded.configFilePath;
+		const fs: NodeFileSystemAdapter = new NodeFileSystemAdapter(config.guardrails);
 		let detectedLoaderTypes: ('ngx-translate' | 'transloco')[] = [];
 		if (config.translationSources?.some((source) => source.type === 'auto-http')) {
 			if (!options.allowNetwork) {
 				throw new CliUsageError('auto-http translation sources require --allow-network. No request was made.');
 			}
-			const analysis = await analyzeProjectTranslationLoaders(projectRoot, fs, config);
-			const expanded = expandAutoHttpTranslationSources(config.translationSources, analysis);
+			const analysis: IAutoHttpProjectAnalysis = await analyzeProjectTranslationLoaders(projectRoot, fs, config);
+			const expanded: IExpandedAutoHttpSources = expandAutoHttpTranslationSources(config.translationSources, analysis);
 			config = { ...config, translationSources: expanded.translationSources };
 			detectedLoaderTypes = [...new Set(expanded.resolved.map((item) => item.candidate.framework))];
 			for (const resolved of expanded.resolved) {
@@ -127,7 +127,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 			fetcher: options.allowNetwork ? new NodeRemoteTranslationFetcher() : undefined,
 			environment: process.env
 		};
-		const result = await runScan({
+		const result: IProjectScanResult = await runScan({
 			projectRoot,
 			fs,
 			config,
@@ -140,7 +140,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 			}
 		});
 
-		const counts = countSeverities(result.findings);
+		const counts: ISeverityCounts = countSeverities(result.findings);
 		const context: IReporterContext = {
 			configFilePath,
 			warnings: fs.warnings.map((warning) =>

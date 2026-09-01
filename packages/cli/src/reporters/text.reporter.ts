@@ -1,4 +1,4 @@
-import { IFinding, IProjectScanResult } from '@key-lint/core';
+import { IFileEvidence, IFinding, IProjectScanResult } from '@key-lint/core';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 import { severityRank } from './reporter.js';
 
@@ -16,12 +16,12 @@ function paint(text: string, code: string, color: boolean): string {
 }
 
 function formatLocation(finding: IFinding): string {
-	const evidence = finding.evidence[0];
+	const evidence: IFileEvidence = finding.evidence[0];
 	if (!evidence) {
 		return '';
 	}
 
-	const position = [evidence.line, evidence.column].filter((value) => value !== undefined).join(':');
+	const position: string = [evidence.line, evidence.column].filter((value) => value !== undefined).join(':');
 
 	return position ? `${evidence.filePath}:${position}` : evidence.filePath;
 }
@@ -34,7 +34,7 @@ export const textReporter: IReporter = {
 
 		lines.push(paint(`KeyLint scan: ${result.projectRoot}`, ANSI.bold, color));
 		lines.push(paint(`adapter=${result.adapterId}  duration=${result.durationMs}ms  keys=${result.summary.totalKeys}`, ANSI.dim, color));
-		const baseLocale = result.metadata?.['baseLocale'];
+		const baseLocale: unknown = result.metadata?.['baseLocale'];
 		if (typeof baseLocale === 'string') {
 			lines.push(paint(`base locale: ${baseLocale}`, ANSI.dim, color));
 		}
@@ -45,7 +45,7 @@ export const textReporter: IReporter = {
 
 		lines.push('');
 
-		const reportable = result.findings
+		const reportable: IFinding[] = result.findings
 			.filter((finding) => finding.severity !== 'info')
 			.sort((a, b) => severityRank(a.severity) - severityRank(b.severity) || a.key.localeCompare(b.key));
 
@@ -54,9 +54,9 @@ export const textReporter: IReporter = {
 		}
 
 		for (const finding of reportable) {
-			const severityLabel = finding.severity === 'error' ? paint('error  ', ANSI.red, color) : paint('warning', ANSI.yellow, color);
-			const location = formatLocation(finding);
-			const localeLabel = finding.language ? ` [${finding.language}]` : '';
+			const severityLabel: string = finding.severity === 'error' ? paint('error  ', ANSI.red, color) : paint('warning', ANSI.yellow, color);
+			const location: string = formatLocation(finding);
+			const localeLabel: string = finding.language ? ` [${finding.language}]` : '';
 			lines.push(`  ${severityLabel}${localeLabel}  ${finding.message}`);
 			if (location) {
 				lines.push(`           ${paint(location, ANSI.cyan, color)}`);

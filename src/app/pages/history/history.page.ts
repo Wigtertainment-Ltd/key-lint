@@ -1,22 +1,10 @@
 import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { IProjectHistoryEvent, IScanCompletedHistoryPayload, ITranslationKeyAddedHistoryPayload } from '@key-lint/core';
+import { IProjectHistoryEvent, IScanCompletedHistoryPayload, ITranslationKeyAddedHistoryPayload, normalizePath } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { IHistoryDayGroup } from './history.interfaces';
-
-function normalizePath(path: string): string {
-	// Collapse consecutive forward slashes after converting Windows separators.
-	const normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
-	// Match a Windows drive root with its trailing slash, for example "C:/".
-	if (/^[A-Za-z]:\/$/.test(normalized) || normalized === '/') {
-		return normalized;
-	}
-
-	// Remove one trailing slash from paths that are not filesystem roots.
-	return normalized.replace(/\/$/, '');
-}
 
 @Component({
 	selector: 'app-history-page',

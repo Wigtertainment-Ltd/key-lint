@@ -1,11 +1,4 @@
-import {
-	DEFAULT_SCANNER_CONFIG,
-	IFileSystemAdapter,
-	IFileSystemWarning,
-	IScannerGuardrails,
-	matchesAny,
-	normalizePath
-} from '@key-lint/core';
+import { DEFAULT_SCANNER_CONFIG, IFileSystemAdapter, IFileSystemWarning, IScannerGuardrails, matchesAny, normalizePath } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
 /**
@@ -53,13 +46,13 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 			return [];
 		}
 
-		const rootForFs = projectRoot;
-		const normalizedRoot = normalizePath(projectRoot);
+		const rootForFs: string = projectRoot;
+		const normalizedRoot: string = normalizePath(projectRoot);
 		const results: string[] = [];
 		const stack: string[] = [rootForFs];
 
 		while (stack.length > 0) {
-			const current = stack.pop();
+			const current: string = stack.pop();
 			if (!current) {
 				continue;
 			}
@@ -78,9 +71,9 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 
 			for (const entry of entries) {
 				// Remove one trailing Windows or Unix separator before appending the entry name.
-				const fullPath = `${current.replace(/[\\/]$/, '')}/${entry.name}`;
-				const normalizedFullPath = normalizePath(fullPath);
-				const relativePath = normalizedFullPath.startsWith(`${normalizedRoot}/`)
+				const fullPath: string = `${current.replace(/[\\/]$/, '')}/${entry.name}`;
+				const normalizedFullPath: string = normalizePath(fullPath);
+				const relativePath: string = normalizedFullPath.startsWith(`${normalizedRoot}/`)
 					? normalizedFullPath.slice(normalizedRoot.length + 1)
 					: normalizedFullPath;
 

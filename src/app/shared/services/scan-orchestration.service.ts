@@ -1,17 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import {
-	DEFAULT_SCANNER_CONFIG,
-	extractMustachePlaceholders,
-	IScannerConfig,
-	IScannerConfigOverrides,
-	inferLocaleFromTranslationFile,
-	normalizePath,
-	IProjectScanResult,
-	readTranslationJson,
-	runScan,
-	setNestedTranslationKey,
-	TranslationEventSource
+	DEFAULT_SCANNER_CONFIG, extractMustachePlaceholders, IScannerConfig, IScannerConfigOverrides, inferLocaleFromTranslationFile, normalizePath, IProjectScanResult,
+	readTranslationJson, runScan, setNestedTranslationKey, TranslationEventSource, ITranslationMatrix
 } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
@@ -46,9 +37,9 @@ export class ScanOrchestrationService {
 	private nextDetectedLoaderTypes: ('ngx-translate' | 'transloco')[] = [];
 	private nextRemoteEnvironment?: Record<string, string>;
 	private activeRemoteEnvironment?: Record<string, string>;
-	private remoteScanApproved = false;
+	private remoteScanApproved: boolean = false;
 	private activeRemoteFetcher?: ElectronRemoteTranslationFetcher;
-	private scanExecutionId = 0;
+	private scanExecutionId: number = 0;
 
 	private withNormalizedSummary(result: IProjectScanResult): IProjectScanResult {
 		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
@@ -63,7 +54,7 @@ export class ScanOrchestrationService {
 			return result;
 		}
 
-		const indirectUncertain = result.findings.filter((finding) => finding.status === 'indirect-uncertain').length;
+		const indirectUncertain: number = result.findings.filter((finding) => finding.status === 'indirect-uncertain').length;
 
 		return {
 			...result,
@@ -121,7 +112,7 @@ export class ScanOrchestrationService {
 			throw new Error('Adding translation keys requires the Electron app runtime.');
 		}
 
-		const currentResult = this.snapshot.result;
+		const currentResult: IProjectScanResult = this.snapshot.result;
 		if (!currentResult) {
 			throw new Error('No scan result available. Run a scan before adding translation keys.');
 		}
@@ -129,11 +120,11 @@ export class ScanOrchestrationService {
 			throw new Error('Remote translations are read-only.');
 		}
 
-		const projectRoot = normalizePath(currentResult.projectRoot);
-		const match = await this.resolveLocaleTranslationFile(projectRoot, locale);
-		const parsed = await this.readTranslationJson(match);
+		const projectRoot: string = normalizePath(currentResult.projectRoot);
+		const match: string = await this.resolveLocaleTranslationFile(projectRoot, locale);
+		const parsed: Record<string, unknown> = await this.readTranslationJson(match);
 		setNestedTranslationKey(parsed, key, value);
-		const serialized = `${JSON.stringify(parsed, null, 2)}\n`;
+		const serialized: string = `${JSON.stringify(parsed, null, 2)}\n`;
 		await this.electronService.writeFile(match, serialized);
 		this.updateMatrixWithAddedKey(locale, key, value);
 		this.projectHistoryService.addEvent({
@@ -152,10 +143,10 @@ export class ScanOrchestrationService {
 	}
 
 	private async resolveLocaleTranslationFile(projectRoot: string, locale: string): Promise<string> {
-		const translationFiles = await this.fsAdapter.listFiles(projectRoot, this.activeScannerConfig.includeTranslationGlobs, this.activeScannerConfig.excludeGlobs);
+		const translationFiles: string[] = await this.fsAdapter.listFiles(projectRoot, this.activeScannerConfig.includeTranslationGlobs, this.activeScannerConfig.excludeGlobs);
 
-		const normalizedLocale = locale.trim().toLowerCase();
-		const match = translationFiles
+		const normalizedLocale: string = locale.trim().toLowerCase();
+		const match: string = translationFiles
 			.map((filePath) => normalizePath(filePath))
 			.sort((a, b) => a.localeCompare(b))
 			.find((filePath) => inferLocaleFromTranslationFile(filePath).toLowerCase() === normalizedLocale);
@@ -172,14 +163,14 @@ export class ScanOrchestrationService {
 	}
 
 	private updateMatrixWithAddedKey(locale: string, key: string, value: string): void {
-		const snapshot = this.snapshot;
-		const existingResult = snapshot.result;
-		const existingMatrix = existingResult?.translationMatrix;
+		const snapshot: ScanExecutionSnapshot = this.snapshot;
+		const existingResult: IProjectScanResult = snapshot.result;
+		const existingMatrix: ITranslationMatrix = existingResult?.translationMatrix;
 		if (!existingResult || !existingMatrix) {
 			return;
 		}
 
-		const locales = [...existingMatrix.locales];
+		const locales: string[] = [...existingMatrix.locales];
 		if (!locales.includes(locale)) {
 			locales.push(locale);
 			locales.sort((a, b) => a.localeCompare(b));
@@ -213,7 +204,7 @@ export class ScanOrchestrationService {
 			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
 		}
 
-		const resolvedFindingCount = existingResult.findings.filter(
+		const resolvedFindingCount: number = existingResult.findings.filter(
 			(finding) => finding.status === 'missing-in-language' && finding.key === key && finding.language === locale
 		).length;
 
@@ -237,17 +228,17 @@ export class ScanOrchestrationService {
 	}
 
 	async scanProject(projectRoot: string): Promise<IProjectScanResult> {
-		const executionId = ++this.scanExecutionId;
-		const remoteScanApproved = this.remoteScanApproved;
-		const remoteEnvironment = this.nextRemoteEnvironment ?? {};
-		const detectedLoaderTypes = this.nextDetectedLoaderTypes;
+		const executionId: number = ++this.scanExecutionId;
+		const remoteScanApproved: boolean = this.remoteScanApproved;
+		const remoteEnvironment: Record<string, string> = this.nextRemoteEnvironment ?? {};
+		const detectedLoaderTypes: ("ngx-translate" | "transloco")[] = this.nextDetectedLoaderTypes;
 		this.nextDetectedLoaderTypes = [];
 		this.nextRemoteEnvironment = undefined;
 		this.remoteScanApproved = false;
 		this.activeRemoteEnvironment = remoteEnvironment;
 		let remoteFetcher: ElectronRemoteTranslationFetcher | undefined;
 		this.loggerService.info('ScanOrchestrationService', 'Starting scan for project root:', projectRoot);
-		const normalizedProjectRoot = normalizePath(projectRoot);
+		const normalizedProjectRoot: string = normalizePath(projectRoot);
 		this.projectHistoryService.addEvent({
 			projectPath: normalizedProjectRoot,
 			type: 'scan-started',
@@ -290,7 +281,7 @@ export class ScanOrchestrationService {
 				}
 			});
 
-			const result = this.withNormalizedSummary({
+			const result: IProjectScanResult = this.withNormalizedSummary({
 				...rawResult,
 				metadata: {
 					...rawResult.metadata,
@@ -337,7 +328,7 @@ export class ScanOrchestrationService {
 				throw error;
 			}
 			this.loggerService.error('ScanOrchestrationService', 'Scan failed for project root:', normalizedProjectRoot, error);
-			const message = error instanceof Error ? error.message : 'Unknown scan error';
+			const message: string = error instanceof Error ? error.message : 'Unknown scan error';
 			this.stateSubject.next({
 				state: 'failed',
 				stage: 'Scan failed.',

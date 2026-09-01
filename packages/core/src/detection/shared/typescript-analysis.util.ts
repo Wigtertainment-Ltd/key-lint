@@ -4,7 +4,7 @@ import { ILoaderAnalysisSourceFile, ILoaderResourceTemplate, ILoaderSourceLocati
 import { IAnalysisContext, IConstantDeclaration, IImportedSymbol, IResolvedExpression, IStaticExpressionFailure } from './typescript-analysis.interfaces.js';
 
 export function unwrapExpression(expression: ts.Expression): ts.Expression {
-	let current = expression;
+	let current: ts.Expression = expression;
 	while (
 		ts.isParenthesizedExpression(current) ||
 		ts.isAsExpression(current) ||
@@ -18,7 +18,7 @@ export function unwrapExpression(expression: ts.Expression): ts.Expression {
 }
 
 function appendMapValue<T>(map: Map<string, T[]>, key: string, value: T): void {
-	const values = map.get(key) ?? [];
+	const values: T[] = map.get(key) ?? [];
 	values.push(value);
 	map.set(key, values);
 }
@@ -28,7 +28,7 @@ function isConstDeclaration(node: ts.VariableDeclaration): boolean {
 }
 
 export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnalysisContext {
-	const sourceFile = ts.createSourceFile(
+	const sourceFile: ts.SourceFile = ts.createSourceFile(
 		input.filePath,
 		input.content,
 		ts.ScriptTarget.Latest,
@@ -48,8 +48,8 @@ export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnaly
 
 	for (const statement of sourceFile.statements) {
 		if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
-			const moduleName = statement.moduleSpecifier.text;
-			const clause = statement.importClause;
+			const moduleName: string = statement.moduleSpecifier.text;
+			const clause: ts.ImportClause | undefined = statement.importClause;
 			if (clause?.name) {
 				context.imports.set(clause.name.text, { moduleName, importedName: 'default' });
 			}
@@ -77,12 +77,12 @@ export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnaly
 			((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name)) ||
 			((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && Boolean(node.name))
 		) {
-			const name = (node as ts.VariableDeclaration | ts.ParameterDeclaration | ts.FunctionDeclaration | ts.ClassDeclaration).name;
+			const name: ts.BindingName | undefined = (node as ts.VariableDeclaration | ts.ParameterDeclaration | ts.FunctionDeclaration | ts.ClassDeclaration).name;
 			if (name && ts.isIdentifier(name)) appendMapValue(context.shadowDeclarations, name.text, node);
 		}
 		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isConstDeclaration(node)) {
 			appendMapValue(context.constantInitializers, node.name.text, { declaration: node, initializer: node.initializer });
-			const initializer = unwrapExpression(node.initializer);
+			const initializer: ts.Expression = unwrapExpression(node.initializer);
 			if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) {
 				appendMapValue(context.functionDeclarations, node.name.text, initializer);
 			}
@@ -94,7 +94,7 @@ export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnaly
 }
 
 export function declarationScope(node: ts.Node): ts.Node {
-	let current = node.parent;
+	let current: ts.Node = node.parent;
 	while (current && !ts.isSourceFile(current)) {
 		if (ts.isBlock(current) || ts.isFunctionLike(current) || ts.isClassLike(current)) return current;
 		current = current.parent;
@@ -112,35 +112,35 @@ export function isInside(node: ts.Node, possibleAncestor: ts.Node): boolean {
 }
 
 function visibleConstantDeclarations(identifier: ts.Identifier, declarations: IConstantDeclaration[]): IConstantDeclaration[] {
-	const visible = declarations.filter(({ declaration }) => isInside(identifier, declarationScope(declaration)));
+	const visible: IConstantDeclaration[] = declarations.filter(({ declaration }) => isInside(identifier, declarationScope(declaration)));
 	if (visible.length < 2) return visible;
-	const smallestScopeSize = Math.min(...visible.map(({ declaration }) => declarationScope(declaration).getWidth()));
+	const smallestScopeSize: number = Math.min(...visible.map(({ declaration }) => declarationScope(declaration).getWidth()));
 	return visible.filter(({ declaration }) => declarationScope(declaration).getWidth() === smallestScopeSize);
 }
 
 function hasVisibleShadow(identifier: ts.Identifier, context: IAnalysisContext): boolean {
-	const declarations = context.shadowDeclarations.get(identifier.text) ?? [];
+	const declarations: ts.Node[] = context.shadowDeclarations.get(identifier.text) ?? [];
 	return declarations.some((declaration) => declarationScope(declaration) !== context.sourceFile && isInside(identifier, declarationScope(declaration)));
 }
 
 export function resolveExpression(expression: ts.Expression, context: IAnalysisContext, seen = new Set<string>()): IResolvedExpression {
-	const unwrapped = unwrapExpression(expression);
+	const unwrapped: ts.Expression = unwrapExpression(expression);
 	if (!ts.isIdentifier(unwrapped)) return { expression: unwrapped };
 	if (seen.has(unwrapped.text)) return { ambiguousNode: unwrapped };
-	const declarations = context.constantInitializers.get(unwrapped.text);
+	const declarations: IConstantDeclaration[] | undefined = context.constantInitializers.get(unwrapped.text);
 	if (!declarations) return { expression: unwrapped };
-	const visible = visibleConstantDeclarations(unwrapped, declarations);
+	const visible: IConstantDeclaration[] = visibleConstantDeclarations(unwrapped, declarations);
 	if (visible.length !== 1) return { ambiguousNode: unwrapped };
 	seen.add(unwrapped.text);
 	return resolveExpression(visible[0].initializer, context, seen);
 }
 
 export function resolveImportedSymbol(expression: ts.Expression, context: IAnalysisContext, seen = new Set<string>()): IImportedSymbol | undefined {
-	const unwrapped = unwrapExpression(expression);
+	const unwrapped: ts.Expression = unwrapExpression(expression);
 	if (ts.isIdentifier(unwrapped)) {
 		if (seen.has(unwrapped.text)) return undefined;
-		const declarations = context.constantInitializers.get(unwrapped.text);
-		const visible = declarations ? visibleConstantDeclarations(unwrapped, declarations) : [];
+		const declarations: IConstantDeclaration[] | undefined = context.constantInitializers.get(unwrapped.text);
+		const visible: IConstantDeclaration[] = declarations ? visibleConstantDeclarations(unwrapped, declarations) : [];
 		if (visible.length === 1) {
 			seen.add(unwrapped.text);
 			return resolveImportedSymbol(visible[0].initializer, context, seen);
@@ -150,15 +150,15 @@ export function resolveImportedSymbol(expression: ts.Expression, context: IAnaly
 	}
 	if (ts.isPropertyAccessExpression(unwrapped) && ts.isIdentifier(unwrapped.expression)) {
 		if (hasVisibleShadow(unwrapped.expression, context)) return undefined;
-		const moduleName = context.namespaces.get(unwrapped.expression.text);
+		const moduleName: string | undefined = context.namespaces.get(unwrapped.expression.text);
 		if (moduleName) return { moduleName, importedName: unwrapped.name.text };
 	}
 	return undefined;
 }
 
 export function locationOf(node: ts.Node, context: IAnalysisContext): ILoaderSourceLocation {
-	const start = context.sourceFile.getLineAndCharacterOfPosition(node.getStart(context.sourceFile));
-	const end = context.sourceFile.getLineAndCharacterOfPosition(node.getEnd());
+	const start: ts.LineAndCharacter = context.sourceFile.getLineAndCharacterOfPosition(node.getStart(context.sourceFile));
+	const end: ts.LineAndCharacter = context.sourceFile.getLineAndCharacterOfPosition(node.getEnd());
 	return {
 		filePath: context.input.filePath,
 		line: start.line + 1,
@@ -169,15 +169,15 @@ export function locationOf(node: ts.Node, context: IAnalysisContext): ILoaderSou
 }
 
 export function templateResource(urlTemplate: string): ILoaderResourceTemplate {
-	const urlKind = /^https?:\/\//i.test(urlTemplate) ? 'absolute' : 'relative';
+	const urlKind: "absolute" | "relative" = /^https?:\/\//i.test(urlTemplate) ? 'absolute' : 'relative';
 	return { urlTemplate, urlKind, requiresOrigin: urlKind === 'relative' };
 }
 
 export function classifyStaticExpression(node: ts.Node, context: IAnalysisContext): IStaticExpressionFailure {
-	let hasEnvironment = false;
-	let hasConditional = false;
-	let hasSpread = false;
-	let hasTransformation = false;
+	let hasEnvironment: boolean = false;
+	let hasConditional: boolean = false;
+	let hasSpread: boolean = false;
+	let hasTransformation: boolean = false;
 	const inspect = (child: ts.Node): void => {
 		if (ts.isConditionalExpression(child) || ts.isIfStatement(child) || ts.isSwitchStatement(child)) hasConditional = true;
 		if (ts.isSpreadAssignment(child) || ts.isSpreadElement(child)) hasSpread = true;
@@ -194,9 +194,9 @@ export function classifyStaticExpression(node: ts.Node, context: IAnalysisContex
 }
 
 export function resolveStaticString(expression: ts.Expression, context: IAnalysisContext): { value?: string; failure?: IStaticExpressionFailure } {
-	const resolved = resolveExpression(expression, context);
+	const resolved: IResolvedExpression = resolveExpression(expression, context);
 	if (resolved.ambiguousNode) return { failure: { kind: 'ambiguous', node: resolved.ambiguousNode } };
-	const value = resolved.expression as ts.Expression;
+	const value: ts.Expression = resolved.expression as ts.Expression;
 	if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) return { value: value.text };
 	return { failure: classifyStaticExpression(value, context) };
 }
@@ -222,7 +222,7 @@ export function propertyExpression(property: ts.ObjectLiteralElementLike, contex
 }
 
 export function conditionalAncestor(node: ts.Node): ts.ConditionalExpression | undefined {
-	let current = node.parent;
+	let current: ts.Node = node.parent;
 	while (current && !ts.isSourceFile(current)) {
 		if (ts.isConditionalExpression(current)) return current;
 		current = current.parent;
@@ -231,10 +231,10 @@ export function conditionalAncestor(node: ts.Node): ts.ConditionalExpression | u
 }
 
 export function resolveFactoryDeclarations(identifier: ts.Identifier, context: IAnalysisContext): ts.Node[] {
-	const declarations = context.functionDeclarations.get(identifier.text) ?? [];
-	const visible = declarations.filter((declaration) => isInside(identifier, declarationScope(declaration)));
+	const declarations: (ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression)[] = context.functionDeclarations.get(identifier.text) ?? [];
+	const visible: (ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression)[] = declarations.filter((declaration) => isInside(identifier, declarationScope(declaration)));
 	if (visible.length < 2) return visible;
-	const smallestScopeSize = Math.min(...visible.map((declaration) => declarationScope(declaration).getWidth()));
+	const smallestScopeSize: number = Math.min(...visible.map((declaration) => declarationScope(declaration).getWidth()));
 	return visible.filter((declaration) => declarationScope(declaration).getWidth() === smallestScopeSize);
 }
 
@@ -247,20 +247,20 @@ export function collectNamedLiteralStringArrays(
 	for (const context of contexts) {
 		for (const [name, declarations] of context.constantInitializers) {
 			if (!namePattern.test(name.replaceAll('_', '').toLowerCase())) continue;
-			const topLevel = declarations.filter(({ declaration }) => declarationScope(declaration) === context.sourceFile);
+			const topLevel: IConstantDeclaration[] = declarations.filter(({ declaration }) => declarationScope(declaration) === context.sourceFile);
 			if (topLevel.length !== 1) continue;
-			const resolved = resolveExpression(topLevel[0].initializer, context);
+			const resolved: IResolvedExpression = resolveExpression(topLevel[0].initializer, context);
 			if (resolved.ambiguousNode) {
 				failures.push({ context, failure: { kind: 'ambiguous', node: resolved.ambiguousNode } });
 				continue;
 			}
-			const expression = resolved.expression ? unwrapExpression(resolved.expression) : undefined;
+			const expression: ts.Expression | undefined = resolved.expression ? unwrapExpression(resolved.expression) : undefined;
 			if (!expression || !ts.isArrayLiteralExpression(expression)) {
 				failures.push({ context, failure: classifyStaticExpression(expression ?? topLevel[0].initializer, context) });
 				continue;
 			}
 			const entries: string[] = [];
-			let supported = true;
+			let supported: boolean = true;
 			for (const element of expression.elements) {
 				if (ts.isSpreadElement(element)) {
 					failures.push({ context, failure: classifyStaticExpression(element, context) });
@@ -283,7 +283,7 @@ export function collectNamedLiteralStringArrays(
 	return { values, failures };
 }
 
-function normalizePath(value: string): string {
+function resolvePathSegments(value: string): string {
 	const parts: string[] = [];
 	for (const part of value.replaceAll('\\', '/').split('/')) {
 		if (!part || part === '.') continue;
@@ -295,10 +295,10 @@ function normalizePath(value: string): string {
 
 function resolveLocalModulePath(fromFile: string, moduleName: string, contexts: readonly IAnalysisContext[]): IAnalysisContext | undefined {
 	if (!moduleName.startsWith('.')) return undefined;
-	const directory = normalizePath(fromFile).split('/').slice(0, -1).join('/');
-	const base = normalizePath(`${directory}/${moduleName}`);
-	const candidates = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
-	return contexts.find((context) => candidates.includes(normalizePath(context.input.filePath)));
+	const directory: string = resolvePathSegments(fromFile).split('/').slice(0, -1).join('/');
+	const base: string = resolvePathSegments(`${directory}/${moduleName}`);
+	const candidates: string[] = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
+	return contexts.find((context) => candidates.includes(resolvePathSegments(context.input.filePath)));
 }
 
 function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
@@ -310,18 +310,18 @@ export function resolveClassDeclaration(
 	context: IAnalysisContext,
 	contexts: readonly IAnalysisContext[]
 ): { declaration?: ts.ClassDeclaration; context?: IAnalysisContext; ambiguousNode?: ts.Node } {
-	const resolved = resolveExpression(expression, context);
+	const resolved: IResolvedExpression = resolveExpression(expression, context);
 	if (resolved.ambiguousNode) return { ambiguousNode: resolved.ambiguousNode };
-	const value = resolved.expression as ts.Expression;
+	const value: ts.Expression = resolved.expression as ts.Expression;
 	if (ts.isIdentifier(value)) {
-		const localClasses = context.classDeclarations.get(value.text) ?? [];
+		const localClasses: ts.ClassDeclaration[] = context.classDeclarations.get(value.text) ?? [];
 		if (localClasses.length === 1) return { declaration: localClasses[0], context };
 		if (localClasses.length > 1) return { ambiguousNode: value };
-		const imported = context.imports.get(value.text);
+		const imported: IImportedSymbol | undefined = context.imports.get(value.text);
 		if (!imported) return {};
-		const target = resolveLocalModulePath(context.input.filePath, imported.moduleName, contexts);
+		const target: IAnalysisContext | undefined = resolveLocalModulePath(context.input.filePath, imported.moduleName, contexts);
 		if (!target) return {};
-		const classes = imported.importedName === 'default'
+		const classes: ts.ClassDeclaration[] = imported.importedName === 'default'
 			? [...target.classDeclarations.values()].flat().filter((candidate) => hasModifier(candidate, ts.SyntaxKind.DefaultKeyword))
 			: target.classDeclarations.get(imported.importedName) ?? [];
 		if (classes.length === 1) return { declaration: classes[0], context: target };
@@ -329,10 +329,10 @@ export function resolveClassDeclaration(
 		return {};
 	}
 	if (ts.isPropertyAccessExpression(value) && ts.isIdentifier(value.expression)) {
-		const moduleName = context.namespaces.get(value.expression.text);
+		const moduleName: string | undefined = context.namespaces.get(value.expression.text);
 		if (!moduleName) return {};
-		const target = resolveLocalModulePath(context.input.filePath, moduleName, contexts);
-		const classes = target?.classDeclarations.get(value.name.text) ?? [];
+		const target: IAnalysisContext | undefined = resolveLocalModulePath(context.input.filePath, moduleName, contexts);
+		const classes: ts.ClassDeclaration[] = target?.classDeclarations.get(value.name.text) ?? [];
 		if (classes.length === 1 && target) return { declaration: classes[0], context: target };
 		if (classes.length > 1) return { ambiguousNode: value };
 	}
@@ -340,10 +340,10 @@ export function resolveClassDeclaration(
 }
 
 export function uniqueDiagnostics<T extends { code: string; location: ILoaderSourceLocation }>(diagnostics: readonly T[]): T[] {
-	const seen = new Set<string>();
+	const seen: Set<string> = new Set<string>();
 	return diagnostics.filter((diagnostic) => {
-		const location = diagnostic.location;
-		const key = `${diagnostic.code}:${location.filePath}:${location.line}:${location.column}:${location.endLine}:${location.endColumn}`;
+		const location: ILoaderSourceLocation = diagnostic.location;
+		const key: string = `${diagnostic.code}:${location.filePath}:${location.line}:${location.column}:${location.endLine}:${location.endColumn}`;
 		if (seen.has(key)) return false;
 		seen.add(key);
 		return true;

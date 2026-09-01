@@ -13,16 +13,7 @@ import { mergeTranslationResources } from '../../util/translation-resource.util.
 import { ITranslationSourceConfig } from '../../config/config.interfaces.js';
 import { collectRemoteTranslationResources } from '../../remote/remote-translation-resource.util.js';
 import { IPatternDescriptor } from '../adapter.interfaces.js';
-
-function normalizePath(value: string): string {
-	return (
-		value
-			// Convert every Windows path separator to the cross-platform forward-slash form.
-			.replace(/\\/g, '/')
-			// Collapse consecutive forward slashes into one separator.
-			.replace(/\/+/g, '/')
-	);
-}
+import { normalizePath } from '../../util/path.util.js';
 
 function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	if (value === null || value === undefined) {

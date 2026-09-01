@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { normalizePath, pathDedupeKey } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
 export interface IRecentProjectItem {
@@ -9,22 +10,6 @@ export interface IRecentProjectItem {
 const RECENT_PROJECTS_STORAGE_KEY = 'key-lint.recent-projects';
 const MAX_RECENT_PROJECTS = 5;
 
-function normalizePath(path: string): string {
-	// Collapse consecutive forward slashes after converting Windows separators.
-	const normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
-	// Match a Windows drive root with its trailing slash, for example "C:/".
-	if (/^[A-Za-z]:\/$/.test(normalized) || normalized === '/') {
-		return normalized;
-	}
-
-	// Remove one trailing slash from paths that are not filesystem roots.
-	return normalized.replace(/\/$/, '');
-}
-
-function dedupeKey(path: string): string {
-	return normalizePath(path).toLowerCase();
-}
-
 @Injectable({
 	providedIn: 'root'
 })
@@ -32,7 +17,7 @@ export class RecentProjectsService {
 	constructor(private readonly electronService: ElectronService) {}
 
 	async getRecentProjects(): Promise<IRecentProjectItem[]> {
-		const recentPaths = this.readStoredPaths();
+		const recentPaths: string[] = this.readStoredPaths();
 		return Promise.all(recentPaths.map(async (path) => ({
 			path,
 			exists: await this.pathExists(path)
@@ -40,14 +25,14 @@ export class RecentProjectsService {
 	}
 
 	addRecentProject(path: string): void {
-		const normalizedPath = normalizePath(path);
+		const normalizedPath: string = normalizePath(path);
 		if (!normalizedPath) {
 			return;
 		}
 
-		const existing = this.readStoredPaths();
-		const withoutDuplicate = existing.filter((item) => dedupeKey(item) !== dedupeKey(normalizedPath));
-		const updated = [normalizedPath, ...withoutDuplicate].slice(0, MAX_RECENT_PROJECTS);
+		const existing: string[] = this.readStoredPaths();
+		const withoutDuplicate: string[] = existing.filter((item) => pathDedupeKey(item) !== pathDedupeKey(normalizedPath));
+		const updated: string[] = [normalizedPath, ...withoutDuplicate].slice(0, MAX_RECENT_PROJECTS);
 		this.writeStoredPaths(updated);
 	}
 
@@ -57,19 +42,19 @@ export class RecentProjectsService {
 			return;
 		}
 
-		const existing = this.readStoredPaths();
-		const updated = existing.filter((item) => dedupeKey(item) !== dedupeKey(normalizedPath));
+		const existing: string[] = this.readStoredPaths();
+		const updated: string[] = existing.filter((item) => pathDedupeKey(item) !== pathDedupeKey(normalizedPath));
 		this.writeStoredPaths(updated);
 	}
 
 	private readStoredPaths(): string[] {
 		try {
-			const raw = localStorage.getItem(RECENT_PROJECTS_STORAGE_KEY);
+			const raw: string = localStorage.getItem(RECENT_PROJECTS_STORAGE_KEY);
 			if (!raw) {
 				return [];
 			}
 
-			const parsed = JSON.parse(raw) as unknown;
+			const parsed: unknown = JSON.parse(raw) as unknown;
 			if (!Array.isArray(parsed)) {
 				return [];
 			}

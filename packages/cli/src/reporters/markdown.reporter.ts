@@ -1,4 +1,4 @@
-import { IFinding, IProjectScanResult } from '@key-lint/core';
+import { IFileEvidence, IFinding, IProjectScanResult } from '@key-lint/core';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
 const MAX_LISTED_FINDINGS = 50;
@@ -14,7 +14,7 @@ function escapeCell(value: string): string {
 }
 
 function locationOf(finding: IFinding): string {
-	const evidence = finding.evidence[0];
+	const evidence: IFileEvidence = finding.evidence[0];
 	if (!evidence) {
 		return '-';
 	}
@@ -26,13 +26,13 @@ export const markdownReporter: IReporter = {
 	name: 'markdown',
 	format(result: IProjectScanResult, context: IReporterContext): string {
 		const lines: string[] = [];
-		const warningsExceeded = context.thresholds.maxWarnings >= 0 && context.counts.warning > context.thresholds.maxWarnings;
-		const status = context.counts.error > context.thresholds.maxErrors || warningsExceeded ? 'failed' : 'passed';
+		const warningsExceeded: boolean = context.thresholds.maxWarnings >= 0 && context.counts.warning > context.thresholds.maxWarnings;
+		const status: 'passed' | 'failed' = context.counts.error > context.thresholds.maxErrors || warningsExceeded ? 'failed' : 'passed';
 
 		lines.push('## KeyLint');
 		lines.push('');
 		lines.push(`**Result:** ${status} - adapter \`${result.adapterId}\` - ${result.durationMs} ms`);
-		const baseLocale = result.metadata?.['baseLocale'];
+		const baseLocale: unknown = result.metadata?.['baseLocale'];
 		if (typeof baseLocale === 'string') {
 			lines.push(`**Base locale:** \`${escapeCell(baseLocale)}\``);
 		}
@@ -52,7 +52,7 @@ export const markdownReporter: IReporter = {
 		lines.push(`| Warnings | ${context.counts.warning} |`);
 		lines.push('');
 
-		const reportable = result.findings.filter((finding) => finding.severity === 'error');
+		const reportable: IFinding[] = result.findings.filter((finding) => finding.severity === 'error');
 		if (reportable.length > 0) {
 			lines.push('### Errors');
 			lines.push('');
@@ -70,7 +70,7 @@ export const markdownReporter: IReporter = {
 			lines.push('');
 		}
 
-		const warningFindings = result.findings.filter((finding) => finding.severity === 'warning');
+		const warningFindings: IFinding[] = result.findings.filter((finding) => finding.severity === 'warning');
 		if (warningFindings.length > 0) {
 			lines.push('### Warnings');
 			lines.push('');

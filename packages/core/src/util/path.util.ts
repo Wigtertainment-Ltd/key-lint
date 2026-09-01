@@ -1,9 +1,19 @@
 export function normalizePath(value: string): string {
-	return value
+	const normalized = value
+		.trim()
 		// Convert every Windows path separator to the cross-platform forward-slash form.
 		.replace(/\\/g, '/')
 		// Collapse consecutive forward slashes into one separator.
 		.replace(/\/+/g, '/');
+
+	// Keep filesystem roots intact, but remove the trailing slash from every other path.
+	return normalized === '/' || /^[A-Za-z]:\/$/.test(normalized)
+		? normalized
+		: normalized.replace(/\/$/, '');
+}
+
+export function pathDedupeKey(value: string): string {
+	return normalizePath(value).toLowerCase();
 }
 
 export function inferLocaleFromTranslationFile(filePath: string): string {

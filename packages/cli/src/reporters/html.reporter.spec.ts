@@ -118,6 +118,30 @@ describe('htmlReporter', () => {
 		expect(output).toContain('warnings unlimited');
 	});
 
+	it('introduces the report and explains every finding status', () => {
+		const projectRoot = resolve('fixtures', 'guide-project');
+		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+
+		expect(output).toContain('<h2 id="introduction-heading">About this report</h2>');
+		expect(output).toContain('Start with errors that require action');
+		expect(output).toContain('The scan exceeded at least one configured error or warning threshold.');
+		expect(output).toContain('<h2 id="status-guide-heading">Status guide</h2>');
+		for (const status of [
+			'used',
+			'unused',
+			'dynamic-uncertain',
+			'indirect-uncertain',
+			'missing-in-language',
+			'extra-in-language',
+			'placeholder-missing',
+			'placeholder-uncertain',
+			'placeholder-mismatch'
+		]) {
+			expect(output).toContain(`<code>${status}</code>`);
+		}
+		expect(output).toContain('Check dynamic usage before removing it.');
+	});
+
 	it('adds local filtering, full-text search, sorting, result counts, and reset controls', () => {
 		const projectRoot = resolve('fixtures', 'dashboard-project');
 		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
@@ -176,6 +200,7 @@ describe('htmlReporter', () => {
 		const output = htmlReporter.format(result, context);
 
 		expect(output).toContain('<span class="status">passed</span>');
+		expect(output).toContain('The scan stayed within the configured error and warning thresholds.');
 		expect(output).toContain('<td colspan="7" class="empty">No findings.</td>');
 		expect(output).toContain('data-default-severity="all"');
 	});

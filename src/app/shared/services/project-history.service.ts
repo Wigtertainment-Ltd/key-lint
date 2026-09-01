@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map, Observable } from 'rxjs';
-import { IProjectHistoryEvent, ProjectHistoryPayload, ProjectHistoryEventType } from '@key-lint/core';
+import { IProjectHistoryEvent, normalizePath, pathDedupeKey, ProjectHistoryPayload, ProjectHistoryEventType } from '@key-lint/core';
 
 interface IStoredProjectHistoryV1 {
 	version: 1;
@@ -17,25 +17,9 @@ export interface ICreateIProjectHistoryEventInput<TPayload extends ProjectHistor
 const PROJECT_HISTORY_STORAGE_KEY = 'key-lint.project-history.v1';
 const MAX_EVENTS_PER_PROJECT = 500;
 
-function normalizePath(path: string): string {
-	// Collapse consecutive forward slashes after converting Windows separators.
-	const normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
-	// Match a Windows drive root with its trailing slash, for example "C:/".
-	if (/^[A-Za-z]:\/$/.test(normalized) || normalized === '/') {
-		return normalized;
-	}
-
-	// Remove one trailing slash from paths that are not filesystem roots.
-	return normalized.replace(/\/$/, '');
-}
-
-function dedupeKey(path: string): string {
-	return normalizePath(path).toLowerCase();
-}
-
 function compareByNewest(a: IProjectHistoryEvent, b: IProjectHistoryEvent): number {
-	const left = Date.parse(a.timestamp);
-	const right = Date.parse(b.timestamp);
+	const left: number = Date.parse(a.timestamp);
+	const right: number = Date.parse(b.timestamp);
 
 	if (!Number.isNaN(left) && !Number.isNaN(right)) {
 		return right - left;
@@ -56,32 +40,32 @@ function compareByNewest(a: IProjectHistoryEvent, b: IProjectHistoryEvent): numb
 	providedIn: 'root'
 })
 export class ProjectHistoryService {
-	private readonly eventsSubject = new BehaviorSubject<IProjectHistoryEvent[]>([]);
-	private eventCounter = 0;
+	private readonly eventsSubject: BehaviorSubject<IProjectHistoryEvent[]> = new BehaviorSubject<IProjectHistoryEvent[]>([]);
+	private eventCounter: number = 0;
 
 	constructor() {
 		this.eventsSubject.next(this.readStoredEvents());
 	}
 
 	getEventsForProject(projectPath: string): IProjectHistoryEvent[] {
-		const normalizedProjectPath = normalizePath(projectPath);
+		const normalizedProjectPath: string = normalizePath(projectPath);
 		if (!normalizedProjectPath) {
 			return [];
 		}
 
 		return this.eventsSubject.getValue()
-			.filter((event) => dedupeKey(event.projectPath) === dedupeKey(normalizedProjectPath))
+			.filter((event) => pathDedupeKey(event.projectPath) === pathDedupeKey(normalizedProjectPath))
 			.sort(compareByNewest);
 	}
 
 	watchEventsForProject(projectPath: string): Observable<IProjectHistoryEvent[]> {
-		const normalizedProjectPath = normalizePath(projectPath);
-		const projectKey = dedupeKey(normalizedProjectPath);
+		const normalizedProjectPath: string = normalizePath(projectPath);
+		const projectKey: string = pathDedupeKey(normalizedProjectPath);
 
 		return this.eventsSubject.asObservable().pipe(
 			map((events) =>
 				events
-					.filter((event) => dedupeKey(event.projectPath) === projectKey)
+					.filter((event) => pathDedupeKey(event.projectPath) === projectKey)
 					.sort(compareByNewest)
 			)
 		);
@@ -90,7 +74,7 @@ export class ProjectHistoryService {
 	addEvent<TPayload extends ProjectHistoryPayload>(
 		input: ICreateIProjectHistoryEventInput<TPayload>
 	): IProjectHistoryEvent {
-		const normalizedProjectPath = normalizePath(input.projectPath);
+		const normalizedProjectPath: string = normalizePath(input.projectPath);
 		if (!normalizedProjectPath) {
 			throw new Error('Cannot add history event without a valid project path.');
 		}
@@ -103,14 +87,14 @@ export class ProjectHistoryService {
 			payload: input.payload
 		};
 
-		const allEvents = this.eventsSubject.getValue();
-		const retainedForProject = allEvents
-			.filter((existing) => dedupeKey(existing.projectPath) === dedupeKey(normalizedProjectPath))
+		const allEvents: IProjectHistoryEvent[] = this.eventsSubject.getValue();
+		const retainedForProject: IProjectHistoryEvent[] = allEvents
+			.filter((existing) => pathDedupeKey(existing.projectPath) === pathDedupeKey(normalizedProjectPath))
 			.concat(event)
 			.sort(compareByNewest)
 			.slice(0, MAX_EVENTS_PER_PROJECT);
-		const retainedOtherProjects = allEvents.filter(
-			(existing) => dedupeKey(existing.projectPath) !== dedupeKey(normalizedProjectPath)
+		const retainedOtherProjects: IProjectHistoryEvent[] = allEvents.filter(
+			(existing) => pathDedupeKey(existing.projectPath) !== pathDedupeKey(normalizedProjectPath)
 		);
 		const nextEvents = retainedOtherProjects.concat(retainedForProject);
 
@@ -119,13 +103,13 @@ export class ProjectHistoryService {
 	}
 
 	clearProjectHistory(projectPath: string): void {
-		const normalizedProjectPath = normalizePath(projectPath);
+		const normalizedProjectPath: string = normalizePath(projectPath);
 		if (!normalizedProjectPath) {
 			return;
 		}
 
-		const filtered = this.eventsSubject.getValue().filter(
-			(event) => dedupeKey(event.projectPath) !== dedupeKey(normalizedProjectPath)
+		const filtered: IProjectHistoryEvent[] = this.eventsSubject.getValue().filter(
+			(event) => pathDedupeKey(event.projectPath) !== pathDedupeKey(normalizedProjectPath)
 		);
 
 		this.replaceEvents(filtered);
@@ -138,17 +122,17 @@ export class ProjectHistoryService {
 
 	private readStoredEvents(): IProjectHistoryEvent[] {
 		try {
-			const raw = localStorage.getItem(PROJECT_HISTORY_STORAGE_KEY);
+			const raw: string = localStorage.getItem(PROJECT_HISTORY_STORAGE_KEY);
 			if (!raw) {
 				return [];
 			}
 
-			const parsed = JSON.parse(raw) as unknown;
+			const parsed: unknown = JSON.parse(raw) as unknown;
 			if (!parsed || typeof parsed !== 'object') {
 				return [];
 			}
 
-			const payload = parsed as Partial<IStoredProjectHistoryV1>;
+			const payload: Partial<IStoredProjectHistoryV1> = parsed as Partial<IStoredProjectHistoryV1>;
 			if (payload.version !== 1 || !Array.isArray(payload.events)) {
 				return [];
 			}

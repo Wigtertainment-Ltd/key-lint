@@ -35,7 +35,7 @@ function parseCount(raw: string | undefined, flag: string, fallback: number): nu
 		return fallback;
 	}
 
-	const value = Number(raw);
+	const value: number = Number(raw);
 	if (!Number.isInteger(value) || value < 0) {
 		throw new CliUsageError(`${flag} must be a non-negative integer.`);
 	}

@@ -1,7 +1,7 @@
 import { IRemoteTranslationFetcher, IRemoteTranslationFetchRequest, IRemoteTranslationFetchResponse, RemoteTranslationError, RemoteTranslationErrorCode } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
-let scanSequence = 0;
+let scanSequence: number = 0;
 
 function nextScanId(): string {
 	scanSequence += 1;
@@ -24,7 +24,7 @@ const REMOTE_ERROR_CODES = new Set<RemoteTranslationErrorCode>([
 /** Narrow renderer adapter for the translation-only main-process IPC contract. */
 export class ElectronRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 	private readonly scanId: string = nextScanId();
-	private closed = false;
+	private closed: boolean = false;
 
 	constructor(private readonly electronService: ElectronService) { }
 
@@ -32,7 +32,7 @@ export class ElectronRemoteTranslationFetcher implements IRemoteTranslationFetch
 		if (this.closed) {
 			throw new RemoteTranslationError('remote-invalid-request', 'Remote translation scan is already closed.');
 		}
-		const result = await this.electronService.fetchTranslationResource({
+		const result: IKeyLintTranslationFetchResult = await this.electronService.fetchTranslationResource({
 			scanId: this.scanId,
 			method: 'GET',
 			url: request.url,
@@ -44,7 +44,7 @@ export class ElectronRemoteTranslationFetcher implements IRemoteTranslationFetch
 		if (!('error' in result)) {
 			return result.value;
 		}
-		const code = REMOTE_ERROR_CODES.has(result.error.code as RemoteTranslationErrorCode)
+		const code: RemoteTranslationErrorCode = REMOTE_ERROR_CODES.has(result.error.code as RemoteTranslationErrorCode)
 			? result.error.code as RemoteTranslationErrorCode
 			: 'remote-fetch-failed';
 		throw new RemoteTranslationError(code, result.error.message);

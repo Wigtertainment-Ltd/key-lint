@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, Injector, OnInit, signal } from '@
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { IScanCompletedHistoryPayload, IProjectScanResult } from '@key-lint/core';
+import { IScanCompletedHistoryPayload, IProjectScanResult, normalizePath } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ITrendBar } from './dashboard.interfaces';
@@ -270,7 +270,7 @@ export class DashboardPage implements OnInit {
 	private resolveProjectRoot(): string {
 		const snapshotProjectRoot = this.scanResult?.projectRoot ?? '';
 		const queryProjectRoot = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
-		return this.normalizePath(snapshotProjectRoot || queryProjectRoot);
+		return normalizePath(snapshotProjectRoot || queryProjectRoot);
 	}
 
 	private buildDrilldownTrendBars(): ITrendBar[] | undefined {
@@ -379,22 +379,6 @@ export class DashboardPage implements OnInit {
 			hour: '2-digit',
 			minute: '2-digit'
 		});
-	}
-
-	private normalizePath(path: string): string {
-		// Collapse consecutive forward slashes after converting Windows separators.
-		let normalized = path.trim().replaceAll('\\', '/').replace(/\/+/g, '/');
-		if (!normalized) {
-			return normalized;
-		}
-
-		// Match a Windows drive root with its trailing slash, for example "C:/".
-		if (normalized !== '/' && !/^[A-Za-z]:\/$/.test(normalized)) {
-			// Remove one trailing slash from paths that are not filesystem roots.
-			normalized = normalized.replace(/\/$/, '');
-		}
-
-		return normalized;
 	}
 
 	private timestampToMillis(timestamp: string): number {

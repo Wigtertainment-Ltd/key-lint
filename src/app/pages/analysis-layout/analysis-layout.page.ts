@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, WritableSignal, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IFileSystemWarning } from '@key-lint/core';
 import { Subscription } from 'rxjs';
@@ -18,14 +18,14 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	private readonly router: Router = inject(Router);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly document: Document = inject(DOCUMENT);
-	projectPath = '';
-	lastScanText = 'Running now';
-	isSidebarCollapsed = false;
-	private readonly fileSystemWarningsSignal = signal<IFileSystemWarning[]>([]);
-	private readonly remoteReadOnlySignal = signal(false);
+	projectPath: string = '';
+	lastScanText: string = 'Running now';
+	isSidebarCollapsed: boolean = false;
+	private readonly fileSystemWarningsSignal: WritableSignal<IFileSystemWarning[]> = signal<IFileSystemWarning[]>([]);
+	private readonly remoteReadOnlySignal: WritableSignal<boolean> = signal(false);
 
-	readonly themeService = inject(ThemeService);
-	readonly appVersionService = inject(AppVersionService);
+	readonly themeService: ThemeService = inject(ThemeService);
+	readonly appVersionService: AppVersionService = inject(AppVersionService);
 
 	get isDark(): boolean {
 		return this.themeService.getCurrent() === 'dark';
