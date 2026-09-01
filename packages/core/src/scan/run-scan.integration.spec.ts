@@ -93,11 +93,11 @@ interface IExpectedScan {
 		placeholderMismatch: number;
 		totalFindings: number;
 	};
-	findings: Array<{
+	findings: {
 		key: string;
 		status: string;
 		severity: string;
-	}>;
+	}[];
 }
 
 describe('runScan integration fixtures', () => {

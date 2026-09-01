@@ -50,10 +50,11 @@ export class ElectronService {
 	}
 
 	private bridge(): IKeyLintDesktopApi {
-		if (!this.isElectron) {
+		const bridge = window.keyLint;
+		if (!bridge) {
 			throw new Error('Electron preload bridge is not available.');
 		}
 
-		return window.keyLint as IKeyLintDesktopApi;
+		return bridge;
 	}
 }

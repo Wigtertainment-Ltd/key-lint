@@ -198,7 +198,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 
 	private startFillerLogs(): void {
 		let index = 0;
-		const tick = () => {
+		const tick = (): void => {
 			if (this.scanState() !== 'running') {
 				return;
 			}

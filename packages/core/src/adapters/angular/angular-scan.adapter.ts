@@ -59,6 +59,15 @@ function uniqueSorted(values: string[]): string[] {
 	return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
+function stringifyTranslationValue(value: unknown): string {
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint' || typeof value === 'symbol') {
+		return value.toString();
+	}
+	if (typeof value === 'function') return value.toString();
+	return '';
+}
+
 function flattenTranslationValueObject(value: unknown, prefix = '', collector: Record<string, string>): void {
 	if (value === null || value === undefined) {
 		if (prefix) {
@@ -76,7 +85,7 @@ function flattenTranslationValueObject(value: unknown, prefix = '', collector: R
 
 	if (typeof value !== 'object') {
 		if (prefix) {
-			collector[prefix] = String(value);
+			collector[prefix] = stringifyTranslationValue(value);
 		}
 		return;
 	}
@@ -99,7 +108,7 @@ function flattenTranslationValueObject(value: unknown, prefix = '', collector: R
 			continue;
 		}
 
-		collector[nextPrefix] = Array.isArray(child) ? JSON.stringify(child) : String(child);
+		collector[nextPrefix] = Array.isArray(child) ? JSON.stringify(child) : stringifyTranslationValue(child);
 	}
 }
 

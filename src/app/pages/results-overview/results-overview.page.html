@@ -140,7 +140,7 @@
 							<p class="detail-message">Provided: {{ selectedFinding.placeholderDetails.provided.join(', ') || 'None' }}</p>
 						}
 						@if (selectedFinding.placeholderDetails.missing?.length) {
-							<p class="detail-message">Missing: {{ selectedFinding.placeholderDetails.missing?.join(', ') }}</p>
+							<p class="detail-message">Missing: {{ selectedFinding.placeholderDetails.missing.join(', ') }}</p>
 						}
 						@if (selectedFinding.placeholderDetails.actual) {
 							<p class="detail-message">Locale placeholders: {{ selectedFinding.placeholderDetails.actual.join(', ') || 'None' }}</p>

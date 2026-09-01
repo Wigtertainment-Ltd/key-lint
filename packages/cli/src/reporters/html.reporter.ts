@@ -134,11 +134,11 @@ const STATUS_GUIDE: readonly { status: FindingStatus; severity: FindingSeverity;
 	}
 ];
 
-function redact(value: unknown, context: IReporterContext): string {
+function redact(value: string | number | boolean | null | undefined, context: IReporterContext): string {
 	return redactReporterText(String(value ?? ''), context.sensitiveValues ?? []);
 }
 
-function escapeHtml(value: unknown, context: IReporterContext): string {
+function escapeHtml(value: string | number | boolean | null | undefined, context: IReporterContext): string {
 	return redact(value, context)
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')

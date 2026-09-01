@@ -62,7 +62,7 @@ class InMemoryFsAdapter implements IFileSystemAdapter {
 	}
 }
 
-function runRules(definedKeys: string[], usedKeys: IKeyUsage[], context: IProjectContext) {
+function runRules(definedKeys: string[], usedKeys: IKeyUsage[], context: IProjectContext): ReturnType<typeof angularScanAdapter.runRules> {
 	return angularScanAdapter.runRules({
 		definedKeys,
 		usedKeys,

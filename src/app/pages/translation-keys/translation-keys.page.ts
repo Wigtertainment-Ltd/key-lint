@@ -237,11 +237,12 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	get selectedMissingLocales(): string[] {
-		if (!this.selectedRow) {
+		const selectedRow = this.selectedRow;
+		if (!selectedRow) {
 			return [];
 		}
 
-		return this.locales.filter((locale) => !this.hasLocaleKey(this.selectedRow as ITranslationMatrixRow, locale));
+		return this.locales.filter((locale) => !this.hasLocaleKey(selectedRow, locale));
 	}
 
 	get isRemoteReadOnly(): boolean {
@@ -249,30 +250,33 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	get selectedEmptyValueLocales(): string[] {
-		if (!this.selectedRow) {
+		const selectedRow = this.selectedRow;
+		if (!selectedRow) {
 			return [];
 		}
 
-		return this.locales.filter((locale) => this.isLocaleEmptyValue(this.selectedRow as ITranslationMatrixRow, locale));
+		return this.locales.filter((locale) => this.isLocaleEmptyValue(selectedRow, locale));
 	}
 
 	get displayedMissingLocales(): string[] {
-		if (!this.selectedRow) {
+		const selectedRow = this.selectedRow;
+		if (!selectedRow) {
 			return [];
 		}
 
 		const missing = this.selectedMissingLocales;
-		const pendingResolved = this.locales.filter((locale) => !missing.includes(locale) && this.isLocaleRecentlyResolvedForKey(this.selectedRow!.key, locale));
+		const pendingResolved = this.locales.filter((locale) => !missing.includes(locale) && this.isLocaleRecentlyResolvedForKey(selectedRow.key, locale));
 
 		return [...missing, ...pendingResolved];
 	}
 
 	get selectedCoverageLabel(): string {
-		if (!this.selectedRow || this.locales.length === 0) {
+		const selectedRow = this.selectedRow;
+		if (!selectedRow || this.locales.length === 0) {
 			return '0/0';
 		}
 
-		const presentCount = this.locales.filter((locale) => this.hasLocaleTranslation(this.selectedRow as ITranslationMatrixRow, locale)).length;
+		const presentCount = this.locales.filter((locale) => this.hasLocaleTranslation(selectedRow, locale)).length;
 		return `${presentCount}/${this.locales.length}`;
 	}
 

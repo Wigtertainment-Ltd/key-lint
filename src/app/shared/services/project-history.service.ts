@@ -122,7 +122,7 @@ export class ProjectHistoryService {
 
 	private readStoredEvents(): IProjectHistoryEvent[] {
 		try {
-			const raw: string = localStorage.getItem(PROJECT_HISTORY_STORAGE_KEY);
+			const raw: string | null = localStorage.getItem(PROJECT_HISTORY_STORAGE_KEY);
 			if (!raw) {
 				return [];
 			}
@@ -132,7 +132,7 @@ export class ProjectHistoryService {
 				return [];
 			}
 
-			const payload: Partial<IStoredProjectHistoryV1> = parsed as Partial<IStoredProjectHistoryV1>;
+			const payload: Partial<IStoredProjectHistoryV1> = parsed;
 			if (payload.version !== 1 || !Array.isArray(payload.events)) {
 				return [];
 			}

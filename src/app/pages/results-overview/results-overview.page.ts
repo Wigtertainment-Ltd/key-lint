@@ -36,7 +36,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	isAddTranslationModalOpen = false;
 	isSavingTranslations = false;
 	private readonly addTranslationsErrorSignal = signal('');
-	translationDrafts: Record<string, string> = {};
+	translationDrafts: Partial<Record<string, string>> = {};
 	private readonly resolvedFindingIds = new Set<string>();
 	private readonly hiddenResolvedMissingFindingIds = new Set<string>();
 	private readonly resolvedRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();

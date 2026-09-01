@@ -77,7 +77,7 @@ export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnaly
 			((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name)) ||
 			((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && Boolean(node.name))
 		) {
-			const name: ts.BindingName | undefined = (node as ts.VariableDeclaration | ts.ParameterDeclaration | ts.FunctionDeclaration | ts.ClassDeclaration).name;
+			const name: ts.BindingName | undefined = node.name;
 			if (name && ts.isIdentifier(name)) appendMapValue(context.shadowDeclarations, name.text, node);
 		}
 		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isConstDeclaration(node)) {

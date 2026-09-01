@@ -49,7 +49,7 @@ export class RecentProjectsService {
 
 	private readStoredPaths(): string[] {
 		try {
-			const raw: string = localStorage.getItem(RECENT_PROJECTS_STORAGE_KEY);
+			const raw: string | null = localStorage.getItem(RECENT_PROJECTS_STORAGE_KEY);
 			if (!raw) {
 				return [];
 			}

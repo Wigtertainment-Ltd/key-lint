@@ -45,7 +45,8 @@
 		"test:electron": "node --test electron/ipc-handlers.spec.cjs electron/preload.spec.cjs electron/remote-translation-transport.spec.cjs",
 		"test:action": "node --test packages/action/action.spec.cjs",
 		"test:packages": "npm run build:core && npm run test --workspaces --if-present && npm run test:action && npm run test:electron",
-		"lint": "ng lint",
+		"lint": "npm run lint:desktop && npm run lint --workspace @key-lint/core && npm run lint --workspace @key-lint/cli",
+		"lint:desktop": "eslint \"src/**/*.ts\" \"src/**/*.html\"",
 		"e2e": "ng e2e",
 		"icons": "powershell -NoProfile -ExecutionPolicy Bypass -File build/generate-icons.ps1"
 	},

@@ -47,7 +47,7 @@ function parseHeadersFromEnv(value: unknown, key: string): Record<string, string
 }
 
 function parseHttpTranslationSource(source: Record<string, unknown>, index: number): IHttpTranslationSourceConfig {
-	const allowedKeys: Set<string> = new Set(['type', 'id', 'urlTemplate', 'locales', 'headersFromEnv']);
+	const allowedKeys = new Set<string>(['type', 'id', 'urlTemplate', 'locales', 'headersFromEnv']);
 	for (const key of Object.keys(source)) {
 		if (!allowedKeys.has(key)) {
 			throw new ScannerConfigError(

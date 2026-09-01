@@ -52,7 +52,7 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 		const stack: string[] = [rootForFs];
 
 		while (stack.length > 0) {
-			const current: string = stack.pop();
+			const current: string | undefined = stack.pop();
 			if (!current) {
 				continue;
 			}

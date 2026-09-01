@@ -112,7 +112,7 @@ export class ScanOrchestrationService {
 			throw new Error('Adding translation keys requires the Electron app runtime.');
 		}
 
-		const currentResult: IProjectScanResult = this.snapshot.result;
+		const currentResult: IProjectScanResult | undefined = this.snapshot.result;
 		if (!currentResult) {
 			throw new Error('No scan result available. Run a scan before adding translation keys.');
 		}
@@ -146,7 +146,7 @@ export class ScanOrchestrationService {
 		const translationFiles: string[] = await this.fsAdapter.listFiles(projectRoot, this.activeScannerConfig.includeTranslationGlobs, this.activeScannerConfig.excludeGlobs);
 
 		const normalizedLocale: string = locale.trim().toLowerCase();
-		const match: string = translationFiles
+		const match: string | undefined = translationFiles
 			.map((filePath) => normalizePath(filePath))
 			.sort((a, b) => a.localeCompare(b))
 			.find((filePath) => inferLocaleFromTranslationFile(filePath).toLowerCase() === normalizedLocale);
@@ -164,8 +164,8 @@ export class ScanOrchestrationService {
 
 	private updateMatrixWithAddedKey(locale: string, key: string, value: string): void {
 		const snapshot: ScanExecutionSnapshot = this.snapshot;
-		const existingResult: IProjectScanResult = snapshot.result;
-		const existingMatrix: ITranslationMatrix = existingResult?.translationMatrix;
+		const existingResult: IProjectScanResult | undefined = snapshot.result;
+		const existingMatrix: ITranslationMatrix | undefined = existingResult?.translationMatrix;
 		if (!existingResult || !existingMatrix) {
 			return;
 		}

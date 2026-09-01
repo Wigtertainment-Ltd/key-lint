@@ -40,7 +40,7 @@ async function readLimitedBody(response: Response, maxResponseBytes: number, url
 		return '';
 	}
 
-	const reader: ReadableStreamDefaultReader<any> = response.body.getReader();
+	const reader = (response.body as ReadableStream<Uint8Array>).getReader();
 	const decoder: TextDecoder = new TextDecoder();
 	let receivedBytes: number = 0;
 	let body: string = '';

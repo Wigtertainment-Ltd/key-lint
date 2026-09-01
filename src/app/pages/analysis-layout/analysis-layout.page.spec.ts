@@ -79,7 +79,10 @@ describe('AnalysisLayoutPage app status bar', () => {
 		expect(statusBar).not.toBeNull();
 		expect(statusBar?.textContent).toContain('Scan completed with 1 filesystem warning');
 		expect(statusBar?.textContent).toContain('metrics and findings may be incomplete');
-		expect(statusBar?.compareDocumentPosition(content as Node) & Node.DOCUMENT_POSITION_FOLLOWING)
+		if (!statusBar || !content) {
+			throw new Error('Expected both the status bar and content shell to be rendered.');
+		}
+		expect(statusBar.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING)
 			.toBeTruthy();
 	});
 

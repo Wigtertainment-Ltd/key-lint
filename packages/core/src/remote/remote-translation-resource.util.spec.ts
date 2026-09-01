@@ -6,7 +6,9 @@ import { collectRemoteTranslationResources } from './remote-translation-resource
 
 const guardrails = { maxFiles: 1_000, maxFileSizeBytes: 4_096 };
 
-function httpSource(overrides: Partial<Extract<ITranslationSourceConfig, { type: 'http' }>> = {}) {
+function httpSource(
+	overrides: Partial<Extract<ITranslationSourceConfig, { type: 'http' }>> = {}
+): Extract<ITranslationSourceConfig, { type: 'http' }> {
 	return {
 		type: 'http' as const,
 		id: 'api',

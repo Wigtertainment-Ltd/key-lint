@@ -20,7 +20,7 @@ const matrix: ITranslationMatrix = {
 
 const context = { projectRoot: '/project', config: DEFAULT_SCANNER_CONFIG };
 
-async function run(usedKeys: IKeyUsage[]) {
+async function run(usedKeys: IKeyUsage[]): ReturnType<typeof angularScanAdapter.runRules> {
 	return angularScanAdapter.runRules({
 		definedKeys: ['APP.GREETING'],
 		usedKeys,

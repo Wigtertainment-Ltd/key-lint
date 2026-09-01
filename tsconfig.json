@@ -3,9 +3,9 @@
 {
 	"compileOnSave": false,
 	"compilerOptions": {
+		"strict": true,
 		"rootDir": "./src",
 		"outDir": "./dist/out-tsc",
-		"strict": false,
 		"noImplicitOverride": true,
 		"noPropertyAccessFromIndexSignature": true,
 		"noImplicitReturns": true,

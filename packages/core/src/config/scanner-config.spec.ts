@@ -108,7 +108,7 @@ describe('translationSources config', () => {
 	});
 
 	it('rejects unsafe or ambiguous HTTP source configuration', () => {
-		const source = (overrides: Record<string, unknown>) => ({
+		const source = (overrides: Record<string, unknown>): Record<string, unknown> => ({
 			type: 'http',
 			id: 'api',
 			urlTemplate: 'https://example.com/{locale}.json',

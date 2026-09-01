@@ -347,7 +347,7 @@ describe('runCli', () => {
 				translationFileCount: 0
 			});
 		} finally {
-			delete process.env[environmentName];
+			Reflect.deleteProperty(process.env, environmentName);
 			await rm(root, { recursive: true, force: true });
 		}
 	});
