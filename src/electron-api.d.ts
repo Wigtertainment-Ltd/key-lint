@@ -10,6 +10,9 @@ declare global {
 	}
 
 	interface IKeyLintDesktopApi {
+		loadTranslationSources(projectRoot: string): Promise<IKeyLintSavedTranslationSource[] | undefined>;
+		saveTranslationSources(projectRoot: string, sources: IKeyLintSavedTranslationSource[]): Promise<void>;
+		deleteTranslationSources(projectRoot: string): Promise<void>;
 		selectProjectDirectory(): Promise<string | undefined>;
 		getPathForFile(file: File): string;
 		getAppVersion(): Promise<string>;
@@ -25,6 +28,17 @@ declare global {
 	interface IKeyLintLoaderAnalysisFile {
 		filePath: string;
 		content: string;
+	}
+
+	interface IKeyLintSavedTranslationSource {
+		type: 'filesystem' | 'http' | 'auto-http';
+		id: string;
+		includeGlobs: string[];
+		urlTemplate: string;
+		origin: string;
+		locales: string[];
+		headers: { name: string; value: string; environmentName: string; configured: boolean }[];
+		selectedCandidateIndex?: number;
 	}
 
 	interface IKeyLintTranslationFetchRequest {

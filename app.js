@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, safeStorage } = require('electron')
 const path = require('path');
 const fs = require('fs/promises');
 const { autoUpdater } = require('electron-updater');
@@ -6,7 +6,7 @@ const { registerIpcHandlers } = require('./electron/ipc-handlers');
 
 let mainWindow
 const isSmokeTest = process.env.KEYLINT_SMOKE_TEST === '1';
-registerIpcHandlers({ ipcMain, dialog, app, fs });
+registerIpcHandlers({ ipcMain, dialog, app, fs, safeStorage });
 
 function createWindow() {
 	mainWindow = new BrowserWindow({

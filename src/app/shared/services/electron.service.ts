@@ -57,4 +57,16 @@ export class ElectronService {
 
 		return bridge;
 	}
+
+	loadTranslationSources(projectRoot: string): Promise<IKeyLintSavedTranslationSource[] | undefined> {
+		return this.bridge().loadTranslationSources(projectRoot);
+	}
+
+	saveTranslationSources(projectRoot: string, sources: IKeyLintSavedTranslationSource[]): Promise<void> {
+		return this.bridge().saveTranslationSources(projectRoot, sources);
+	}
+
+	deleteTranslationSources(projectRoot: string): Promise<void> {
+		return this.bridge().deleteTranslationSources(projectRoot);
+	}
 }

@@ -1,4 +1,7 @@
 const IPC_CHANNELS = Object.freeze({
+	loadTranslationSources: 'keylint:translations:load-saved-sources',
+	saveTranslationSources: 'keylint:translations:save-sources',
+	deleteTranslationSources: 'keylint:translations:delete-saved-sources',
 	selectProjectDirectory: 'keylint:dialog:select-project-directory',
 	getAppVersion: 'keylint:app:get-version',
 	pathExists: 'keylint:fs:path-exists',

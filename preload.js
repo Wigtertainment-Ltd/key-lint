@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 // Sandboxed preload scripts only receive Electron's limited require function,
 // so this bridge intentionally has no local or Node.js imports.
 const channels = Object.freeze({
+	loadTranslationSources: 'keylint:translations:load-saved-sources',
+	saveTranslationSources: 'keylint:translations:save-sources',
+	deleteTranslationSources: 'keylint:translations:delete-saved-sources',
 	selectProjectDirectory: 'keylint:dialog:select-project-directory',
 	getAppVersion: 'keylint:app:get-version',
 	pathExists: 'keylint:fs:path-exists',
@@ -15,6 +18,9 @@ const channels = Object.freeze({
 });
 
 contextBridge.exposeInMainWorld('keyLint', Object.freeze({
+	loadTranslationSources: (projectRoot) => ipcRenderer.invoke(channels.loadTranslationSources, projectRoot),
+	saveTranslationSources: (projectRoot, sources) => ipcRenderer.invoke(channels.saveTranslationSources, projectRoot, sources),
+	deleteTranslationSources: (projectRoot) => ipcRenderer.invoke(channels.deleteTranslationSources, projectRoot),
 	selectProjectDirectory: () => ipcRenderer.invoke(channels.selectProjectDirectory),
 	getPathForFile: (file) => webUtils.getPathForFile(file),
 	getAppVersion: () => ipcRenderer.invoke(channels.getAppVersion),

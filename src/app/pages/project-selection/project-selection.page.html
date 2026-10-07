@@ -58,173 +58,183 @@
 			</div>
 
 			@if (hasSelection) {
-				<section class="scan-settings" aria-labelledby="scan-settings-title">
-					<div class="scan-settings-header">
-						<div>
-							<h3 id="scan-settings-title">Scan settings</h3>
-							<p>Temporary limits for the next scan. Project files are not changed.</p>
+				<details class="settings-disclosure">
+					<summary><span id="scan-settings-title">Scan settings</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
+					<section class="scan-settings" aria-labelledby="scan-settings-title">
+						<div class="scan-settings-header">
+							<div>
+								<p>Temporary limits for the next scan. Project files are not changed.</p>
+							</div>
+							<button type="button" class="reset-settings-btn" (click)="resetScanSettings()" [disabled]="scanSettingsLoading || !!scanSettingsError">
+								Reset
+							</button>
 						</div>
-						<button type="button" class="reset-settings-btn" (click)="resetScanSettings()" [disabled]="scanSettingsLoading || !!scanSettingsError">
-							Reset
-						</button>
-					</div>
 
-					@if (scanSettingsLoading) {
-						<p class="settings-state">Loading effective project configuration...</p>
-					} @else if (scanSettingsError) {
-						<p class="settings-state error" role="alert">{{ scanSettingsError }}</p>
-					} @else {
-						<div class="settings-grid">
-							<label class="setting-field">
-								<span class="setting-label">Maximum files</span>
-								<input
-									type="number"
-									min="1"
-									step="1"
-									[value]="maxFilesInput"
-									(input)="onMaxFilesInput(($any($event.target).value ?? '').toString())"
-								/>
-								<small>{{ guardrailSourceLabel('maxFiles') }}</small>
-							</label>
-
-							<label class="setting-field">
-								<span class="setting-label">Maximum file size</span>
-								<span class="input-with-unit">
+						@if (scanSettingsLoading) {
+							<p class="settings-state">Loading effective project configuration...</p>
+						} @else if (scanSettingsError) {
+							<p class="settings-state error" role="alert">{{ scanSettingsError }}</p>
+						} @else {
+							<div class="settings-grid">
+								<label class="setting-field">
+									<span class="setting-label">Maximum files</span>
 									<input
 										type="number"
-										min="0.000001"
-										step="any"
-										[value]="maxFileSizeMbInput"
-										(input)="onMaxFileSizeMbInput(($any($event.target).value ?? '').toString())"
+										min="1"
+										step="1"
+										[value]="maxFilesInput"
+										(input)="onMaxFilesInput(($any($event.target).value ?? '').toString())"
 									/>
-									<span>MB</span>
-								</span>
-								<small>{{ guardrailSourceLabel('maxFileSizeBytes') }}</small>
-							</label>
-						</div>
+									<small>{{ guardrailSourceLabel('maxFiles') }}</small>
+								</label>
 
-						@if (scanSettingsValidationError) {
-							<p class="settings-state error" role="alert">{{ scanSettingsValidationError }}</p>
-						} @else if (scanSettingsHighLimitWarning) {
-							<p class="settings-state warning">{{ scanSettingsHighLimitWarning }}</p>
+								<label class="setting-field">
+									<span class="setting-label">Maximum file size</span>
+									<span class="input-with-unit">
+										<input
+											type="number"
+											min="0.000001"
+											step="any"
+											[value]="maxFileSizeMbInput"
+											(input)="onMaxFileSizeMbInput(($any($event.target).value ?? '').toString())"
+										/>
+										<span>MB</span>
+									</span>
+									<small>{{ guardrailSourceLabel('maxFileSizeBytes') }}</small>
+								</label>
+							</div>
+
+							@if (scanSettingsValidationError) {
+								<p class="settings-state error" role="alert">{{ scanSettingsValidationError }}</p>
+							} @else if (scanSettingsHighLimitWarning) {
+								<p class="settings-state warning">{{ scanSettingsHighLimitWarning }}</p>
+							}
 						}
-					}
-				</section>
+					</section>
+				</details>
 
-				<section class="translation-sources" aria-labelledby="translation-sources-title">
-					<div class="scan-settings-header">
-						<div>
-							<h3 id="translation-sources-title">Translation sources</h3>
-							<p>Ordered inputs for the next scan. Remote credentials remain in memory only.</p>
+				<details class="settings-disclosure">
+					<summary><span id="translation-sources-title">Translation sources</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
+					<section class="translation-sources" aria-labelledby="translation-sources-title">
+						<div class="scan-settings-header">
+							<div>
+								<p>Ordered inputs for the next scan. Remote credentials remain in memory only.</p>
+							</div>
+							<div class="source-add-actions">
+								<button type="button" class="reset-settings-btn" (click)="addFilesystemSource()">Add local</button>
+								<button type="button" class="reset-settings-btn" (click)="addHttpSource()">Add HTTP</button>
+								<button type="button" class="reset-settings-btn" (click)="addAutoHttpSource()">Detect HTTP</button>
+							</div>
 						</div>
-						<div class="source-add-actions">
-							<button type="button" class="reset-settings-btn" (click)="addFilesystemSource()">Add local</button>
-							<button type="button" class="reset-settings-btn" (click)="addHttpSource()">Add HTTP</button>
-							<button type="button" class="reset-settings-btn" (click)="addAutoHttpSource()">Detect HTTP</button>
-						</div>
-					</div>
 
-					<div class="source-list">
-						@for (source of translationSources; track source.draftId; let sourceIndex = $index) {
-							<article class="source-card" [class.remote]="source.type !== 'filesystem'">
-								<header class="source-card-header">
-									<div>
-										<span class="source-order">{{ sourceIndex + 1 }}</span>
-										<strong>{{ source.type === 'filesystem' ? 'Filesystem source' : source.type === 'http' ? 'HTTP source' : 'Detected HTTP source' }}</strong>
-										@if (source.configured) { <small>Project configuration</small> }
-									</div>
-									<div class="source-actions">
-										<button type="button" (click)="moveTranslationSource(source.draftId, -1)" [disabled]="sourceIndex === 0" aria-label="Move source up">↑</button>
-										<button type="button" (click)="moveTranslationSource(source.draftId, 1)" [disabled]="sourceIndex === translationSources.length - 1" aria-label="Move source down">↓</button>
-										<button type="button" class="danger" (click)="removeTranslationSource(source.draftId)" aria-label="Remove source">Remove</button>
-									</div>
-								</header>
-
-								<div class="source-fields">
-									<label class="setting-field">
-										<span class="setting-label">Source identifier{{ source.type !== 'http' ? ' (optional)' : '' }}</span>
-										<input type="text" [value]="source.id" (input)="onSourceIdInput(source.draftId, ($any($event.target).value ?? '').toString())" />
-									</label>
-
-									@if (source.type === 'filesystem') {
-										<label class="setting-field full-width">
-											<span class="setting-label">Include globs (comma separated, optional)</span>
-											<input type="text" [value]="source.includeGlobs.join(', ')" placeholder="src/assets/i18n/**/*.json" (input)="onSourceGlobsInput(source.draftId, ($any($event.target).value ?? '').toString())" />
-										</label>
-									} @else {
-										@if (source.type === 'http') {
-										<label class="setting-field full-width">
-											<span class="setting-label">URL template</span>
-											<input type="url" [value]="source.urlTemplate" placeholder="https://api.example.com/i18n/{locale}.json" (input)="onSourceUrlInput(source.draftId, ($any($event.target).value ?? '').toString())" />
-										</label>
-										} @else {
-											<label class="setting-field full-width">
-												<span class="setting-label">Origin for relative detected URLs (optional)</span>
-												<input type="url" [value]="source.origin" placeholder="https://app.example.com" (input)="onSourceOriginInput(source.draftId, ($any($event.target).value ?? '').toString())" />
-											</label>
-											@if (source.autoCandidates.length) {
-												<label class="setting-field full-width">
-													<span class="setting-label">Detected loader candidate</span>
-													<select [value]="source.selectedCandidateIndex ?? ''" (change)="onAutoCandidateSelected(source.draftId, ($any($event.target).value ?? '').toString())">
-														<option value="" disabled>Select a candidate</option>
-														@for (candidate of source.autoCandidates; track candidate.index) {
-															<option [value]="candidate.index">{{ candidate.framework }} / {{ candidate.api }} — {{ candidate.location }}</option>
-														}
-													</select>
-												</label>
-												@for (candidate of source.autoCandidates; track candidate.index) {
-													@if (candidate.index === source.selectedCandidateIndex) {
-														<div class="settings-state full-width">
-															<strong>{{ candidate.framework }} / {{ candidate.api }}</strong>
-															<div>Location: {{ candidate.location }}</div>
-															<div>Endpoints: {{ candidate.urlTemplates.join(', ') }}</div>
-															<div>Detected locales: {{ candidate.locales.join(', ') || 'none' }}</div>
-														</div>
-													}
-												}
-											} @else {
-												<p class="settings-state error full-width">No compatible loader candidate detected. Use an explicit HTTP source.</p>
-											}
-											@for (diagnostic of source.autoDiagnostics; track diagnostic.code + diagnostic.location.filePath + diagnostic.location.line) {
-												<p class="settings-state warning full-width">{{ diagnostic.code }} — {{ diagnostic.message }} ({{ diagnostic.location.filePath }}:{{ diagnostic.location.line }})</p>
-											}
-										}
-										<label class="setting-field full-width">
-											<span class="setting-label">Locales (comma separated{{ source.type === 'auto-http' ? ', optional override' : '' }})</span>
-											<input type="text" [value]="source.locales.join(', ')" placeholder="de, en" (input)="onSourceLocalesInput(source.draftId, ($any($event.target).value ?? '').toString())" />
-										</label>
-
-										<div class="header-editor full-width">
-											<div class="header-editor-title">
-												<span>Temporary request headers</span>
-												<button type="button" class="reset-settings-btn" (click)="addTemporaryHeader(source.draftId)">Add header</button>
-											</div>
-											@for (header of source.headers; track header.id) {
-												<div class="header-row">
-													<label class="setting-field">
-														<span class="setting-label">Header name</span>
-														<input type="text" [value]="header.name" [readOnly]="header.configured" (input)="onHeaderNameInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
-														<small>{{ header.configured ? 'Configured as ' + header.environmentName : 'Temporary header' }}</small>
-													</label>
-													<label class="setting-field">
-														<span class="setting-label">Temporary value</span>
-														<input type="password" autocomplete="off" [value]="header.value" (input)="onHeaderValueInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
-														<small>Never saved</small>
-													</label>
-													<button type="button" class="header-remove" (click)="removeTemporaryHeader(source.draftId, header.id)" aria-label="Remove header">×</button>
-												</div>
-											}
+						<div class="source-list">
+							@for (source of translationSources; track source.draftId; let sourceIndex = $index) {
+								<article class="source-card" [class.remote]="source.type !== 'filesystem'">
+									<header class="source-card-header">
+										<div>
+											<span class="source-order">{{ sourceIndex + 1 }}</span>
+											<strong>{{ source.type === 'filesystem' ? 'Filesystem source' : source.type === 'http' ? 'HTTP source' : 'Detected HTTP source' }}</strong>
+											@if (source.configured) { <small>Project configuration</small> }
 										</div>
-									}
-								</div>
-							</article>
-						}
-					</div>
+										<div class="source-actions">
+											<button type="button" (click)="moveTranslationSource(source.draftId, -1)" [disabled]="sourceIndex === 0" aria-label="Move source up">↑</button>
+											<button type="button" (click)="moveTranslationSource(source.draftId, 1)" [disabled]="sourceIndex === translationSources.length - 1" aria-label="Move source down">↓</button>
+											<button type="button" class="danger" (click)="removeTranslationSource(source.draftId)" aria-label="Remove source">Remove</button>
+										</div>
+									</header>
 
-					@if (translationSourcesValidationError) {
-						<p class="settings-state error" role="alert">{{ translationSourcesValidationError }}</p>
-					}
-				</section>
+									<div class="source-fields">
+										<label class="setting-field">
+											<span class="setting-label">Source identifier{{ source.type !== 'http' ? ' (optional)' : '' }}</span>
+											<input type="text" [value]="source.id" (input)="onSourceIdInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+										</label>
+
+										@if (source.type === 'filesystem') {
+											<label class="setting-field full-width">
+												<span class="setting-label">Include globs (comma separated, optional)</span>
+												<input type="text" [value]="source.includeGlobs.join(', ')" placeholder="src/assets/i18n/**/*.json" (input)="onSourceGlobsInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+											</label>
+										} @else {
+											@if (source.type === 'http') {
+											<label class="setting-field full-width">
+												<span class="setting-label">URL template</span>
+												<input type="url" [value]="source.urlTemplate" placeholder="https://api.example.com/i18n/{locale}.json" (input)="onSourceUrlInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+											</label>
+											} @else {
+												<label class="setting-field full-width">
+													<span class="setting-label">Origin for relative detected URLs (optional)</span>
+													<input type="url" [value]="source.origin" placeholder="https://app.example.com" (input)="onSourceOriginInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+												</label>
+												@if (source.autoCandidates.length) {
+													<label class="setting-field full-width">
+														<span class="setting-label">Detected loader candidate</span>
+														<select [value]="source.selectedCandidateIndex ?? ''" (change)="onAutoCandidateSelected(source.draftId, ($any($event.target).value ?? '').toString())">
+															<option value="" disabled>Select a candidate</option>
+															@for (candidate of source.autoCandidates; track candidate.index) {
+																<option [value]="candidate.index">{{ candidate.framework }} / {{ candidate.api }} — {{ candidate.location }}</option>
+															}
+														</select>
+													</label>
+													@for (candidate of source.autoCandidates; track candidate.index) {
+														@if (candidate.index === source.selectedCandidateIndex) {
+															<div class="settings-state full-width">
+																<strong>{{ candidate.framework }} / {{ candidate.api }}</strong>
+																<div>Location: {{ candidate.location }}</div>
+																<div>Endpoints: {{ candidate.urlTemplates.join(', ') }}</div>
+																<div>Detected locales: {{ candidate.locales.join(', ') || 'none' }}</div>
+															</div>
+														}
+													}
+												} @else {
+													<p class="settings-state error full-width">No compatible loader candidate detected. Use an explicit HTTP source.</p>
+												}
+												@for (diagnostic of source.autoDiagnostics; track diagnostic.code + diagnostic.location.filePath + diagnostic.location.line) {
+													<p class="settings-state warning full-width">{{ diagnostic.code }} — {{ diagnostic.message }} ({{ diagnostic.location.filePath }}:{{ diagnostic.location.line }})</p>
+												}
+											}
+											<label class="setting-field full-width">
+												<span class="setting-label">Locales (comma separated{{ source.type === 'auto-http' ? ', optional override' : '' }})</span>
+												<input type="text" [value]="source.locales.join(', ')" placeholder="de, en" (input)="onSourceLocalesInput(source.draftId, ($any($event.target).value ?? '').toString())" />
+											</label>
+
+											<div class="header-editor full-width">
+												<div class="header-editor-title">
+													<span>Temporary request headers</span>
+													<button type="button" class="reset-settings-btn" (click)="addTemporaryHeader(source.draftId)">Add header</button>
+												</div>
+												@for (header of source.headers; track header.id) {
+													<div class="header-row">
+														<label class="setting-field">
+															<span class="setting-label">Header name</span>
+															<input type="text" [value]="header.name" [readOnly]="header.configured" (input)="onHeaderNameInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
+															<small>{{ header.configured ? 'Configured as ' + header.environmentName : 'Temporary header' }}</small>
+														</label>
+														<div class="setting-field">
+															<label class="setting-label" [for]="header.id + '-value'">Temporary value</label>
+															<div class="header-value-input">
+																<input #headerValueInput [id]="header.id + '-value'" type="password" autocomplete="off" [value]="header.value" (input)="onHeaderValueInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
+																<button type="button" class="header-visibility-toggle" (click)="headerValueInput.type = headerValueInput.type === 'password' ? 'text' : 'password'"
+																	[attr.aria-label]="headerValueInput.type === 'password' ? 'Show header value' : 'Hide header value'" [attr.aria-controls]="header.id + '-value'">
+																	<span class="material-symbols-outlined" aria-hidden="true">{{ headerValueInput.type === 'password' ? 'visibility' : 'visibility_off' }}</span>
+																</button>
+															</div>
+															<small>Never saved</small>
+														</div>
+														<button type="button" class="header-remove" (click)="removeTemporaryHeader(source.draftId, header.id)" aria-label="Remove header">×</button>
+													</div>
+												}
+											</div>
+										}
+									</div>
+								</article>
+							}
+						</div>
+
+						@if (translationSourcesValidationError) {
+							<p class="settings-state error" role="alert">{{ translationSourcesValidationError }}</p>
+						}
+					</section>
+				</details>
 			}
 
 			@if (hasRecentProjects) {
