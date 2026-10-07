@@ -11,6 +11,13 @@ interface IPreparedHttpSource {
 	urls: string[];
 }
 
+/**
+ * Creates a comparison signature from case-normalized, sorted header names and exact values.
+ * The signature contains credential values and is intended only for in-memory request preflight.
+ *
+ * @param headers - Resolved HTTP header map.
+ * @returns A stable signature independent of header insertion order and name casing.
+ */
 function headersSignature(headers: Readonly<Record<string, string>>): string {
 	return Object.entries(headers)
 		.map(([name, value]) => [name.toLowerCase(), value] as const)
@@ -19,6 +26,15 @@ function headersSignature(headers: Readonly<Record<string, string>>): string {
 		.join('\u0001');
 }
 
+/**
+ * Resolves environment headers and locale-specific URLs for explicit HTTP sources without fetching.
+ * Non-HTTP sources are ignored, but each retained source keeps its original list index.
+ *
+ * @param sources - Ordered configuration sources to inspect.
+ * @param runtime - Runtime environment supplying header values; defaults to an empty environment.
+ * @returns HTTP sources with resolved headers and URLs ordered by their configured locales.
+ * @throws {RemoteTranslationError} When a required environment variable is missing or empty.
+ */
 function prepareSources(sources: ITranslationSourceConfig[], runtime: IRemoteTranslationRuntime): IPreparedHttpSource[] {
 	const environment: Readonly<Record<string, string | undefined>> = runtime.environment ?? {};
 	const prepared: IPreparedHttpSource[] = [];
@@ -57,6 +73,16 @@ function prepareSources(sources: ITranslationSourceConfig[], runtime: IRemoteTra
  * Fetches every configured HTTP source after a complete preflight. The returned
  * map is keyed by source position so adapters can interleave local and remote
  * resources without changing configured merge order.
+ * Checks consent, transport, environment values, conflicting headers, and the distinct-URL cap
+ * before fetching. Identical URLs share a cached response during this collection call.
+ * Resources are read-only and have placeholder position `0` for the adapter to assign later.
+ *
+ * @param sources - Ordered translation sources; only explicit HTTP sources are collected.
+ * @param runtime - Explicit network consent, injected transport, and header environment.
+ * @param guardrails - Scanner limits supplying the maximum response byte count.
+ * @returns Resources grouped by original source index, with locale order preserved within each group.
+ * @throws {RemoteTranslationError} When preflight fails or asynchronous transport fetching fails.
+ * @throws {TranslationFileError} When a response is invalid JSON or lacks an object root.
  */
 export async function collectRemoteTranslationResources(
 	sources: ITranslationSourceConfig[],

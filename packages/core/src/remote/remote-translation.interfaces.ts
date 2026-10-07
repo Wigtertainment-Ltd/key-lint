@@ -15,6 +15,14 @@ export interface IRemoteTranslationFetchResponse {
 
 /** Runtime-specific transport. Core never performs network I/O directly. */
 export interface IRemoteTranslationFetcher {
+	/**
+	 * Fetches a translation resource using the transport's runtime-specific network implementation.
+	 * Implementations are responsible for honoring request limits and redirect credential handling.
+	 *
+	 * @param request - Target URL, resolved headers, and transport limits.
+	 * @returns Response text and the final URL used to identify the resource.
+	 * @throws {Error} When the transport cannot obtain a response within the supplied limits.
+	 */
 	fetch(request: IRemoteTranslationFetchRequest): Promise<IRemoteTranslationFetchResponse>;
 }
 

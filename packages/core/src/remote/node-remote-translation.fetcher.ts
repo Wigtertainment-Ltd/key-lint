@@ -3,6 +3,13 @@ import { IRemoteTranslationFetcher, IRemoteTranslationFetchRequest, IRemoteTrans
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
+/**
+ * Parses an absolute HTTP(S) URL and rejects embedded username or password credentials.
+ *
+ * @param value - Initial or redirected remote translation URL.
+ * @returns The validated URL object.
+ * @throws {RemoteTranslationError} When the URL cannot be parsed, uses another scheme, or contains credentials.
+ */
 function parseHttpUrl(value: string): URL {
 	let url: URL;
 	try {
@@ -19,11 +26,26 @@ function parseHttpUrl(value: string): URL {
 	return url;
 }
 
+/**
+ * Classifies standard credential headers and names containing API-key, token, or secret markers.
+ * Matching is case-insensitive and heuristic rather than an exhaustive credential-header list.
+ *
+ * @param name - HTTP header name to inspect.
+ * @returns Whether the header should be stripped on a cross-origin redirect.
+ */
 function isSensitiveHeader(name: string): boolean {
 	return /^(authorization|proxy-authorization|cookie|set-cookie)$/i.test(name) ||
 		/(api[-_]?key|token|secret)/i.test(name);
 }
 
+/**
+ * Copies request headers, dropping recognized sensitive names when the redirect changes origin.
+ *
+ * @param headers - Headers of the preceding request, left unchanged.
+ * @param from - Previous request URL.
+ * @param to - Redirect target URL.
+ * @returns A new header map suitable for the next request.
+ */
 function headersForRedirect(headers: Readonly<Record<string, string>>, from: URL, to: URL): Record<string, string> {
 	if (from.origin === to.origin) {
 		return { ...headers };
@@ -31,6 +53,17 @@ function headersForRedirect(headers: Readonly<Record<string, string>>, from: URL
 	return Object.fromEntries(Object.entries(headers).filter(([name]) => !isSensitiveHeader(name)));
 }
 
+/**
+ * Decodes a UTF-8 response stream while enforcing its declared and actual byte size.
+ * Cancels the reader when the streamed body exceeds the limit.
+ *
+ * @param response - HTTP response whose body will be consumed.
+ * @param maxResponseBytes - Maximum permitted body size in bytes.
+ * @param url - Response URL used in redacted diagnostics.
+ * @returns Decoded response text, or an empty string when no body exists.
+ * @throws {RemoteTranslationError} When the declared or received body exceeds the limit.
+ * @throws {Error} When stream reading or cancellation fails.
+ */
 async function readLimitedBody(response: Response, maxResponseBytes: number, url: string): Promise<string> {
 	const declaredLength: number = Number(response.headers.get('content-length'));
 	if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
@@ -61,6 +94,16 @@ async function readLimitedBody(response: Response, maxResponseBytes: number, url
 
 /** Guarded Node transport used by the CLI. Redirects are handled manually. */
 export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
+	/**
+	 * Performs a GET with manual redirects, URL validation, and bounded UTF-8 response reading.
+	 * Applies one timeout to the request chain and strips recognized sensitive headers across origins.
+	 * Network consent is enforced by the collector rather than by this transport.
+	 *
+	 * @param request - URL, headers, timeout, redirect limit, and maximum response byte count.
+	 * @returns Response text and the final URL after redirects; JSON is not parsed here.
+	 * @throws {RemoteTranslationError} When URL validation, fetching, HTTP status, timeout, redirects, or size checks fail.
+	 * @throws {Error} When another response-stream or redirect URL parsing error propagates.
+	 */
 	async fetch(request: IRemoteTranslationFetchRequest): Promise<IRemoteTranslationFetchResponse> {
 		let currentUrl: URL = parseHttpUrl(request.url);
 		let headers = { ...request.headers };

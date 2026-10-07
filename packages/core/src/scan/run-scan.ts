@@ -29,6 +29,11 @@ export interface IRunScanOptions {
 	fs: IFileSystemAdapter;
 	config?: IScannerConfig;
 	registry?: AdapterRegistry;
+	/**
+	 * Receives synchronous notifications as scan stages begin and when the scan completes.
+	 *
+	 * @param progress - Current stage and human-readable status message.
+	 */
 	onProgress?: (progress: IScanProgress) => void;
 	remoteTranslations?: IRemoteTranslationRuntime;
 	/** Loader frameworks confirmed by a preceding static auto-http analysis. */
@@ -44,9 +49,24 @@ const EMPTY_TRANSLATION_MATRIX: ITranslationMatrix = {
 /**
  * Runs the full i18n scan pipeline. Framework agnostic: every runtime concern
  * (filesystem access, progress reporting) is injected by the caller.
+ * Uses resource-aware adapter methods when available and falls back to legacy file-based methods.
+ * HTTP sources require explicit runtime consent; auto-HTTP sources must already be resolved.
+ * Findings matching ignore-key globs are removed before the result summary is built.
+ *
+ * @param options - Project root, runtime adapters, optional configuration, and progress callback.
+ * @returns Scan findings, summary, translation matrix, timing, and source metadata.
+ * @throws {Error} When auto-HTTP sources are unresolved, no adapter supports the project, or an adapter or progress callback fails.
+ * @throws {RemoteTranslationError} When HTTP sources lack network consent or a transport, or remote collection fails.
+ * @throws {ScannerConfigError} When a configured reference locale cannot be found.
  */
 export async function runScan(options: IRunScanOptions): Promise<IProjectScanResult> {
 	const { fs, registry = defaultAdapterRegistry, config = DEFAULT_SCANNER_CONFIG } = options;
+	/**
+	 * Forwards a stage notification to the optional caller-provided callback.
+	 *
+	 * @param stage - Pipeline stage being reported.
+	 * @param message - Human-readable progress description.
+	 */
 	const report = (stage: ScanStage, message: string): void => options.onProgress?.({ stage, message });
 	if (config.translationSources?.some((source) => source.type === 'auto-http')) {
 		throw new Error('auto-http translation sources must be resolved and confirmed before runScan(). No request was made.');
