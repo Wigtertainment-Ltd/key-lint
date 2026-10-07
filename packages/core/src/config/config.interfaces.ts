@@ -65,6 +65,11 @@ export interface IScannerConfigOverrides {
 }
 
 export class ScannerConfigError extends Error {
+	/**
+	 * Creates an error identifying invalid or unavailable scanner configuration.
+	 *
+	 * @param message - Human-readable explanation of the configuration failure.
+	 */
 	constructor(message: string) {
 		super(message);
 		this.name = 'ScannerConfigError';

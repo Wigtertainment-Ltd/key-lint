@@ -5,6 +5,13 @@ import { IResolvedScannerConfig, IScannerConfigOverrides, IScannerConfigSources,
 export const CONFIG_FILE_NAME = 'keylint.config.json';
 export const PACKAGE_JSON_CONFIG_KEY = 'keylint';
 
+/**
+ * Updates guardrail provenance in place for limits supplied by an override layer.
+ *
+ * @param sources - Mutable provenance map to update.
+ * @param overrides - Configuration layer whose explicitly defined limits are inspected.
+ * @param source - Provenance label assigned to those limits.
+ */
 function updateGuardrailSources(sources: Record<keyof IScannerGuardrails, ScannerConfigValueSource>, overrides: IScannerConfigOverrides, source: ScannerConfigValueSource): void {
 	if (overrides.guardrails?.maxFiles !== undefined) {
 		sources.maxFiles = source;
@@ -18,6 +25,11 @@ function updateGuardrailSources(sources: Record<keyof IScannerGuardrails, Scanne
  * Resolves scanner configuration from already-loaded JSON values without any
  * runtime-specific filesystem access.
  * Precedence: defaults < package.json["keylint"] < config file < overrides.
+ * JSON configuration layers are validated; runtime overrides are assumed to be typed and valid.
+ *
+ * @param sources - Loaded package metadata, config-file value, and optional runtime overrides.
+ * @returns Effective settings, applied-layer flags, and the winning source of each guardrail.
+ * @throws {ScannerConfigError} When an embedded package or config-file configuration is invalid.
  */
 export function resolveScannerConfigSources(sources: IScannerConfigSources): IResolvedScannerConfig {
 	let config = DEFAULT_SCANNER_CONFIG;

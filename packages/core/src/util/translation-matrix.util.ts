@@ -13,6 +13,14 @@ export interface IBaseLocaleSelection {
 	source: BaseLocaleSelectionSource;
 }
 
+/**
+ * Checks key presence using explicit metadata when available, including empty translations.
+ * Otherwise falls back to checking whether the locale's string value is non-empty.
+ *
+ * @param row - Translation matrix row to inspect.
+ * @param locale - Locale identifier used as the map key.
+ * @returns Whether the key is present according to metadata or the legacy value fallback.
+ */
 export function hasTranslationKey(row: ITranslationMatrixRow, locale: string): boolean {
 	if (row.keyPresence && locale in row.keyPresence) {
 		return Boolean(row.keyPresence[locale]);
@@ -21,10 +29,25 @@ export function hasTranslationKey(row: ITranslationMatrixRow, locale: string): b
 	return (row.values[locale] ?? '').length > 0;
 }
 
+/**
+ * Counts matrix rows whose key is present in a locale.
+ *
+ * @param matrix - Translation matrix to inspect.
+ * @param locale - Locale whose key coverage is counted.
+ * @returns The number of present keys, using the matrix's presence metadata when available.
+ */
 function localeKeyCount(matrix: ITranslationMatrix, locale: string): number {
 	return matrix.rows.filter((row) => hasTranslationKey(row, locale)).length;
 }
 
+/**
+ * Selects the candidate with the most present keys without mutating the candidate list.
+ * Equal coverage is resolved using the locale identifiers' `localeCompare` order.
+ *
+ * @param matrix - Translation matrix supplying key-presence information.
+ * @param candidates - Non-empty list of locale identifiers to rank.
+ * @returns The highest-coverage candidate, with locale ordering as the tie-breaker.
+ */
 function mostCompleteLocale(matrix: ITranslationMatrix, candidates: string[]): string {
 	return [...candidates].sort((left, right) => {
 		const countDifference = localeKeyCount(matrix, right) - localeKeyCount(matrix, left);
@@ -32,6 +55,16 @@ function mostCompleteLocale(matrix: ITranslationMatrix, candidates: string[]): s
 	})[0];
 }
 
+/**
+ * Selects a reference locale and records how the selection was made.
+ * Prefers a case-insensitive configured match, then exact `en`, an English variant,
+ * and finally the locale with the most keys. Coverage ties use locale identifier ordering.
+ *
+ * @param matrix - Discovered locales and their translation-key coverage.
+ * @param configuredLocale - Optional reference locale, trimmed before case-insensitive lookup.
+ * @returns The selected locale and provenance, or only source `none` when no locales exist.
+ * @throws {ScannerConfigError} When a supplied reference locale is absent from the matrix.
+ */
 export function resolveBaseLocale(
 	matrix: ITranslationMatrix,
 	configuredLocale?: string

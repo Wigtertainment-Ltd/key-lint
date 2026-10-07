@@ -8,6 +8,14 @@ const GUARDRAIL_KEYS = ['maxFiles', 'maxFileSizeBytes'] as const;
 const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 const LOCALE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
+/**
+ * Validates and trims a required string configuration value.
+ *
+ * @param value - Untrusted value to validate.
+ * @param key - Configuration field path used in error messages.
+ * @returns The string with surrounding whitespace removed.
+ * @throws {ScannerConfigError} When the value is not a string or is blank after trimming.
+ */
 function assertNonEmptyString(value: unknown, key: string): string {
 	if (typeof value !== 'string' || value.trim().length === 0) {
 		throw new ScannerConfigError(`"${key}" must be a non-empty string.`);
@@ -15,6 +23,15 @@ function assertNonEmptyString(value: unknown, key: string): string {
 	return value.trim();
 }
 
+/**
+ * Validates a non-empty list of locale identifiers and trims its entries.
+ * Duplicate detection is case-sensitive and runs after trimming.
+ *
+ * @param value - Untrusted locale list.
+ * @param key - Configuration field path used in error messages.
+ * @returns Validated locale identifiers in their original order.
+ * @throws {ScannerConfigError} When the list is empty, contains invalid identifiers, or has duplicates.
+ */
 function parseLocales(value: unknown, key: string): string[] {
 	const locales: string[] = assertStringArray(value, key).map((locale) => locale.trim());
 	if (locales.length === 0 || locales.some((locale) => !LOCALE_PATTERN.test(locale))) {
@@ -26,6 +43,15 @@ function parseLocales(value: unknown, key: string): string[] {
 	return locales;
 }
 
+/**
+ * Validates HTTP header names mapped to non-empty environment-variable names.
+ * Header names must be unique regardless of case; header values are not read here.
+ *
+ * @param value - Untrusted header-to-environment mapping.
+ * @param key - Configuration field path used in error messages.
+ * @returns A new mapping preserving header spelling and trimming environment-variable names.
+ * @throws {ScannerConfigError} When the mapping, a header name, or an environment-variable name is invalid.
+ */
 function parseHeadersFromEnv(value: unknown, key: string): Record<string, string> {
 	if (value === null || typeof value !== 'object' || Array.isArray(value)) {
 		throw new ScannerConfigError(`"${key}" must be an object.`);
@@ -46,6 +72,15 @@ function parseHeadersFromEnv(value: unknown, key: string): Record<string, string
 	return headersFromEnv;
 }
 
+/**
+ * Validates an explicit HTTP source with a single locale placeholder and no URL credentials.
+ * Rejects unknown fields and does not perform network requests.
+ *
+ * @param source - Untrusted HTTP source object.
+ * @param index - Zero-based position used to identify the source in diagnostics.
+ * @returns A normalized HTTP source with validated locales and optional environment headers.
+ * @throws {ScannerConfigError} When any source field is missing, unknown, or invalid.
+ */
 function parseHttpTranslationSource(source: Record<string, unknown>, index: number): IHttpTranslationSourceConfig {
 	const allowedKeys = new Set<string>(['type', 'id', 'urlTemplate', 'locales', 'headersFromEnv']);
 	for (const key of Object.keys(source)) {
@@ -86,6 +121,15 @@ function parseHttpTranslationSource(source: Record<string, unknown>, index: numb
 	return { type: 'http', id, urlTemplate, locales, ...(headersFromEnv ? { headersFromEnv } : {}) };
 }
 
+/**
+ * Validates overrides for a detected HTTP loader without analyzing project code.
+ * An optional origin must contain only an HTTP(S) scheme and authority.
+ *
+ * @param source - Untrusted auto-HTTP source object.
+ * @param index - Zero-based position used to identify the source in diagnostics.
+ * @returns Validated overrides with a canonical URL origin when supplied.
+ * @throws {ScannerConfigError} When fields are unknown or an identifier, origin, locale list, or header mapping is invalid.
+ */
 function parseAutoHttpTranslationSource(source: Record<string, unknown>, index: number): IAutoHttpTranslationSourceConfig {
 	const allowedKeys = new Set(['type', 'id', 'origin', 'locales', 'headersFromEnv']);
 	for (const key of Object.keys(source)) {
@@ -118,6 +162,14 @@ function parseAutoHttpTranslationSource(source: Record<string, unknown>, index: 
 	return parsed;
 }
 
+/**
+ * Validates an ordered, non-empty list of filesystem and HTTP translation sources.
+ * Checks identifier collisions using position-based defaults for sources without explicit IDs.
+ *
+ * @param value - Untrusted translation-source list.
+ * @returns Validated source objects in input order; omitted optional IDs remain omitted.
+ * @throws {ScannerConfigError} When a source is invalid or resolved identifiers collide.
+ */
 function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 	if (!Array.isArray(value) || value.length === 0) {
 		throw new ScannerConfigError('"translationSources" must be a non-empty array.');
@@ -192,6 +244,15 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 	});
 }
 
+/**
+ * Asserts that a configuration value is an array containing only strings.
+ * Empty arrays and empty strings are allowed; the array is neither copied nor trimmed.
+ *
+ * @param value - Untrusted value to validate.
+ * @param key - Configuration field path used in error messages.
+ * @returns The original array typed as a string array.
+ * @throws {ScannerConfigError} When the value is not an array of strings.
+ */
 function assertStringArray(value: unknown, key: string): string[] {
 	if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
 		throw new ScannerConfigError(`"${key}" must be an array of strings.`);
@@ -200,6 +261,14 @@ function assertStringArray(value: unknown, key: string): string[] {
 	return value as string[];
 }
 
+/**
+ * Validates a numeric configuration limit without coercing strings.
+ *
+ * @param value - Untrusted limit to validate.
+ * @param key - Configuration field path used in error messages.
+ * @returns The original positive integer.
+ * @throws {ScannerConfigError} When the value is not a number, is fractional, or is not positive.
+ */
 function assertPositiveInteger(value: unknown, key: string): number {
 	if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
 		throw new ScannerConfigError(`"${key}" must be a positive integer.`);
@@ -211,6 +280,11 @@ function assertPositiveInteger(value: unknown, key: string): number {
 /**
  * Validates a raw (e.g. JSON parsed) configuration object and rejects unknown
  * keys, so typos in a pipeline config fail loudly instead of being ignored.
+ * The optional `$schema` metadata field is ignored.
+ *
+ * @param raw - Untrusted configuration value, typically produced by JSON parsing.
+ * @returns Validated overrides containing only supplied configuration fields.
+ * @throws {ScannerConfigError} When the root, a field name, or a field value violates the configuration schema.
  */
 export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrides {
 	if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -280,7 +354,15 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 	return overrides;
 }
 
-/** Merges overrides on top of a base config. Arrays are replaced, not concatenated. */
+/**
+ * Merges overrides on top of a base config without validating either input.
+ * Arrays are replaced, not concatenated, and retain their original references.
+ * The result and its guardrails object are newly allocated.
+ *
+ * @param base - Complete base configuration; defaults to the built-in scanner settings.
+ * @param overrides - Optional partial settings with higher precedence than the base.
+ * @returns A complete configuration using overrides wherever they are not nullish.
+ */
 export function mergeScannerConfig(base: IScannerConfig = DEFAULT_SCANNER_CONFIG, overrides: IScannerConfigOverrides = {}): IScannerConfig {
 	return {
 		baseLocale: overrides.baseLocale ?? base.baseLocale,

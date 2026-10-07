@@ -12,9 +12,7 @@ import { ElectronFile, IRecentProjectViewModel } from './project-selection.inter
 import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
 import { ElectronFileSystemAdapter } from '../../shared/services/electron-file-system.adapter';
 import {
-	IDesktopTranslationSourceDraft,
-	IPreparedDesktopRemoteScan,
-	IRemoteScanConfirmation
+	IDesktopTranslationSourceDraft, IPreparedDesktopRemoteScan, IRemoteScanConfirmation
 } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.interfaces';
 
 @Component({

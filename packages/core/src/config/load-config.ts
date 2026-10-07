@@ -6,6 +6,13 @@ import { ILoadedScannerConfig, ILoadScannerConfigOptions, ScannerConfigError } f
 
 export { CONFIG_FILE_NAME, PACKAGE_JSON_CONFIG_KEY } from './resolve-config.js';
 
+/**
+ * Reads UTF-8 JSON, treating any filesystem read failure as an unavailable file.
+ *
+ * @param filePath - Path of the JSON file to read.
+ * @returns The parsed JSON value, or `undefined` when the file cannot be read.
+ * @throws {ScannerConfigError} When a readable file contains invalid JSON.
+ */
 async function readJsonFile(filePath: string): Promise<unknown> {
 	let raw: string;
 	try {
@@ -27,6 +34,11 @@ async function readJsonFile(filePath: string): Promise<unknown> {
  * Resolves the effective scanner configuration.
  * Precedence: defaults < package.json["keylint"] < config file < overrides.
  * Only JSON is supported on purpose - a config file must never execute code.
+ * Relative explicit config paths are resolved against the process working directory.
+ *
+ * @param options - Project root, optional explicit config path, and runtime overrides.
+ * @returns The effective configuration and the normalized applied config file path, if any.
+ * @throws {ScannerConfigError} When JSON or configuration values are invalid, or an explicit config file cannot be read.
  */
 export async function loadScannerConfig(options: ILoadScannerConfigOptions): Promise<ILoadedScannerConfig> {
 	const projectRoot = resolve(options.projectRoot);

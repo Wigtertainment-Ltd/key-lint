@@ -4,6 +4,13 @@ export interface IPlaceholderParameterUsage {
 	dynamicPrefixes?: string[];
 }
 
+/**
+ * Extracts Mustache placeholder names, including dotted property paths.
+ * Allows surrounding whitespace inside braces but excludes names containing whitespace or braces.
+ *
+ * @param value - Translation string to inspect.
+ * @returns Unique placeholder names sorted using `localeCompare`.
+ */
 export function extractMustachePlaceholders(value: string): string[] {
 	const names = new Set<string>();
 	// Capture one non-empty, whitespace-free placeholder name between Mustache braces.
@@ -22,6 +29,14 @@ export function extractMustachePlaceholders(value: string): string[] {
 	return [...names].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * Splits source text outside quoted strings and nested parentheses, brackets, or braces.
+ * Uses lightweight delimiter tracking rather than a full JavaScript parser.
+ *
+ * @param value - Expression text to split.
+ * @param delimiter - Single-character separator; defaults to a comma.
+ * @returns Trimmed segments, retaining empty segments and the final trailing segment.
+ */
 export function splitTopLevel(value: string, delimiter = ','): string[] {
 	const parts: string[] = [];
 	let start = 0;
@@ -62,6 +77,12 @@ export function splitTopLevel(value: string, delimiter = ','): string[] {
 	return parts;
 }
 
+/**
+ * Locates the first colon outside quoted strings and nested bracket groups.
+ *
+ * @param value - Object-property source text to inspect.
+ * @returns The colon's zero-based character offset, or `-1` when none is found.
+ */
 function findTopLevelColon(value: string): number {
 	let stringDelimiter: string | null = null;
 	const stack: string[] = [];
@@ -92,6 +113,13 @@ function findTopLevelColon(value: string): number {
 	return -1;
 }
 
+/**
+ * Recognizes identifier keys, quoted keys, and quoted computed keys from property text.
+ * Captured quoted content is returned without decoding JavaScript escape sequences.
+ *
+ * @param value - Source text representing a property name.
+ * @returns The recognized property name, or `null` for an unsupported or dynamic form.
+ */
 function staticPropertyName(value: string): string | null {
 	const trimmed = value.trim();
 	// Capture a property name wrapped in matching JavaScript single or double quotes.
@@ -108,6 +136,15 @@ function staticPropertyName(value: string): string | null {
 	return /^[A-Za-z_$][\w$]*$/.test(trimmed) ? trimmed : null;
 }
 
+/**
+ * Collects known property paths from object-literal text without evaluating expressions.
+ * Spreads and unknown keys mark the result dynamic; unresolved child expressions record path prefixes.
+ * This lightweight analysis assumes the input is surrounded by object braces.
+ *
+ * @param value - Object-literal expression text, including its outer braces.
+ * @param prefix - Optional parent path prepended to nested property names.
+ * @returns Sorted unique paths, a dynamic-key flag, and prefixes whose nested paths remain unresolved.
+ */
 function parseObjectLiteral(value: string, prefix = ''): { names: string[]; dynamic: boolean; dynamicPrefixes: string[] } {
 	const names = new Set<string>();
 	const dynamicPrefixes = new Set<string>();
@@ -156,6 +193,14 @@ function parseObjectLiteral(value: string, prefix = ''): { names: string[]; dyna
 	};
 }
 
+/**
+ * Classifies translation parameter expressions and extracts statically recognizable property paths.
+ * Blank input is absent; non-object expressions are dynamic. Object-like text is analyzed
+ * heuristically without executing source code or performing full JavaScript syntax validation.
+ *
+ * @param expression - Optional source text of the translation call's parameter argument.
+ * @returns Parameter classification, known paths, and any unresolved nested prefixes.
+ */
 export function parsePlaceholderParameters(expression?: string): IPlaceholderParameterUsage {
 	const trimmed = expression?.trim() ?? '';
 	if (!trimmed) {
