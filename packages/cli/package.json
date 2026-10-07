@@ -1,6 +1,6 @@
 {
 	"name": "@key-lint/cli",
-	"version": "1.3.1",
+	"version": "1.4.0",
 	"description": "Command line interface for running KeyLint scans in CI/CD pipelines.",
 	"author": "Wigtertainment Ltd",
 	"license": "MIT",
@@ -49,7 +49,7 @@
 		"publish:pkg": "npm run build && npm publish"
 	},
 	"dependencies": {
-		"@key-lint/core": "1.3.1"
+		"@key-lint/core": "1.4.0"
 	},
 	"devDependencies": {
 		"@types/node": "26.6.4",
