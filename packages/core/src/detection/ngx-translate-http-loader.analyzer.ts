@@ -14,6 +14,12 @@ const TRANSLATE_CORE_MODULE = '@ngx-translate/core';
 const DEFAULT_PREFIX = '/assets/i18n/';
 const DEFAULT_SUFFIX = '.json';
 
+/**
+ * Maps a static-resolution failure to ngx-translate-specific diagnostic text and coordinates.
+ * @param failure - Classified unsupported or ambiguous syntax.
+ * @param context - Source context owning the failure node.
+ * @returns A framework-specific diagnostic without evaluating the expression.
+ */
 function diagnosticForFailure(failure: IStaticExpressionFailure, context: IAnalysisContext): ILoaderDetectionDiagnostic {
 	const details = {
 		environment: ['ngx-http-dynamic-environment', 'dynamic', 'ngx-translate loader URLs that depend on runtime environment values require explicit configuration.'],
@@ -27,21 +33,46 @@ function diagnosticForFailure(failure: IStaticExpressionFailure, context: IAnaly
 	return { code, category, message, location: locationOf(failure.node, context) };
 }
 
+/**
+ * Classifies unresolved syntax and creates an ngx-translate diagnostic.
+ * @param node - Syntax subtree that could not be resolved.
+ * @param context - Source context used for classification and coordinates.
+ * @returns The corresponding static-analysis diagnostic.
+ */
 function diagnosticForExpression(node: ts.Node, context: IAnalysisContext): ILoaderDetectionDiagnostic {
 	return diagnosticForFailure(classifyStaticExpression(node, context), context);
 }
 
+/**
+ * Resolves a static string or converts its resolution failure into an ngx-translate diagnostic.
+ * @param expression - Literal or const-aliased string expression.
+ * @param context - Source-local declaration information.
+ * @returns Literal text or a diagnostic explaining why it could not be resolved.
+ */
 function resolveString(expression: ts.Expression, context: IAnalysisContext): { value?: string; diagnostic?: ILoaderDetectionDiagnostic } {
 	const resolved = resolveStaticString(expression, context);
 	return resolved.failure ? { diagnostic: diagnosticForFailure(resolved.failure, context) } : { value: resolved.value };
 }
 
+/**
+ * Resolves a configuration property's static string value, including shorthand const references.
+ * @param property - Object-literal property containing the value.
+ * @param context - Declaration and import information for the property.
+ * @returns Resolved text or a diagnostic for ambiguous or unsupported syntax.
+ */
 function resolvePropertyString(property: ts.ObjectLiteralElementLike, context: IAnalysisContext): { value?: string; diagnostic?: ILoaderDetectionDiagnostic } {
 	const resolved = propertyExpression(property, context);
 	if (resolved.ambiguousNode) return { diagnostic: diagnosticForFailure({ kind: 'ambiguous', node: resolved.ambiguousNode }, context) };
 	return resolveString(resolved.expression as ts.Expression, context);
 }
 
+/**
+ * Parses a modern loader resource as a literal prefix or a static prefix/suffix object.
+ * Uses `.json` when the suffix is omitted and rejects spreads or unsupported property names.
+ * @param entry - Resource-array entry, optionally reached through const aliases.
+ * @param context - Source context used to resolve configuration values.
+ * @returns A locale URL template or a diagnostic; does not validate or fetch the URL.
+ */
 function parseResourceEntry(entry: ts.Expression, context: IAnalysisContext): { resource?: ILoaderResourceTemplate; diagnostic?: ILoaderDetectionDiagnostic } {
 	const resolved = resolveExpression(entry, context);
 	if (resolved.ambiguousNode) return { diagnostic: diagnosticForFailure({ kind: 'ambiguous', node: resolved.ambiguousNode }, context) };
@@ -62,6 +93,13 @@ function parseResourceEntry(entry: ts.Expression, context: IAnalysisContext): { 
 	return { resource: templateResource(`${prefix.value}{locale}${suffix.value}`) };
 }
 
+/**
+ * Parses provideTranslateHttpLoader defaults or one static configuration object.
+ * Supports ordered resource arrays or prefix/suffix fields and suppresses the candidate if any resource is unsupported.
+ * @param call - Recognized modern HTTP loader call.
+ * @param context - Source context owning the call.
+ * @returns A deterministic candidate with initially empty locales, or analysis diagnostics.
+ */
 function parseModernCall(call: ts.CallExpression, context: IAnalysisContext): { candidate?: ITranslationLoaderCandidate; diagnostics: ILoaderDetectionDiagnostic[] } {
 	const diagnostics: ILoaderDetectionDiagnostic[] = [];
 	let resources: ILoaderResourceTemplate[] = [];
@@ -112,6 +150,13 @@ function parseModernCall(call: ts.CallExpression, context: IAnalysisContext): { 
 	};
 }
 
+/**
+ * Parses TranslateHttpLoader construction with a client argument and optional static prefix/suffix.
+ * Accepts one to three arguments without evaluating or validating the client expression.
+ * @param expression - Recognized legacy loader construction.
+ * @param context - Source context used to resolve URL fragments.
+ * @returns A candidate using omitted-fragment defaults, or diagnostics for unsupported arguments.
+ */
 function parseLegacyNew(expression: ts.NewExpression, context: IAnalysisContext): { candidate?: ITranslationLoaderCandidate; diagnostics: ILoaderDetectionDiagnostic[] } {
 	const args = expression.arguments ?? [];
 	if (args.length === 0 || args.length > 3) return { diagnostics: [diagnosticForExpression(args[3] ?? expression, context)] };
@@ -128,13 +173,27 @@ function parseLegacyNew(expression: ts.NewExpression, context: IAnalysisContext)
 	};
 }
 
+/**
+ * Collects named locale arrays and static lang/fallbackLang fields in imported provideTranslateService calls.
+ * @param contexts - Source files searched in input order.
+ * @param diagnostics - Mutable collector for unsupported locale expressions.
+ * @returns Non-empty locale strings deduplicated in first-seen order, without locale-schema validation.
+ */
 function extractLiteralLocales(contexts: IAnalysisContext[], diagnostics: ILoaderDetectionDiagnostic[]): string[] {
 	const locales: string[] = [];
+	/**
+	 * Adds a non-empty locale only when not previously collected.
+	 * @param value - Literal locale string to append.
+	 */
 	const addLocale = (value: string): void => { if (value && !locales.includes(value)) locales.push(value); };
 	const namedArrays = collectNamedLiteralStringArrays(contexts, /^(supported|available|app)?(locales|languages|langs)$/);
 	namedArrays.values.forEach(addLocale);
 	for (const { context, failure } of namedArrays.failures) diagnostics.push(diagnosticForFailure(failure, context));
 	for (const context of contexts) {
+		/**
+		 * Walks service configuration calls and appends static locale values or diagnostics.
+		 * @param node - Current source node and subtree to inspect.
+		 */
 		const visit = (node: ts.Node): void => {
 			if (ts.isCallExpression(node)) {
 				const symbol = resolveImportedSymbol(node.expression, context);
@@ -159,8 +218,18 @@ function extractLiteralLocales(contexts: IAnalysisContext[], diagnostics: ILoade
 	return locales;
 }
 
+/**
+ * Searches a subtree for construction of the imported ngx-translate HTTP loader.
+ * @param node - Factory or expression subtree to inspect.
+ * @param context - Import metadata used to distinguish genuine loader symbols.
+ * @returns Whether a recognized TranslateHttpLoader construction occurs anywhere in the subtree.
+ */
 function containsImportedLegacyNew(node: ts.Node, context: IAnalysisContext): boolean {
 	let found = false;
+	/**
+	 * Visits descendants until an imported legacy HTTP loader construction is found.
+	 * @param child - AST node being checked.
+	 */
 	const visit = (child: ts.Node): void => {
 		if (ts.isNewExpression(child)) {
 			const symbol = resolveImportedSymbol(child.expression, context);
@@ -172,7 +241,17 @@ function containsImportedLegacyNew(node: ts.Node, context: IAnalysisContext): bo
 	return found;
 }
 
+/**
+ * Reports TranslateLoader useFactory providers that lack recognized legacy HTTP loader construction.
+ * Inspects visible factory bodies without calling them.
+ * @param context - Source file and declaration indexes to inspect.
+ * @param diagnostics - Diagnostic list updated in place.
+ */
 function diagnoseArbitraryFactories(context: IAnalysisContext, diagnostics: ILoaderDetectionDiagnostic[]): void {
+	/**
+	 * Walks provider objects and diagnoses unsupported custom translation factories.
+	 * @param node - Current source node and descendants.
+	 */
 	const visit = (node: ts.Node): void => {
 		if (ts.isObjectLiteralExpression(node)) {
 			const provide = findProperty(node, 'provide');
@@ -199,12 +278,23 @@ function diagnoseArbitraryFactories(context: IAnalysisContext, diagnostics: ILoa
 	visit(context.sourceFile);
 }
 
+/**
+ * Detects imported modern and legacy ngx-translate HTTP loaders using source-only TypeScript analysis.
+ * Resolves supported literal/const configurations, attaches project-wide literal locales, and rejects
+ * calls under ternary ancestors. Does not execute factories, fetch endpoints, or use a type checker.
+ * @param files - Source filenames and content supplied by the caller.
+ * @returns Detected candidates and diagnostics deduplicated by code and source range.
+ */
 export function analyzeNgxTranslateHttpLoaders(files: readonly ILoaderAnalysisSourceFile[]): ITranslationLoaderAnalysisResult {
 	const contexts = files.map(collectAnalysisContext);
 	const candidates: ITranslationLoaderCandidate[] = [];
 	const diagnostics: ILoaderDetectionDiagnostic[] = [];
 	const locales = extractLiteralLocales(contexts, diagnostics);
 	for (const context of contexts) {
+		/**
+		 * Visits imported loader calls and constructions to collect candidates or diagnostics.
+		 * @param node - Current node in the source-file traversal.
+		 */
 		const visit = (node: ts.Node): void => {
 			if (ts.isCallExpression(node)) {
 				const symbol = resolveImportedSymbol(node.expression, context);

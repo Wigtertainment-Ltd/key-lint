@@ -5,6 +5,14 @@ import { ILoaderDetectionDiagnostic, ITranslationLoaderCandidate } from './loade
 export type AutoHttpResolutionErrorCode = 'auto-http-no-candidate' | 'auto-http-multiple-candidates' | 'auto-http-selection-invalid' | 'auto-http-origin-required' | 'auto-http-locales-required' | 'auto-http-invalid-url';
 
 export class AutoHttpResolutionError extends Error {
+	/**
+	 * Creates a resolution failure retaining analysis evidence for manual selection or diagnostics.
+	 *
+	 * @param code - Machine-readable resolution failure category.
+	 * @param message - Human-readable explanation supplied by the caller.
+	 * @param candidates - Detected candidates retained by reference; defaults to an empty list.
+	 * @param diagnostics - Analysis diagnostics retained by reference; defaults to an empty list.
+	 */
 	constructor(
 		readonly code: AutoHttpResolutionErrorCode,
 		message: string,
@@ -34,18 +42,43 @@ export interface IExpandedAutoHttpSources {
 	resolved: IResolvedAutoHttpSource[];
 }
 
+/**
+ * Supplies an explicit HTTP configuration example for automatic-resolution failures.
+ *
+ * @returns A human-readable fallback instruction with a sample source definition.
+ */
 function manualFallback(): string {
 	return 'Use an explicit HTTP source as a fallback, for example: { "type": "http", "id": "translations", "urlTemplate": "https://example.com/i18n/{locale}.json", "locales": ["en"] }.';
 }
 
+/**
+ * Formats the starting location of a detected loader.
+ *
+ * @param candidate - Loader candidate carrying source coordinates.
+ * @returns File path, one-based line, and column separated by colons.
+ */
 function candidateLocation(candidate: ITranslationLoaderCandidate): string {
 	return `${candidate.location.filePath}:${candidate.location.line}:${candidate.location.column}`;
 }
 
+/**
+ * Formats the starting location of an analysis diagnostic.
+ *
+ * @param diagnostic - Diagnostic carrying source coordinates.
+ * @returns File path, one-based line, and column separated by colons.
+ */
 function diagnosticLocation(diagnostic: ILoaderDetectionDiagnostic): string {
 	return `${diagnostic.location.filePath}:${diagnostic.location.line}:${diagnostic.location.column}`;
 }
 
+/**
+ * Removes fragments and redacts query values while preserving a locale placeholder for display.
+ * Resolves non-HTTP-prefixed inputs against a dummy origin and displays only their path and query.
+ * Does not validate credentials or redact user information in absolute HTTP(S) templates.
+ *
+ * @param value - Absolute or relative URL template to format.
+ * @returns A display template with a redacted query, or `[invalid URL]` when parsing fails.
+ */
 export function redactAutoHttpUrlTemplate(value: string): string {
 	const marker = '__KEYLINT_LOCALE__';
 	const absolute = /^https?:\/\//i.test(value);
@@ -60,10 +93,28 @@ export function redactAutoHttpUrlTemplate(value: string): string {
 	}
 }
 
+/**
+ * Formats a numbered loader candidate with its framework, API, location, and redacted endpoints.
+ *
+ * @param candidate - Detected loader to describe.
+ * @param index - Zero-based candidate position, displayed as a one-based selection number.
+ * @returns A single-line description suitable for selection diagnostics.
+ */
 export function formatAutoHttpCandidate(candidate: ITranslationLoaderCandidate, index: number): string {
 	return `${index + 1}. ${candidate.framework}/${candidate.api} at ${candidateLocation(candidate)} -> ${candidate.resources.map((resource) => redactAutoHttpUrlTemplate(resource.urlTemplate)).join(', ')}`;
 }
 
+/**
+ * Resolves a detected template into an absolute, credential-free HTTP(S) URL without requesting it.
+ * Protects the locale placeholder during URL serialization and uses the configured origin when required.
+ *
+ * @param resource - Detected template and its origin requirement.
+ * @param source - Auto-HTTP overrides supplying a relative URL's origin.
+ * @param candidate - Candidate supplying diagnostic coordinates.
+ * @param analysis - Candidate and diagnostic evidence attached to resolution failures.
+ * @returns The absolute URL template with its locale placeholder restored.
+ * @throws {AutoHttpResolutionError} When an origin is required, URL parsing fails, or scheme or credentials are invalid.
+ */
 function resolvedTemplate(resource: ITranslationLoaderCandidate['resources'][number], source: IAutoHttpTranslationSourceConfig, candidate: ITranslationLoaderCandidate, analysis: IAutoHttpProjectAnalysis): string {
 	if (resource.requiresOrigin && !source.origin) {
 		throw new AutoHttpResolutionError('auto-http-origin-required', `The detected relative translation URL "${redactAutoHttpUrlTemplate(resource.urlTemplate)}" at ${candidateLocation(candidate)} requires an origin in the auto-http source. No request was made. ${manualFallback()}`, analysis.candidates, analysis.diagnostics);
@@ -82,6 +133,18 @@ function resolvedTemplate(resource: ITranslationLoaderCandidate['resources'][num
 	return parsed.toString().replace(marker, '{locale}');
 }
 
+/**
+ * Expands a selected loader candidate into explicit HTTP sources without network access.
+ * Source locales override detected locales when non-empty; resource order determines generated ID suffixes.
+ * Final scanner-schema validation is left to the caller or expansion helper.
+ *
+ * @param source - Auto-HTTP source overrides for ID, origin, locales, and environment headers.
+ * @param sourceIndex - Original source position used for metadata and fallback IDs.
+ * @param candidateIndex - Zero-based index into the analysis candidate list.
+ * @param analysis - Detected candidates and diagnostic evidence.
+ * @returns The selected candidate and its generated HTTP source definitions.
+ * @throws {AutoHttpResolutionError} When selection, locales, origin, or endpoint resolution is invalid.
+ */
 export function resolveAutoHttpCandidate(source: IAutoHttpTranslationSourceConfig, sourceIndex: number, candidateIndex: number, analysis: IAutoHttpProjectAnalysis): IResolvedAutoHttpSource {
 	const candidate = analysis.candidates[candidateIndex];
 	if (!candidate) throw new AutoHttpResolutionError('auto-http-selection-invalid', `The selected auto-http candidate ${candidateIndex + 1} does not exist. No request was made.`, analysis.candidates, analysis.diagnostics);
@@ -100,6 +163,18 @@ export function resolveAutoHttpCandidate(source: IAutoHttpTranslationSourceConfi
 	return { sourceIndex, candidateIndex, candidate, sources };
 }
 
+/**
+ * Replaces auto-HTTP entries with selected explicit HTTP sources while preserving configured order.
+ * Selects the sole candidate automatically; multiple candidates require a per-source selection.
+ * Validates the complete expanded list and retains non-auto source objects by reference.
+ *
+ * @param translationSources - Ordered configuration sources to expand.
+ * @param analysis - Static loader analysis shared by the auto-HTTP sources.
+ * @param selections - Optional map from original source indices to zero-based candidate indices.
+ * @returns Expanded sources and resolution records identifying each selected candidate.
+ * @throws {AutoHttpResolutionError} When candidates are absent, ambiguous, or cannot be resolved.
+ * @throws {ScannerConfigError} When the expanded sources violate the scanner configuration schema.
+ */
 export function expandAutoHttpTranslationSources(translationSources: readonly ITranslationSourceConfig[], analysis: IAutoHttpProjectAnalysis, selections: ReadonlyMap<number, number> = new Map<number, number>()): IExpandedAutoHttpSources {
 	const expanded: ITranslationSourceConfig[] = [];
 	const resolved: IResolvedAutoHttpSource[] = [];

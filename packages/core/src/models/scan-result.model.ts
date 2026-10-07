@@ -46,6 +46,11 @@ export interface IProjectScanResult {
 	metadata?: Record<string, unknown>;
 }
 
+/**
+ * Creates an independent scan summary with every key, finding, and placeholder counter set to zero.
+ *
+ * @returns A new mutable summary object, including the optional placeholder counters.
+ */
 export function createEmptyScanSummary(): IScanSummary {
 	return {
 		totalKeys: 0,
@@ -62,6 +67,15 @@ export function createEmptyScanSummary(): IScanSummary {
 	};
 }
 
+/**
+ * Counts finding records by status without modifying or deduplicating the input.
+ * Indirect-uncertain findings contribute to both the combined uncertainty count and their dedicated count.
+ * Counters measure findings rather than unique keys, so multiple locale or usage findings are counted separately.
+ *
+ * @param findings - Finding records to aggregate, typically after pipeline ignore-key filtering.
+ * @param totalKeys - Defined-key count supplied by the caller and copied without validation.
+ * @returns A new summary with status counters, the supplied key count, and the total number of findings.
+ */
 export function buildSummary(findings: IFinding[], totalKeys: number): IScanSummary {
 	const summary = createEmptyScanSummary();
 	summary.totalKeys = totalKeys;

@@ -22,11 +22,24 @@ interface IUrlResolution {
 	failure?: IStaticExpressionFailure;
 }
 
+/**
+ * Matches a resolved symbol from either supported Transloco package.
+ * @param expression - Imported or const-aliased symbol reference.
+ * @param context - Source-local import and declaration indexes.
+ * @param importedName - Exact exported symbol name required by the caller.
+ * @returns Whether the module and imported name match a supported Transloco symbol.
+ */
 function isTranslocoSymbol(expression: ts.Expression, context: IAnalysisContext, importedName: string): boolean {
 	const symbol = resolveImportedSymbol(expression, context);
 	return Boolean(symbol && TRANSLOCO_MODULES.has(symbol.moduleName) && symbol.importedName === importedName);
 }
 
+/**
+ * Maps a resolution failure to Transloco-specific diagnostic text and source coordinates.
+ * @param failure - Classified unsupported or ambiguous syntax.
+ * @param context - Source context owning the diagnostic node.
+ * @returns A framework-specific analysis diagnostic.
+ */
 function diagnosticForFailure(failure: IStaticExpressionFailure, context: IAnalysisContext): ILoaderDetectionDiagnostic {
 	const details = {
 		environment: ['transloco-http-dynamic-environment', 'dynamic', 'Transloco loader URLs that depend on runtime environment values require explicit configuration.'],
@@ -40,6 +53,14 @@ function diagnosticForFailure(failure: IStaticExpressionFailure, context: IAnaly
 	return { code, category, message, location: locationOf(failure.node, context) };
 }
 
+/**
+ * Creates a diagnostic for unsupported registration, scope, or interceptor behavior.
+ * @param code - Transloco guard or provider failure category.
+ * @param message - Human-readable explanation supplied by the caller.
+ * @param node - Source node identifying the unsupported construct.
+ * @param context - Context used to obtain source coordinates.
+ * @returns An unsupported-category diagnostic with a complete source range.
+ */
 function customDiagnostic(
 	code: 'transloco-http-unsupported-provider' | 'transloco-http-unsupported-scope' | 'transloco-http-interceptor',
 	message: string,
@@ -49,6 +70,12 @@ function customDiagnostic(
 	return { code, category: 'unsupported', message, location: locationOf(node, context) };
 }
 
+/**
+ * Follows local const aliases and requires the resolved expression to be an object literal.
+ * @param expression - Provider or configuration expression to resolve.
+ * @param context - Source-local declaration and scope information.
+ * @returns The object literal or a classified ambiguity/unsupported failure.
+ */
 function resolveObject(expression: ts.Expression, context: IAnalysisContext): { object?: ts.ObjectLiteralExpression; failure?: IStaticExpressionFailure } {
 	const resolved = resolveExpression(expression, context);
 	if (resolved.ambiguousNode) return { failure: { kind: 'ambiguous', node: resolved.ambiguousNode } };
@@ -56,6 +83,12 @@ function resolveObject(expression: ts.Expression, context: IAnalysisContext): { 
 	return { failure: classifyStaticExpression(resolved.expression ?? expression, context) };
 }
 
+/**
+ * Locates an enclosing ternary, if, or switch construct without evaluating its condition.
+ * Ternary ancestors take precedence over if/switch ancestors.
+ * @param node - Registration site whose ancestors are inspected.
+ * @returns The enclosing conditional construct, or `undefined` when none is found.
+ */
 function enclosingCondition(node: ts.Node): ts.Node | undefined {
 	const conditional = conditionalAncestor(node);
 	if (conditional) return conditional;
@@ -67,6 +100,13 @@ function enclosingCondition(node: ts.Node): ts.Node | undefined {
 	return undefined;
 }
 
+/**
+ * Extracts literal strings or object-entry IDs from a statically resolved locale array.
+ * Supported entries remain available even when other entries produce failures.
+ * @param expression - availableLangs-style configuration expression.
+ * @param context - Source-local declaration information.
+ * @returns Extracted locale strings in entry order and failures for unsupported entries.
+ */
 function localeValues(expression: ts.Expression, context: IAnalysisContext): { values: string[]; failures: IStaticExpressionFailure[] } {
 	const resolved = resolveExpression(expression, context);
 	if (resolved.ambiguousNode) return { values: [], failures: [{ kind: 'ambiguous', node: resolved.ambiguousNode }] };
@@ -107,6 +147,13 @@ function localeValues(expression: ts.Expression, context: IAnalysisContext): { v
 	return { values, failures };
 }
 
+/**
+ * Reads availableLangs and appends first-seen locale values or diagnostic failures.
+ * @param object - Resolved Transloco configuration object.
+ * @param context - Source context used to resolve its locale expression.
+ * @param locales - Locale list updated in place with previously unseen values.
+ * @param diagnostics - Diagnostic collector updated for unresolved entries.
+ */
 function readConfigLocales(object: ts.ObjectLiteralExpression, context: IAnalysisContext, locales: string[], diagnostics: ILoaderDetectionDiagnostic[]): void {
 	const property = findProperty(object, 'availableLangs');
 	if (!property) return;
@@ -120,9 +167,21 @@ function readConfigLocales(object: ts.ObjectLiteralExpression, context: IAnalysi
 	for (const failure of parsed.failures) diagnostics.push(diagnosticForFailure(failure, context));
 }
 
+/**
+ * Finds loader references from provideTransloco and TRANSLOCO_LOADER useClass providers.
+ * Reads availableLangs from configuration calls and diagnoses conditional or unsupported registration forms.
+ * @param contexts - Source files inspected in input order.
+ * @param locales - Mutable collector of discovered configuration locales.
+ * @param diagnostics - Mutable collector of registration and locale failures.
+ * @returns Registered loader expressions paired with their owning source contexts.
+ */
 function collectRegistrations(contexts: IAnalysisContext[], locales: string[], diagnostics: ILoaderDetectionDiagnostic[]): IRegisteredLoader[] {
 	const registrations: IRegisteredLoader[] = [];
 	for (const context of contexts) {
+		/**
+		 * Walks configuration calls and provider objects to collect loader registrations and locales.
+		 * @param node - Current syntax node and descendants to inspect.
+		 */
 		const visit = (node: ts.Node): void => {
 			if (ts.isCallExpression(node) && isTranslocoSymbol(node.expression, context, 'provideTransloco') && node.arguments[0]) {
 				const condition = enclosingCondition(node);
@@ -180,17 +239,35 @@ function collectRegistrations(contexts: IAnalysisContext[], locales: string[], d
 	return registrations;
 }
 
+/**
+ * Extracts identifier or quoted class-member names without evaluating computed names.
+ * @param member - Loader class member to inspect.
+ * @returns Supported name text, or `undefined` for an unsupported or unnamed member.
+ */
 function memberName(member: ts.ClassElement): string | undefined {
 	const name = member.name;
 	return name && (ts.isIdentifier(name) || ts.isStringLiteral(name)) ? name.text : undefined;
 }
 
+/**
+ * Recognizes a direct identifier type reference to Angular's imported HttpClient.
+ * @param type - Optional constructor parameter type annotation.
+ * @param context - Import metadata for the loader class source.
+ * @returns Whether the type resolves to HttpClient from Angular's HTTP package.
+ */
 function isHttpClientType(type: ts.TypeNode | undefined, context: IAnalysisContext): boolean {
 	return Boolean(type && ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName) &&
 		resolveImportedSymbol(type.typeName, context)?.moduleName === ANGULAR_HTTP_MODULE &&
 		resolveImportedSymbol(type.typeName, context)?.importedName === 'HttpClient');
 }
 
+/**
+ * Identifies HttpClient constructor parameter properties and fields initialized with Angular inject(HttpClient).
+ * Does not infer assignments made in constructor bodies or inherited client members.
+ * @param declaration - Registered loader class to inspect.
+ * @param context - Import and declaration information owning the class.
+ * @returns Supported instance member names whose get calls can be analyzed.
+ */
 function httpClientMembers(declaration: ts.ClassDeclaration, context: IAnalysisContext): Set<string> {
 	const names = new Set<string>();
 	for (const member of declaration.members) {
@@ -214,6 +291,12 @@ function httpClientMembers(declaration: ts.ClassDeclaration, context: IAnalysisC
 	return names;
 }
 
+/**
+ * Recognizes a direct this.member.get call on an identified HttpClient member.
+ * @param call - Call expression to classify.
+ * @param httpMembers - Accepted instance member names.
+ * @returns Whether the call has the supported HTTP GET shape.
+ */
 function isHttpGet(call: ts.CallExpression, httpMembers: Set<string>): boolean {
 	const called = unwrapExpression(call.expression);
 	return ts.isPropertyAccessExpression(called) && called.name.text === 'get' &&
@@ -221,6 +304,15 @@ function isHttpGet(call: ts.CallExpression, httpMembers: Set<string>): boolean {
 		httpMembers.has(called.expression.name.text);
 }
 
+/**
+ * Builds a static URL template from literals, const aliases, templates, and plus expressions.
+ * Replaces the locale parameter with `{locale}` and reports unsupported expressions or alias cycles.
+ * @param expression - HTTP GET URL expression to inspect without execution.
+ * @param localeName - Identifier of the getTranslation locale parameter.
+ * @param context - Source-local constant declarations used for resolution.
+ * @param seen - Mutable identifier-name set for detecting recursive alias cycles.
+ * @returns Resolved template text or a classified static-resolution failure.
+ */
 function resolveUrl(expression: ts.Expression, localeName: string, context: IAnalysisContext, seen = new Set<string>()): IUrlResolution {
 	const value = unwrapExpression(expression);
 	if (ts.isIdentifier(value)) {
@@ -252,14 +344,29 @@ function resolveUrl(expression: ts.Expression, localeName: string, context: IAna
 	return { failure: classifyStaticExpression(value, context) };
 }
 
+/**
+ * Selects the expression of a method's sole top-level return statement.
+ * @param method - Method whose immediate body statements are inspected.
+ * @returns Its return expression, or `undefined` for missing bodies or zero/multiple top-level returns.
+ */
 function returnedExpression(method: ts.MethodDeclaration): ts.Expression | undefined {
 	if (!method.body) return undefined;
 	const returns = method.body.statements.filter(ts.isReturnStatement);
 	return returns.length === 1 ? returns[0].expression : undefined;
 }
 
+/**
+ * Collects direct HTTP GET calls throughout a syntax subtree, including nested descendants.
+ * @param node - Loader body or subtree to inspect.
+ * @param members - Identified HttpClient instance member names.
+ * @returns Recognized GET call nodes in traversal order.
+ */
 function httpCalls(node: ts.Node, members: Set<string>): ts.CallExpression[] {
 	const calls: ts.CallExpression[] = [];
+	/**
+	 * Traverses descendants and appends recognized HTTP GET call nodes.
+	 * @param child - Current syntax node being inspected.
+	 */
 	const visit = (child: ts.Node): void => {
 		if (ts.isCallExpression(child) && isHttpGet(child, members)) calls.push(child);
 		ts.forEachChild(child, visit);
@@ -268,6 +375,14 @@ function httpCalls(node: ts.Node, members: Set<string>): ts.CallExpression[] {
 	return calls;
 }
 
+/**
+ * Recognizes the supported forkJoin(array).pipe(map(array-destructuring-to-object-spreads)) merge shape.
+ * Requires all discovered GET calls and matching spread order to make resource precedence explicit.
+ * @param expression - Returned loader expression containing the merge.
+ * @param calls - All recognized HTTP GET call nodes in the method body.
+ * @param context - Import metadata used to verify RxJS forkJoin and map.
+ * @returns Calls in explicit array order, or `undefined` when the merge shape is unsupported.
+ */
 function explicitMultiRequestOrder(expression: ts.Expression, calls: ts.CallExpression[], context: IAnalysisContext): ts.CallExpression[] | undefined {
 	const outer = unwrapExpression(expression);
 	if (!ts.isCallExpression(outer) || !ts.isPropertyAccessExpression(outer.expression) || outer.expression.name.text !== 'pipe' || outer.arguments.length !== 1) return undefined;
@@ -291,11 +406,27 @@ function explicitMultiRequestOrder(expression: ts.Expression, calls: ts.CallExpr
 	return orderedCalls;
 }
 
+/**
+ * Matches an imported symbol from rxjs or rxjs/operators, including supported const aliases.
+ * @param expression - Operator or combinator reference to resolve.
+ * @param context - Source-local import metadata.
+ * @param importedName - Exact exported symbol name required.
+ * @returns Whether the resolved import matches the requested RxJS symbol.
+ */
 function isRxjsSymbol(expression: ts.Expression, context: IAnalysisContext, importedName: string): boolean {
 	const symbol = resolveImportedSymbol(expression, context);
 	return Boolean(symbol && (symbol.moduleName === 'rxjs' || symbol.moduleName === 'rxjs/operators') && symbol.importedName === importedName);
 }
 
+/**
+ * Analyzes a registered class's getTranslation(locale) method for supported direct HTTP requests.
+ * Requires one identifier parameter, a single usable return, recognized client members, and static locale templates.
+ * Multiple requests require the explicitly supported merge shape; no loader code is executed.
+ * @param declaration - Resolved registered loader class.
+ * @param context - Source and import indexes owning the class.
+ * @param locales - Project-wide locale values copied into a successful candidate.
+ * @returns A deterministic loader candidate or diagnostics explaining unsupported method behavior.
+ */
 function analyzeLoaderClass(
 	declaration: ts.ClassDeclaration,
 	context: IAnalysisContext,
@@ -344,9 +475,20 @@ function analyzeLoaderClass(
 	};
 }
 
+/**
+ * Reports Transloco scope registrations and recognized Angular HTTP interceptor configuration.
+ * Interceptors disable all loader candidates because they may alter request URLs at runtime.
+ * @param contexts - Supplied source contexts to inspect.
+ * @param diagnostics - Diagnostic list updated with guard findings.
+ * @returns Whether a recognized HTTP interceptor configuration was found.
+ */
 function findGuards(contexts: IAnalysisContext[], diagnostics: ILoaderDetectionDiagnostic[]): boolean {
 	let hasInterceptor = false;
 	for (const context of contexts) {
+		/**
+		 * Walks source syntax to identify scope providers and supported interceptor registrations.
+		 * @param node - Current node and subtree being inspected.
+		 */
 		const visit = (node: ts.Node): void => {
 			if (ts.isCallExpression(node) && isTranslocoSymbol(node.expression, context, 'provideTranslocoScope')) {
 				diagnostics.push(customDiagnostic('transloco-http-unsupported-scope', 'Scoped Transloco loaders compose paths at runtime and require explicit configuration.', node, context));
@@ -379,6 +521,13 @@ function findGuards(contexts: IAnalysisContext[], diagnostics: ILoaderDetectionD
 	return hasInterceptor;
 }
 
+/**
+ * Detects statically registered Transloco HTTP loader classes from supplied project source text.
+ * Resolves supported local class imports and locale metadata, analyzes constrained GET/merge shapes,
+ * and suppresses candidates when recognized HTTP interceptors are present. Performs no runtime I/O or execution.
+ * @param files - Source filenames and content from the caller.
+ * @returns Supported candidates and diagnostics deduplicated by code and complete source range.
+ */
 export function analyzeTranslocoHttpLoaders(files: readonly ILoaderAnalysisSourceFile[]): ITranslationLoaderAnalysisResult {
 	const contexts = files.map(collectAnalysisContext);
 	const candidates: ITranslationLoaderCandidate[] = [];
