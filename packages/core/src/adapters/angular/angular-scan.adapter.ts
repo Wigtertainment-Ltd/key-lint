@@ -15,6 +15,14 @@ import { collectRemoteTranslationResources } from '../../remote/remote-translati
 import { IPatternDescriptor } from '../adapter.interfaces.js';
 import { normalizePath } from '../../util/path.util.js';
 
+/**
+ * Collects dotted translation paths by recursively traversing non-array objects.
+ * Arrays and scalar children are leaves, including null-valued properties; empty objects contribute no keys.
+ *
+ * @param value - Acyclic translation content or a nested value to inspect.
+ * @param prefix - Optional parent key path for recursive traversal.
+ * @returns Leaf key paths in object-entry order, without deduplication or sorting.
+ */
 function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	if (value === null || value === undefined) {
 		return [];
@@ -44,6 +52,13 @@ function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	return result;
 }
 
+/**
+ * Finds the first quoted key fragment and accepts it only when it ends with a dot.
+ * The fragment is a heuristic prefix for possible dynamic usage, not a resolved expression value.
+ *
+ * @param expression - Dynamic translation expression to inspect.
+ * @returns A dotted literal prefix, or `null` when the first supported fragment is absent or unsuitable.
+ */
 function leadingLiteralPrefix(expression: string): string | null {
 	// Capture the first quoted translation-key fragment, allowing an empty fragment before concatenation.
 	const match: RegExpExecArray | null = /['"`]([A-Za-z0-9_.-]*)['"`]/.exec(expression);
@@ -55,10 +70,23 @@ function leadingLiteralPrefix(expression: string): string | null {
 	return prefix.endsWith('.') ? prefix : null;
 }
 
+/**
+ * Removes exact duplicates and sorts strings without modifying the input array.
+ *
+ * @param values - Strings to normalize into deterministic output.
+ * @returns Unique values sorted using `localeCompare`.
+ */
 function uniqueSorted(values: string[]): string[] {
 	return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * Converts strings, primitive scalar values, and functions into matrix display text.
+ * Objects, arrays, null, and undefined fall back to an empty string.
+ *
+ * @param value - Translation leaf value to render.
+ * @returns String content or an empty fallback for unsupported values.
+ */
 function stringifyTranslationValue(value: unknown): string {
 	if (typeof value === 'string') return value;
 	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint' || typeof value === 'symbol') {
@@ -68,6 +96,16 @@ function stringifyTranslationValue(value: unknown): string {
 	return '';
 }
 
+/**
+ * Writes dotted translation paths and display values into a mutable collector.
+ * Nulls and empty objects become empty strings; arrays are JSON-serialized as leaves.
+ * Unlike defined-key flattening, nested empty objects are retained as present matrix keys.
+ *
+ * @param value - Acyclic translation content to flatten.
+ * @param prefix - Parent path, normally empty for root content.
+ * @param collector - Flat key-to-value map updated in place.
+ * @throws {TypeError} When a leaf array cannot be JSON-serialized.
+ */
 function flattenTranslationValueObject(value: unknown, prefix = '', collector: Record<string, string>): void {
 	if (value === null || value === undefined) {
 		if (prefix) {
@@ -112,6 +150,13 @@ function flattenTranslationValueObject(value: unknown, prefix = '', collector: R
 	}
 }
 
+/**
+ * Infers a locale from the filename's last dotted segment after removing the final extension.
+ * Does not validate locale identifiers or infer them from parent directories.
+ *
+ * @param filePath - Translation path to normalize and inspect.
+ * @returns The final non-empty dotted segment, or the entire extensionless filename.
+ */
 function inferLocaleFromTranslationFile(filePath: string): string {
 	const normalized: string = normalizePath(filePath);
 	const fileName: string = normalized.split('/').at(-1) ?? normalized;
@@ -126,6 +171,15 @@ function inferLocaleFromTranslationFile(filePath: string): string {
 	return withoutExtension;
 }
 
+/**
+ * Lists translation files, filters their extensions case-insensitively, and sorts normalized paths.
+ *
+ * @param context - Project root and translation discovery configuration.
+ * @param fs - Filesystem adapter used for enumeration.
+ * @param includeGlobs - Source-specific include patterns; defaults to global translation patterns.
+ * @returns Normalized paths with supported extensions, sorted using `localeCompare`.
+ * @throws {Error} When filesystem enumeration fails.
+ */
 async function collectFilesystemTranslationFiles(
 	context: IProjectContext,
 	fs: IFileSystemAdapter,
@@ -140,6 +194,18 @@ async function collectFilesystemTranslationFiles(
 		.sort((left, right) => left.localeCompare(right));
 }
 
+/**
+ * Reads translation files sequentially and creates writable filesystem resource records.
+ * Infers locales from filenames and preserves the supplied file order in resource positions.
+ *
+ * @param translationFiles - Ordered translation file paths.
+ * @param fs - Filesystem adapter used to read and parse JSON content.
+ * @param sourceId - Source identifier; defaults to `filesystem-1`.
+ * @param sourceIndex - Source position in the configuration; defaults to zero.
+ * @param positionOffset - Starting global merge position for these resources; defaults to zero.
+ * @returns Parsed filesystem resources with normalized origins and deterministic positions.
+ * @throws {TranslationFileError} When a file cannot be read or does not contain a valid JSON object.
+ */
 async function resourcesFromFiles(
 	translationFiles: string[],
 	fs: IFileSystemAdapter,
@@ -165,6 +231,13 @@ async function resourcesFromFiles(
 	return resources;
 }
 
+/**
+ * Merges resources by locale before collecting defined leaf keys across all locales.
+ * Later resource positions can replace earlier values and thereby change the resulting key paths.
+ *
+ * @param resources - Parsed translation resources with locale and merge-order metadata.
+ * @returns Unique dotted leaf keys sorted using `localeCompare`.
+ */
 function definedKeysFromResources(resources: ITranslationResource[]): string[] {
 	return uniqueSorted(
 		[...mergeTranslationResources(resources).values()]
@@ -172,6 +245,15 @@ function definedKeysFromResources(resources: ITranslationResource[]): string[] {
 	);
 }
 
+/**
+ * Builds a sorted locale-by-key matrix from merged resource content.
+ * Stores explicit presence separately from display values and extracts Mustache placeholders per locale.
+ * Missing values use empty display strings while their presence flag remains false.
+ *
+ * @param resources - Parsed resources merged in their configured position order.
+ * @returns Sorted locales and rows with values, presence flags, placeholders, and total key count.
+ * @throws {TypeError} When a translation array cannot be JSON-serialized for display.
+ */
 function matrixFromResources(resources: ITranslationResource[]): ITranslationMatrix {
 	const localeToContent: Map<string, Record<string, unknown>> = mergeTranslationResources(resources);
 	const localeToValues: Map<string, Record<string, string>> = new Map<string, Record<string, string>>();
@@ -203,6 +285,13 @@ function matrixFromResources(resources: ITranslationResource[]): ITranslationMat
 	return { locales, rows, totalKeys: rows.length };
 }
 
+/**
+ * Removes the final directory segment using normalized forward-slash paths.
+ * Stops reducing a path when its final slash is absent or at index zero.
+ *
+ * @param path - Directory path whose parent is requested.
+ * @returns The shortened path, or the trailing-slash-stripped input when it cannot be reduced.
+ */
 function getParentDirectory(path: string): string {
 	// Remove one trailing forward slash before locating the parent directory.
 	const normalized: string = normalizePath(path).replace(/\/$/, '');
@@ -214,6 +303,13 @@ function getParentDirectory(path: string): string {
 	return normalized.slice(0, lastSlash);
 }
 
+/**
+ * Tests a normalized, trailing-slash-stripped path against the adapter's root markers.
+ * Recognizes Windows drive roots; a bare Unix slash becomes empty before the comparison.
+ *
+ * @param path - Candidate directory path to classify.
+ * @returns Whether the stripped path matches a root marker.
+ */
 function isRootDirectory(path: string): boolean {
 	// Remove one trailing forward slash so Unix and Windows roots can be compared consistently.
 	const normalized: string = normalizePath(path).replace(/\/$/, '');
@@ -225,11 +321,26 @@ function isRootDirectory(path: string): boolean {
 	return /^[A-Za-z]:$/.test(normalized);
 }
 
+/**
+ * Joins a directory and filename using the adapter's filesystem path normalization.
+ * Does not resolve dot segments or access the filesystem.
+ *
+ * @param base - Directory path to extend.
+ * @param fileName - Filename or relative suffix to append.
+ * @returns A normalized path with forward-slash separators.
+ */
 function joinPath(base: string, fileName: string): string {
 	// Remove one trailing slash from the base to avoid creating a doubled separator.
 	return normalizePath(`${base.replace(/\/$/, '')}/${fileName}`);
 }
 
+/**
+ * Collects the selected directory and progressively reducible parents for project detection.
+ * Stops at a recognized root or when parent extraction no longer changes the path.
+ *
+ * @param startPath - Selected project directory to normalize.
+ * @returns Candidate directory strings in nearest-to-farthest order.
+ */
 function collectCandidateRoots(startPath: string): string[] {
 	const candidates: string[] = [];
 	// Remove one trailing slash before walking upward through candidate roots.
@@ -252,6 +363,15 @@ function collectCandidateRoots(startPath: string): string[] {
 	return candidates;
 }
 
+/**
+ * Checks package metadata for the Angular core, Angular CLI, or Nx Angular dependency markers.
+ * Read and JSON parsing failures retain the file-presence flag but produce no dependency marker.
+ *
+ * @param root - Candidate project directory containing package metadata.
+ * @param fs - Filesystem adapter used for existence checks and reading.
+ * @returns Package-file availability and whether a recognized dependency has a truthy value.
+ * @throws {Error} When the filesystem existence check rejects.
+ */
 async function readPackageJsonDependencies(root: string, fs: IFileSystemAdapter): Promise<{ hasPackageJson: boolean; hasAngularDependency: boolean }> {
 	const packageJsonPath: string = joinPath(root, 'package.json');
 	const hasPackageJson: boolean = await fs.fileExists(packageJsonPath);
@@ -274,6 +394,13 @@ async function readPackageJsonDependencies(root: string, fs: IFileSystemAdapter)
 	}
 }
 
+/**
+ * Assigns detection confidence from recognized Angular workspace files and dependencies.
+ * Scores range from zero to one; package-file presence alone is not sufficient support evidence.
+ *
+ * @param markers - Filesystem and dependency markers found at a candidate root.
+ * @returns The confidence of the strongest supported marker combination.
+ */
 function scoreMarkers(markers: IAngularMarkers): number {
 	if (markers.hasAngularJson && markers.hasAngularDependency) {
 		return 1;
@@ -294,6 +421,12 @@ function scoreMarkers(markers: IAngularMarkers): number {
 	return 0;
 }
 
+/**
+ * Formats the recognized workspace files and dependency markers into detection diagnostics.
+ *
+ * @param markers - Markers discovered at the selected detection root.
+ * @returns A human-readable list of detected markers, or a no-markers explanation.
+ */
 function buildReason(markers: IAngularMarkers): string {
 	const parts: string[] = [];
 	if (markers.hasAngularJson) {
@@ -319,6 +452,7 @@ function buildReason(markers: IAngularMarkers): string {
 	return `Detected ${parts.join(', ')}`;
 }
 
+/** Angular JSON scanner with heuristic ngx-translate and Transloco usage extraction and locale/placeholder rules. */
 export const angularScanAdapter: IScanAdapter = {
 	id: 'angular',
 	framework: 'angular',
@@ -328,6 +462,16 @@ export const angularScanAdapter: IScanAdapter = {
 		translationFormats: ['json']
 	},
 
+	/**
+	 * Inspects the selected directory and reducible parents for Angular workspace and dependency markers.
+	 * Checks markers concurrently within each directory and keeps the highest-confidence supported root.
+	 * Confidence ties retain the candidate nearest to the selected directory.
+	 *
+	 * @param projectRoot - Selected directory from which upward detection begins.
+	 * @param fs - Filesystem adapter used for marker and package checks.
+	 * @returns Detection support, confidence, reason, and the best root when supported.
+	 * @throws {Error} When a filesystem existence check fails.
+	 */
 	async detect(projectRoot: string, fs: IFileSystemAdapter) {
 		const normalizedStart: string = normalizePath(projectRoot);
 		const candidates: string[] = collectCandidateRoots(normalizedStart);
@@ -379,10 +523,31 @@ export const angularScanAdapter: IScanAdapter = {
 		};
 	},
 
+	/**
+	 * Collects local translation paths using global translation globs and supported extensions.
+	 * This legacy method does not collect HTTP sources or apply source-specific include patterns.
+	 *
+	 * @param context - Resolved project root and file discovery settings.
+	 * @param fs - Filesystem adapter used for enumeration.
+	 * @returns Normalized translation paths in sorted order.
+	 * @throws {Error} When filesystem enumeration fails.
+	 */
 	async collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter) {
 		return collectFilesystemTranslationFiles(context, fs);
 	},
 
+	/**
+	 * Collects parsed filesystem and explicit HTTP resources in configured source order.
+	 * Fetches HTTP resources first, then interleaves them with local resources and assigns global positions.
+	 * Defaults to one filesystem source when no sources are configured; auto-HTTP sources must be resolved beforehand.
+	 *
+	 * @param context - Project settings and optional explicitly authorized remote runtime.
+	 * @param fs - Filesystem adapter used for local enumeration and JSON reading.
+	 * @returns Ordered resources with local writability and read-only remote origins.
+	 * @throws {RemoteTranslationError} When remote preflight or fetching fails.
+	 * @throws {TranslationFileError} When local or remote translation content is unreadable or invalid.
+	 * @throws {Error} When auto-HTTP sources remain unresolved or file enumeration fails.
+	 */
 	async collectTranslationResources(context: IProjectContext, fs: IFileSystemAdapter) {
 		const resources: ITranslationResource[] = [];
 		const configuredSources: ITranslationSourceConfig[] = context.config.translationSources ?? [
@@ -427,22 +592,63 @@ export const angularScanAdapter: IScanAdapter = {
 		return resources;
 	},
 
+	/**
+	 * Reads local JSON files, merges their resource content by locale, and extracts defined leaf keys.
+	 * File input order supplies merge precedence.
+	 *
+	 * @param translationFiles - Ordered local translation paths.
+	 * @param fs - Filesystem adapter used to read JSON content.
+	 * @returns Unique sorted keys from the merged translations.
+	 * @throws {TranslationFileError} When a file cannot be read or parsed as a JSON object.
+	 */
 	async extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter) {
 		return definedKeysFromResources(await resourcesFromFiles(translationFiles, fs));
 	},
 
+	/**
+	 * Extracts defined keys from resource content without further filesystem or network access.
+	 *
+	 * @param resources - Parsed resources whose positions determine locale merge precedence.
+	 * @returns Unique sorted leaf keys across merged locales.
+	 */
 	async extractDefinedKeysFromResources(resources: ITranslationResource[]) {
 		return definedKeysFromResources(resources);
 	},
 
+	/**
+	 * Reads local JSON files and builds a merged locale-by-key matrix.
+	 *
+	 * @param translationFiles - Ordered file paths supplying merge precedence and inferred locales.
+	 * @param fs - Filesystem adapter used to read JSON content.
+	 * @returns Sorted translation rows with explicit presence and Mustache-placeholder metadata.
+	 * @throws {TranslationFileError} When a file cannot be read or parsed as a JSON object.
+	 */
 	async buildTranslationMatrix(translationFiles: string[], fs: IFileSystemAdapter): Promise<ITranslationMatrix> {
 		return matrixFromResources(await resourcesFromFiles(translationFiles, fs));
 	},
 
+	/**
+	 * Builds the translation matrix directly from parsed resources without runtime I/O.
+	 *
+	 * @param resources - Resources carrying locale content and merge positions.
+	 * @returns Sorted locales and rows with values, key presence, and placeholder contracts.
+	 * @throws {TypeError} When a translation array cannot be JSON-serialized for display.
+	 */
 	async buildTranslationMatrixFromResources(resources: ITranslationResource[]): Promise<ITranslationMatrix> {
 		return matrixFromResources(resources);
 	},
 
+	/**
+	 * Scans sorted project source files with static and dynamic translation patterns.
+	 * Also scans non-HTML files for inline HTML patterns, attaches ngx-translate directive parameters,
+	 * and extracts Transloco structural aliases from HTML files. Overlapping evidence is deduplicated
+	 * by path, source offset, key, and dynamic classification while retaining the first match.
+	 *
+	 * @param context - Project root and configured source include/exclude patterns.
+	 * @param fs - Filesystem adapter used for source enumeration and reading.
+	 * @returns Heuristic key-usage evidence with locations, snippets, and parameter metadata.
+	 * @throws {Error} When source enumeration or reading fails.
+	 */
 	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter) {
 		const sourceFiles: string[] = await fs.listFiles(context.projectRoot, context.config.includeSourceGlobs, context.config.excludeGlobs);
 
@@ -480,6 +686,16 @@ export const angularScanAdapter: IScanAdapter = {
 		return [...deduplicated.values()];
 	},
 
+	/**
+	 * Evaluates static usage, uncertain indirect/dynamic usage, locale coverage, and placeholder contracts.
+	 * Uses the selected base locale for cross-locale checks and required parameters; dynamic evidence
+	 * produces uncertainty warnings rather than proving a key unused. Static keys absent from all
+	 * translations receive a missing finding per discovered locale, or one unscoped finding when none exists.
+	 * Must be called on the adapter instance because finding metadata uses its ID.
+	 *
+	 * @param input - Definitions, source usages, optional matrix and base-locale metadata, and project context.
+	 * @returns Findings sorted by key and language, before pipeline ignore-key filtering.
+	 */
 	async runRules(input: {
 		definedKeys: string[];
 		usedKeys: IKeyUsage[];
@@ -603,6 +819,12 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 		}
 
+		/**
+		 * Finds the first recorded dynamic-prefix evidence covering a defined translation key.
+		 *
+		 * @param key - Defined key to compare with inferred literal prefixes.
+		 * @returns The first matching usage record, or `undefined` when no prefix covers the key.
+		 */
 		const matchDynamicPrefix = (key: string): IKeyUsage | undefined => {
 			for (const [prefix, usage] of dynamicPrefixes.entries()) {
 				if (key.startsWith(prefix)) {

@@ -2,11 +2,28 @@ import { IKeyUsage } from '../../../scan-adapter.interface.js';
 import { extractCallArgumentList, extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
 import { parsePlaceholderParameters, splitTopLevel } from '../../../../util/placeholder.util.js';
 
+/**
+ * Escapes supported regular-expression metacharacters when interpolating an alias name.
+ * Alias names are expected to be JavaScript identifiers and therefore contain no stars.
+ *
+ * @param text - Structural-directive alias to insert into a pattern.
+ * @returns Escaped alias text suitable for the generated call-matching expression.
+ */
 function escapeRegex(text: string): string {
 	// Match every regular-expression metacharacter that must be escaped when inserting an alias literally.
 	return text.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
 }
 
+/**
+ * Finds Transloco structural-directive aliases and extracts keys from calls to those aliases.
+ * Searches the complete source for each declared alias without modeling template scope.
+ * Quoted first-argument literals are static evidence; concatenations and interpolated templates are dynamic.
+ * Uses lightweight source patterns and does not evaluate template expressions.
+ *
+ * @param source - HTML template text containing structural directives and alias calls.
+ * @param filePath - Source path included in usage evidence.
+ * @returns Usage records with call locations, snippets, and second-argument placeholder metadata.
+ */
 export function extractTranslocoStructuralMatches(source: string, filePath: string): IKeyUsage[] {
 	const matches: IKeyUsage[] = [];
 	const aliasNames = new Set<string>();

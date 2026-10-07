@@ -2,6 +2,14 @@ import { IKeyUsage } from '../../scan-adapter.interface.js';
 import { IPatternDescriptor } from '../../adapter.interfaces.js';
 import { parsePlaceholderParameters, splitTopLevel } from '../../../util/placeholder.util.js';
 
+/**
+ * Converts a source character offset to a one-based line and column by counting newline characters.
+ * Columns count UTF-16 code units; the offset is expected to be within the source.
+ *
+ * @param source - Complete source text containing the offset.
+ * @param index - Zero-based character offset to locate.
+ * @returns One-based line and column coordinates.
+ */
 export function getLineColumn(source: string, index: number): { line: number; column: number } {
 	let line = 1;
 	let column = 1;
@@ -19,6 +27,14 @@ export function getLineColumn(source: string, index: number): { line: number; co
 	return { line, column };
 }
 
+/**
+ * Extracts the trimmed source line containing an offset for diagnostic evidence.
+ * For a blank line, uses a bounded surrounding slice with collapsed whitespace instead.
+ *
+ * @param source - Complete source text.
+ * @param index - Zero-based character offset identifying the evidence location.
+ * @returns A compact source snippet, which may be empty for whitespace-only input.
+ */
 export function extractSnippet(source: string, index: number): string {
 	const lineStart = source.lastIndexOf('\n', index - 1) + 1;
 	const lineEndIndex = source.indexOf('\n', index);
@@ -35,6 +51,13 @@ export function extractSnippet(source: string, index: number): string {
 	return source.slice(from, to).replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Finds the first call argument using lightweight quote and bracket-depth tracking.
+ * Does not parse comments, regular-expression literals, or full JavaScript syntax.
+ *
+ * @param argumentList - Argument text without the call's surrounding parentheses.
+ * @returns Text before the first top-level comma, or the entire input when none occurs; whitespace is preserved.
+ */
 export function firstCallArgument(argumentList: string): string {
 	let depth = 0;
 	let stringDelimiter: string | null = null;
@@ -72,6 +95,14 @@ export function firstCallArgument(argumentList: string): string {
 	return argumentList;
 }
 
+/**
+ * Scans from a call's opening parenthesis to its matching closing parenthesis.
+ * Tracks nested parentheses and quoted strings without performing full syntax parsing.
+ *
+ * @param source - Complete source text containing the call.
+ * @param openParenIndex - Zero-based index of the opening parenthesis.
+ * @returns Argument text without outer parentheses, or `null` when no matching close is found.
+ */
 export function extractCallArgumentList(source: string, openParenIndex: number): string | null {
 	let depth = 0;
 	let stringDelimiter: string | null = null;
@@ -108,6 +139,13 @@ export function extractCallArgumentList(source: string, openParenIndex: number):
 	return null;
 }
 
+/**
+ * Classifies the first colon argument following a translate or transloco pipe.
+ * Truncates object-like arguments at their matching closing brace before placeholder analysis.
+ *
+ * @param matchSource - Source fragment captured by a pipe pattern.
+ * @returns Placeholder-parameter metadata, or `undefined` when no supported pipe is present.
+ */
 function placeholderParametersForPipe(matchSource: string): IKeyUsage['placeholderParameters'] {
 	// Capture everything following a supported Angular translation pipe so its first
 	// top-level colon argument can be parsed without confusing object-property colons.
@@ -149,6 +187,17 @@ function placeholderParametersForPipe(matchSource: string): IKeyUsage['placehold
 	return parsePlaceholderParameters(parameterSource);
 }
 
+/**
+ * Applies translation patterns and builds usage evidence with locations and parameter metadata.
+ * Clones each regular expression to reset its state; descriptors must support advancing repeated matches.
+ * Literal-call patterns inspect the first argument, while concatenations and interpolated templates are marked dynamic.
+ * This heuristic scan does not resolve symbols, evaluate expressions, or deduplicate overlapping descriptors.
+ *
+ * @param source - Template or TypeScript text to scan.
+ * @param filePath - Source path copied into every evidence record.
+ * @param descriptors - Ordered pattern definitions and capture/extraction instructions.
+ * @returns Usage records in descriptor and match order, potentially containing duplicates.
+ */
 export function extractMatches(source: string, filePath: string, descriptors: IPatternDescriptor[]): IKeyUsage[] {
 	const matches: IKeyUsage[] = [];
 
