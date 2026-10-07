@@ -10,9 +10,9 @@ declare global {
 	}
 
 	interface IKeyLintDesktopApi {
-		loadTranslationSources(projectRoot: string): Promise<IKeyLintSavedTranslationSource[] | undefined>;
-		saveTranslationSources(projectRoot: string, sources: IKeyLintSavedTranslationSource[]): Promise<void>;
-		deleteTranslationSources(projectRoot: string): Promise<void>;
+		loadProjectSettings(projectRoot: string): Promise<IKeyLintSavedProjectSettings | undefined>;
+		saveProjectSettings(projectRoot: string, sources: IKeyLintSavedTranslationSource[], guardrails?: IKeyLintSavedGuardrails): Promise<void>;
+		deleteProjectSettings(projectRoot: string): Promise<void>;
 		selectProjectDirectory(): Promise<string | undefined>;
 		getPathForFile(file: File): string;
 		getAppVersion(): Promise<string>;
@@ -39,6 +39,16 @@ declare global {
 		locales: string[];
 		headers: { name: string; value: string; environmentName: string; configured: boolean }[];
 		selectedCandidateIndex?: number;
+	}
+
+	interface IKeyLintSavedGuardrails {
+		maxFiles: number;
+		maxFileSizeBytes: number;
+	}
+
+	interface IKeyLintSavedProjectSettings {
+		sources: IKeyLintSavedTranslationSource[];
+		guardrails?: IKeyLintSavedGuardrails;
 	}
 
 	interface IKeyLintTranslationFetchRequest {

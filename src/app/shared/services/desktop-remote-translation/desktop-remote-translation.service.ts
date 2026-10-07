@@ -37,6 +37,24 @@ export class DesktopRemoteTranslationService {
 		this.clearSecrets();
 	}
 
+	loadSavedSources(sources: IKeyLintSavedTranslationSource[]): void {
+		this.autoAnalysis = undefined;
+		this.drafts = sources.map((source) => ({
+			...source, draftId: this.nextId('source'), includeGlobs: [...source.includeGlobs], locales: [...source.locales],
+			headers: source.headers.map((header) => ({ ...header, id: this.nextId('header') })),
+			configured: false, autoCandidates: [], autoDiagnostics: []
+		}));
+	}
+
+	getSavedSources(): IKeyLintSavedTranslationSource[] {
+		return this.drafts.map((source) => ({
+			type: source.type, id: source.id, includeGlobs: [...source.includeGlobs], urlTemplate: source.urlTemplate,
+			origin: source.origin, locales: [...source.locales],
+			headers: source.headers.map(({ name, value, environmentName, configured }) => ({ name, value, environmentName, configured })),
+			...(source.selectedCandidateIndex === undefined ? {} : { selectedCandidateIndex: source.selectedCandidateIndex })
+		}));
+	}
+
 	clear(): void {
 		this.clearSecrets();
 		this.drafts = [];
@@ -144,13 +162,16 @@ export class DesktopRemoteTranslationService {
 		analyze: (files: ILoaderAnalysisSourceFile[]) => Promise<IAutoHttpProjectAnalysis>
 	): Promise<void> {
 		if (!this.drafts.some((source) => source.type === 'auto-http')) return;
+		const drafts = this.drafts;
 		const paths = (await fs.listFiles(projectRoot, config.includeSourceGlobs, config.excludeGlobs))
 			.map(normalizePath)
 			.filter((filePath) => /\.tsx?$/i.test(filePath))
 			.sort((left, right) => left.localeCompare(right));
 		const files: ILoaderAnalysisSourceFile[] = [];
 		for (const filePath of paths) files.push({ filePath, content: await fs.readFile(filePath) });
-		this.autoAnalysis = await analyze(files);
+		const analysis = await analyze(files);
+		if (drafts !== this.drafts) return;
+		this.autoAnalysis = analysis;
 		for (const source of this.drafts.filter((entry) => entry.type === 'auto-http')) {
 			source.autoCandidates = this.autoAnalysis.candidates.map((candidate, index) => ({
 				index,
@@ -162,9 +183,11 @@ export class DesktopRemoteTranslationService {
 				requiresOrigin: candidate.resources.some((resource) => resource.requiresOrigin)
 			}));
 			source.autoDiagnostics = this.autoAnalysis.diagnostics.map((diagnostic) => ({ ...diagnostic, location: { ...diagnostic.location } }));
-			source.selectedCandidateIndex = source.autoCandidates.length === 1 ? 0 : undefined;
+			if (!source.autoCandidates.some((candidate) => candidate.index === source.selectedCandidateIndex)) {
+				source.selectedCandidateIndex = source.autoCandidates.length === 1 ? 0 : undefined;
+			}
 		}
-		this.configuredDrafts = this.drafts.map(cloneDraft);
+		this.configuredDrafts = this.configuredDrafts.map((source) => cloneDraft(this.drafts.find((draft) => draft.draftId === source.draftId) ?? source));
 	}
 
 	updateHeader(draftId: string, headerId: string, updates: Partial<Pick<IDesktopRemoteHeaderDraft, 'name' | 'value'>>): void {

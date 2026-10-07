@@ -63,9 +63,9 @@
 					<section class="scan-settings" aria-labelledby="scan-settings-title">
 						<div class="scan-settings-header">
 							<div>
-								<p>Temporary limits for the next scan. Project files are not changed.</p>
+								<p>Limits for the next scan. Save your settings below to reuse them for this project.</p>
 							</div>
-							<button type="button" class="reset-settings-btn" (click)="resetScanSettings()" [disabled]="scanSettingsLoading || !!scanSettingsError">
+							<button type="button" class="reset-settings-btn" (click)="resetScanSettings()" [disabled]="scanSettingsLoading || !!scanSettingsError || projectSettingsStorageBusy()">
 								Reset
 							</button>
 						</div>
@@ -81,6 +81,7 @@
 									<input
 										type="number"
 										min="1"
+										[disabled]="projectSettingsStorageBusy()"
 										step="1"
 										[value]="maxFilesInput"
 										(input)="onMaxFilesInput(($any($event.target).value ?? '').toString())"
@@ -94,6 +95,7 @@
 										<input
 											type="number"
 											min="0.000001"
+											[disabled]="projectSettingsStorageBusy()"
 											step="any"
 											[value]="maxFileSizeMbInput"
 											(input)="onMaxFileSizeMbInput(($any($event.target).value ?? '').toString())"
@@ -114,20 +116,24 @@
 				</details>
 
 				<details class="settings-disclosure">
-					<summary><span id="translation-sources-title">Translation sources</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
+					<summary>
+						<span id="translation-sources-title">Translation sources @if (hasSavedProjectSettings()) { <small class="saved-sources-badge">Saved locally</small> }</span>
+						<span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+					</summary>
 					<section class="translation-sources" aria-labelledby="translation-sources-title">
 						<div class="scan-settings-header">
 							<div>
-								<p>Ordered inputs for the next scan. Remote credentials remain in memory only.</p>
+								<p>Ordered inputs for the next scan. Save them for this project to reuse them next time.</p>
 							</div>
 							<div class="source-add-actions">
-								<button type="button" class="reset-settings-btn" (click)="addFilesystemSource()">Add local</button>
-								<button type="button" class="reset-settings-btn" (click)="addHttpSource()">Add HTTP</button>
-								<button type="button" class="reset-settings-btn" (click)="addAutoHttpSource()">Detect HTTP</button>
+								<button type="button" class="reset-settings-btn" (click)="addFilesystemSource()" [disabled]="scanSettingsLoading || projectSettingsStorageBusy()">Add local</button>
+								<button type="button" class="reset-settings-btn" (click)="addHttpSource()" [disabled]="scanSettingsLoading || projectSettingsStorageBusy()">Add HTTP</button>
+								<button type="button" class="reset-settings-btn" (click)="addAutoHttpSource()" [disabled]="scanSettingsLoading || projectSettingsStorageBusy()">Detect HTTP</button>
 							</div>
 						</div>
 
-						<div class="source-list">
+						<fieldset class="source-list" [disabled]="scanSettingsLoading || projectSettingsStorageBusy()">
+							<legend class="sr-only">Translation source settings</legend>
 							@for (source of translationSources; track source.draftId; let sourceIndex = $index) {
 								<article class="source-card" [class.remote]="source.type !== 'filesystem'">
 									<header class="source-card-header">
@@ -199,7 +205,7 @@
 
 											<div class="header-editor full-width">
 												<div class="header-editor-title">
-													<span>Temporary request headers</span>
+													<span>Request headers</span>
 													<button type="button" class="reset-settings-btn" (click)="addTemporaryHeader(source.draftId)">Add header</button>
 												</div>
 												@for (header of source.headers; track header.id) {
@@ -207,10 +213,10 @@
 														<label class="setting-field">
 															<span class="setting-label">Header name</span>
 															<input type="text" [value]="header.name" [readOnly]="header.configured" (input)="onHeaderNameInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
-															<small>{{ header.configured ? 'Configured as ' + header.environmentName : 'Temporary header' }}</small>
+															<small>{{ header.configured ? 'Configured as ' + header.environmentName : 'Custom header' }}</small>
 														</label>
 														<div class="setting-field">
-															<label class="setting-label" [for]="header.id + '-value'">Temporary value</label>
+															<label class="setting-label" [for]="header.id + '-value'">Header value</label>
 															<div class="header-value-input">
 																<input #headerValueInput [id]="header.id + '-value'" type="password" autocomplete="off" [value]="header.value" (input)="onHeaderValueInput(source.draftId, header.id, ($any($event.target).value ?? '').toString())" />
 																<button type="button" class="header-visibility-toggle" (click)="headerValueInput.type = headerValueInput.type === 'password' ? 'text' : 'password'"
@@ -218,7 +224,7 @@
 																	<span class="material-symbols-outlined" aria-hidden="true">{{ headerValueInput.type === 'password' ? 'visibility' : 'visibility_off' }}</span>
 																</button>
 															</div>
-															<small>Never saved</small>
+															<small>Included when saving project settings</small>
 														</div>
 														<button type="button" class="header-remove" (click)="removeTemporaryHeader(source.draftId, header.id)" aria-label="Remove header">×</button>
 													</div>
@@ -228,13 +234,29 @@
 									</div>
 								</article>
 							}
-						</div>
+						</fieldset>
 
 						@if (translationSourcesValidationError) {
 							<p class="settings-state error" role="alert">{{ translationSourcesValidationError }}</p>
 						}
 					</section>
 				</details>
+				<div class="source-storage-controls">
+					<button type="button" class="save-settings-btn" (click)="saveProjectSettings()" [disabled]="!canSaveProjectSettings">
+						<span class="material-symbols-outlined" aria-hidden="true">save</span>
+						<span>Save project settings</span>
+					</button>
+					<p>Save scan settings, translation sources and header values for this project.</p>
+					@if (hasSavedProjectSettings()) {
+						<button type="button" class="reset-settings-btn delete-saved-settings-btn" (click)="deleteSavedProjectSettings()" [disabled]="scanSettingsLoading || projectSettingsStorageBusy()">Delete saved settings</button>
+					}
+					@if (projectSettingsStorageBusy()) { <p role="status">Updating saved settings...</p> }
+					@if (hasUnsavedSettings && !projectSettingsStorageBusy()) { <p role="status">Unsaved changes</p> }
+					@if (!hasUnsavedSettings && projectSettingsStorageMessage()) { <p role="status">{{ projectSettingsStorageMessage() }}</p> }
+				</div>
+				@if (projectSettingsStorageError()) {
+					<p class="settings-state error" role="alert">{{ projectSettingsStorageError() }}</p>
+				}
 			}
 
 			@if (hasRecentProjects) {

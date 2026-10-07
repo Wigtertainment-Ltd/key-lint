@@ -29,9 +29,9 @@ function assertAbsolutePath(value, label = 'Path') {
 
 function registerIpcHandlers({ ipcMain, dialog, app, fs, safeStorage, remoteTransport = createRemoteTranslationTransport(), loaderAnalyzer = defaultLoaderAnalyzer }) {
 	const sourceStore = createTranslationSourceStore({ app, fs, safeStorage });
-	ipcMain.handle(IPC_CHANNELS.loadTranslationSources, (_event, projectRoot) => sourceStore.load(projectRoot));
-	ipcMain.handle(IPC_CHANNELS.saveTranslationSources, (_event, projectRoot, sources) => sourceStore.save(projectRoot, sources));
-	ipcMain.handle(IPC_CHANNELS.deleteTranslationSources, (_event, projectRoot) => sourceStore.delete(projectRoot));
+	ipcMain.handle(IPC_CHANNELS.loadProjectSettings, (_event, projectRoot) => sourceStore.load(projectRoot));
+	ipcMain.handle(IPC_CHANNELS.saveProjectSettings, (_event, projectRoot, sources, guardrails) => sourceStore.save(projectRoot, sources, guardrails));
+	ipcMain.handle(IPC_CHANNELS.deleteProjectSettings, (_event, projectRoot) => sourceStore.delete(projectRoot));
 	ipcMain.handle(IPC_CHANNELS.selectProjectDirectory, async () => {
 		const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
 		return result.canceled ? undefined : result.filePaths[0];

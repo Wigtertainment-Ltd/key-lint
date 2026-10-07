@@ -3,6 +3,13 @@ const { createHash, randomUUID } = require('node:crypto');
 
 const MAX_SETTINGS_BYTES = 1024 * 1024;
 
+function normalizeGuardrails(guardrails) {
+	if (guardrails === undefined) return undefined;
+	if (!guardrails || !Number.isSafeInteger(guardrails.maxFiles) || guardrails.maxFiles < 1 ||
+		!Number.isSafeInteger(guardrails.maxFileSizeBytes) || guardrails.maxFileSizeBytes < 1) throw new TypeError('Invalid saved scan settings.');
+	return { maxFiles: guardrails.maxFiles, maxFileSizeBytes: guardrails.maxFileSizeBytes };
+}
+
 function normalizeSources(sources) {
 	if (!Array.isArray(sources) || sources.length > 100) throw new TypeError('Invalid saved translation sources.');
 	const text = (value) => {
@@ -71,19 +78,20 @@ function createTranslationSourceStore({ app, fs, safeStorage, platform = process
 				requireEncryption();
 				try {
 					const data = JSON.parse(safeStorage.decryptString(encrypted));
-					if (data.version !== 1 || data.projectKey !== projectKey) throw new Error('Invalid saved data.');
-					return normalizeSources(data.sources);
+					if (![1, 2].includes(data.version) || data.projectKey !== projectKey) throw new Error('Invalid saved data.');
+					return { sources: normalizeSources(data.sources), guardrails: data.version === 2 ? normalizeGuardrails(data.guardrails) : undefined };
 				} catch {
 					throw new Error('Saved translation sources could not be decrypted or are invalid. Delete them and save the settings again.');
 				}
 			});
 		},
-		save(projectRoot, sources) {
+		save(projectRoot, sources, guardrails) {
 			const { directory, file, projectKey } = location(projectRoot);
 			const normalized = normalizeSources(sources);
+			const normalizedGuardrails = normalizeGuardrails(guardrails);
 			return serialize(file, async () => {
 				requireEncryption();
-				const encrypted = safeStorage.encryptString(JSON.stringify({ version: 1, projectKey, sources: normalized }));
+				const encrypted = safeStorage.encryptString(JSON.stringify({ version: 2, projectKey, sources: normalized, guardrails: normalizedGuardrails }));
 				const temporary = `${file}.${randomUUID()}.tmp`;
 				try {
 					await fs.mkdir(directory, { recursive: true, mode: 0o700 });

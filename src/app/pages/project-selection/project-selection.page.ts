@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, PendingTasks, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
@@ -35,10 +35,17 @@ export class ProjectSelectionPage implements OnInit {
 	private readonly maxFileSizeMbInputSignal = signal('');
 	private readonly translationSourcesSignal = signal<IDesktopTranslationSourceDraft[]>([]);
 	private readonly remoteConfirmationSignal = signal<IRemoteScanConfirmation | undefined>(undefined);
+	readonly hasSavedProjectSettings = signal(false);
+	readonly projectSettingsStorageBusy = signal(false);
+	readonly projectSettingsStorageError = signal('');
+	readonly projectSettingsStorageMessage = signal('');
 	private recentProjectsLoadId = 0;
 	private scanSettingsLoadId = 0;
+	private readonly savedSettingsFingerprint = signal('');
+	private defaultProjectSettings?: IKeyLintSavedProjectSettings;
 
 	private readonly electronService: ElectronService = inject(ElectronService);
+	private readonly pendingTasks = inject(PendingTasks);
 	private readonly recentProjectsService: RecentProjectsService = inject(RecentProjectsService);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
@@ -93,6 +100,15 @@ export class ProjectSelectionPage implements OnInit {
 		return this.translationSourcesSignal();
 	}
 
+	get canSaveProjectSettings(): boolean {
+		return this.electronService.isElectron && this.hasSelection && !this.scanSettingsLoading && !this.scanSettingsError &&
+			!this.projectSettingsStorageBusy() && !this.translationSourcesValidationError && !this.scanSettingsValidationError && this.hasUnsavedSettings;
+	}
+
+	get hasUnsavedSettings(): boolean {
+		return !!this.savedSettingsFingerprint() && this.settingsFingerprint(this.currentProjectSettings()) !== this.savedSettingsFingerprint();
+	}
+
 	get translationSourcesValidationError(): string {
 		return this.desktopRemoteTranslationService.validationError();
 	}
@@ -129,6 +145,7 @@ export class ProjectSelectionPage implements OnInit {
 
 	get canStartAnalysis(): boolean {
 		return this.hasSelection &&
+			!this.projectSettingsStorageBusy() &&
 			!this.scanSettingsLoading &&
 			!this.scanSettingsError &&
 			!this.scanSettingsValidationError &&
@@ -309,7 +326,7 @@ export class ProjectSelectionPage implements OnInit {
 		this.desktopRemoteTranslationService.clear();
 		this.syncTranslationSources();
 		this.remoteConfirmationSignal.set(undefined);
-		void this.loadScanSettings(path);
+		void this.pendingTasks.run(() => this.loadScanSettings(path));
 	}
 
 	onMaxFilesInput(value: string): void {
@@ -405,6 +422,49 @@ export class ProjectSelectionPage implements OnInit {
 		this.syncTranslationSources();
 	}
 
+	async saveProjectSettings(): Promise<void> {
+		const projectPath = this.projectPathSignal();
+		if (!projectPath || !this.canSaveProjectSettings) return;
+		const loadId = this.scanSettingsLoadId;
+		this.projectSettingsStorageBusy.set(true);
+		this.projectSettingsStorageError.set('');
+		this.projectSettingsStorageMessage.set('');
+		const settings = { ...this.currentProjectSettings(), sources: this.desktopRemoteTranslationService.getSavedSources() };
+		try {
+			await this.electronService.saveProjectSettings(projectPath, settings.sources, settings.guardrails);
+			if (loadId !== this.scanSettingsLoadId) return;
+			this.hasSavedProjectSettings.set(true);
+			this.savedSettingsFingerprint.set(this.settingsFingerprint(settings));
+			this.projectSettingsStorageMessage.set('Scan settings, translation sources and header values saved for this project.');
+		} catch {
+			if (loadId === this.scanSettingsLoadId) {
+				this.projectSettingsStorageError.set('Could not save translation sources. Secure storage may be unavailable. Your current inputs are still available for this scan.');
+			}
+		} finally {
+			if (loadId === this.scanSettingsLoadId) this.projectSettingsStorageBusy.set(false);
+		}
+	}
+
+	async deleteSavedProjectSettings(): Promise<void> {
+		const projectPath = this.projectPathSignal();
+		if (!projectPath || !this.hasSavedProjectSettings() || this.projectSettingsStorageBusy() || this.scanSettingsLoading) return;
+		const loadId = this.scanSettingsLoadId;
+		this.projectSettingsStorageBusy.set(true);
+		this.projectSettingsStorageError.set('');
+		this.projectSettingsStorageMessage.set('');
+		try {
+			await this.electronService.deleteProjectSettings(projectPath);
+			if (loadId !== this.scanSettingsLoadId) return;
+			this.hasSavedProjectSettings.set(false);
+			if (this.defaultProjectSettings) this.savedSettingsFingerprint.set(this.settingsFingerprint(this.defaultProjectSettings));
+			this.projectSettingsStorageMessage.set('Saved settings deleted. Current inputs remain available for this scan.');
+		} catch {
+			if (loadId === this.scanSettingsLoadId) this.projectSettingsStorageError.set('Could not delete saved translation sources. Please try again.');
+		} finally {
+			if (loadId === this.scanSettingsLoadId) this.projectSettingsStorageBusy.set(false);
+		}
+	}
+
 	guardrailSourceLabel(key: keyof IScannerGuardrails): string {
 		if (this.isGuardrailOverridden(key)) {
 			return 'Desktop override';
@@ -424,6 +484,7 @@ export class ProjectSelectionPage implements OnInit {
 		this.scanSettingsLoadingSignal.set(true);
 		this.scanSettingsErrorSignal.set('');
 		this.projectGuardrailsSignal.set(undefined);
+		this.resetProjectSettingsStorageState();
 
 		try {
 			const loaded = await this.desktopScannerConfigService.load(projectPath);
@@ -435,13 +496,34 @@ export class ProjectSelectionPage implements OnInit {
 			this.guardrailSourcesSignal.set({ ...loaded.guardrailSources });
 			this.setGuardrailInputs(loaded.config.guardrails);
 			this.desktopRemoteTranslationService.loadConfiguredSources(loaded.config.translationSources);
+			this.defaultProjectSettings = { ...this.currentProjectSettings(), sources: this.desktopRemoteTranslationService.getSavedSources() };
+			if (this.electronService.isElectron) {
+				try {
+					const saved: IKeyLintSavedProjectSettings | undefined =
+						await this.electronService.loadProjectSettings(projectPath);
+					if (loadId !== this.scanSettingsLoadId) return;
+					if (saved !== undefined) {
+						this.desktopRemoteTranslationService.loadSavedSources(saved.sources);
+						if (saved.guardrails) this.setGuardrailInputs(saved.guardrails);
+						this.hasSavedProjectSettings.set(true);
+						this.projectSettingsStorageMessage.set('Saved project settings restored.');
+					}
+				} catch {
+					if (loadId !== this.scanSettingsLoadId) return;
+					this.hasSavedProjectSettings.set(true);
+					this.projectSettingsStorageError.set('Could not load saved translation sources. Project defaults are being used. You can delete the saved settings and save them again.');
+				}
+			}
 			await this.desktopRemoteTranslationService.analyzeAutoSources(
 				projectPath,
 				new ElectronFileSystemAdapter(this.electronService, loaded.config.guardrails),
 				loaded.config,
 				(files) => this.electronService.analyzeTranslationLoaders(files)
 			);
-			this.syncTranslationSources();
+			if (loadId !== this.scanSettingsLoadId) return;
+			this.syncTranslationSources(false);
+			this.savedSettingsFingerprint.set(this.settingsFingerprint(this.currentProjectSettings()));
+			if (!this.hasSavedProjectSettings()) this.defaultProjectSettings = this.currentProjectSettings();
 		} catch (error) {
 			if (loadId === this.scanSettingsLoadId) {
 				this.scanSettingsErrorSignal.set(
@@ -498,10 +580,39 @@ export class ProjectSelectionPage implements OnInit {
 		this.guardrailSourcesSignal.set(undefined);
 		this.maxFilesInputSignal.set('');
 		this.maxFileSizeMbInputSignal.set('');
+		this.resetProjectSettingsStorageState();
 	}
 
-	private syncTranslationSources(): void {
+	private resetProjectSettingsStorageState(): void {
+		this.hasSavedProjectSettings.set(false);
+		this.projectSettingsStorageBusy.set(false);
+		this.projectSettingsStorageError.set('');
+		this.projectSettingsStorageMessage.set('');
+		this.savedSettingsFingerprint.set('');
+		this.defaultProjectSettings = undefined;
+	}
+
+	private currentProjectSettings(): IKeyLintSavedProjectSettings {
+		return {
+			sources: this.translationSources,
+			guardrails: { maxFiles: this.parsePositiveInteger(this.maxFilesInput) ?? 0, maxFileSizeBytes: Math.round(Number(this.maxFileSizeMbInput) * 1024 * 1024) }
+		};
+	}
+
+	private settingsFingerprint(settings: IKeyLintSavedProjectSettings): string {
+		return JSON.stringify({
+			guardrails: settings.guardrails,
+			sources: settings.sources.map((source) => ({
+				type: source.type, id: source.id, includeGlobs: source.includeGlobs, urlTemplate: source.urlTemplate, origin: source.origin,
+				locales: source.locales, selectedCandidateIndex: source.selectedCandidateIndex,
+				headers: source.headers.map((header) => ({ name: header.name, value: header.value }))
+			}))
+		});
+	}
+
+	private syncTranslationSources(clearStorageMessage = true): void {
 		this.translationSourcesSignal.set(this.desktopRemoteTranslationService.sources);
+		if (clearStorageMessage) this.projectSettingsStorageMessage.set('');
 	}
 
 	private parseList(value: string): string[] {

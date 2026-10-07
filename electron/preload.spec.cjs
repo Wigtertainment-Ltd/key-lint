@@ -35,16 +35,16 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 	assert.equal(exposedName, 'keyLint');
 	assert.deepEqual(Object.keys(api).sort(), [
 		'analyzeTranslationLoaders',
-		'deleteTranslationSources',
+		'deleteProjectSettings',
 		'endTranslationScan',
 		'fetchTranslationResource',
 		'getAppVersion',
 		'getPathForFile',
-		'loadTranslationSources',
+		'loadProjectSettings',
 		'pathExists',
 		'readDirectory',
 		'readFile',
-		'saveTranslationSources',
+		'saveProjectSettings',
 		'selectProjectDirectory',
 		'writeFile'
 	]);
@@ -60,9 +60,9 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 	await api.analyzeTranslationLoaders([{ filePath: 'C:\\project\\app.ts', content: 'source' }]);
 	await api.fetchTranslationResource({ scanId: 'scan-1', method: 'GET' });
 	await api.endTranslationScan('scan-1');
-	await api.loadTranslationSources('C:\\project');
-	await api.saveTranslationSources('C:\\project', []);
-	await api.deleteTranslationSources('C:\\project');
+	await api.loadProjectSettings('C:\\project');
+	await api.saveProjectSettings('C:\\project', [], { maxFiles: 100, maxFileSizeBytes: 1024 });
+	await api.deleteProjectSettings('C:\\project');
 	assert.equal(api.fetch, undefined);
 	assert.equal(api.getEnvironment, undefined);
 
@@ -76,8 +76,8 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 		[IPC_CHANNELS.analyzeTranslationLoaders, [{ filePath: 'C:\\project\\app.ts', content: 'source' }]],
 		[IPC_CHANNELS.fetchTranslationResource, { scanId: 'scan-1', method: 'GET' }],
 		[IPC_CHANNELS.endTranslationScan, 'scan-1'],
-		[IPC_CHANNELS.loadTranslationSources, 'C:\\project'],
-		[IPC_CHANNELS.saveTranslationSources, 'C:\\project', []],
-		[IPC_CHANNELS.deleteTranslationSources, 'C:\\project']
+		[IPC_CHANNELS.loadProjectSettings, 'C:\\project'],
+		[IPC_CHANNELS.saveProjectSettings, 'C:\\project', [], { maxFiles: 100, maxFileSizeBytes: 1024 }],
+		[IPC_CHANNELS.deleteProjectSettings, 'C:\\project']
 	]);
 });

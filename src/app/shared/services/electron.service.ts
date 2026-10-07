@@ -58,15 +58,15 @@ export class ElectronService {
 		return bridge;
 	}
 
-	loadTranslationSources(projectRoot: string): Promise<IKeyLintSavedTranslationSource[] | undefined> {
-		return this.bridge().loadTranslationSources(projectRoot);
+	loadProjectSettings(projectRoot: string): Promise<IKeyLintSavedProjectSettings | undefined> {
+		return this.bridge().loadProjectSettings(projectRoot);
 	}
 
-	saveTranslationSources(projectRoot: string, sources: IKeyLintSavedTranslationSource[]): Promise<void> {
-		return this.bridge().saveTranslationSources(projectRoot, sources);
+	saveProjectSettings(projectRoot: string, sources: IKeyLintSavedTranslationSource[], guardrails?: IKeyLintSavedGuardrails): Promise<void> {
+		return this.bridge().saveProjectSettings(projectRoot, sources, guardrails);
 	}
 
-	deleteTranslationSources(projectRoot: string): Promise<void> {
-		return this.bridge().deleteTranslationSources(projectRoot);
+	deleteProjectSettings(projectRoot: string): Promise<void> {
+		return this.bridge().deleteProjectSettings(projectRoot);
 	}
 }

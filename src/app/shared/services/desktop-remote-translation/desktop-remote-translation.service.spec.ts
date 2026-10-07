@@ -7,6 +7,25 @@ describe('DesktopRemoteTranslationService', () => {
 		service = new DesktopRemoteTranslationService();
 	});
 
+	it('restores saved sources with fresh identifiers while retaining project defaults for reset', () => {
+		service.loadConfiguredSources([{ type: 'filesystem', id: 'project-default' }]);
+		const saved: IKeyLintSavedTranslationSource[] = [{
+			type: 'http', id: 'saved', includeGlobs: [], urlTemplate: 'https://example.com/{locale}.json', origin: '', locales: ['en'],
+			headers: [{ name: 'Authorization', value: 'Bearer secret', environmentName: 'AUTH', configured: false }]
+		}];
+		service.loadSavedSources(saved);
+		const firstId = service.sources[0].draftId;
+		expect(service.getSavedSources()).toEqual(saved);
+		service.loadSavedSources(saved);
+		expect(service.sources[0].draftId).not.toBe(firstId);
+		const exported = service.getSavedSources();
+		exported[0].headers[0].value = 'changed';
+		expect(service.sources[0].headers[0].value).toBe('Bearer secret');
+		service.resetSources();
+		expect(service.sources[0].id).toBe('project-default');
+		expect(service.sources[0].headers).toEqual([]);
+	});
+
 	it('loads configured sources in order and displays environment names without values', () => {
 		service.loadConfiguredSources([
 			{ type: 'filesystem', id: 'base', includeGlobs: ['src/i18n/*.json'] },

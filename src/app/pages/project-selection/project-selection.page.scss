@@ -408,6 +408,10 @@
 }
 
 .source-list {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
@@ -472,6 +476,56 @@
 	&.danger {
 		color: var(--error);
 	}
+}
+
+.source-storage-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+
+	p {
+		margin: 0;
+		font-size: 12px;
+		line-height: 18px;
+		color: var(--on-surface-variant);
+	}
+}
+
+.save-settings-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	width: 100%;
+	padding: 0.8rem 1rem;
+	border: 0;
+	border-radius: 0.5rem;
+	background: var(--primary);
+	color: var(--on-primary);
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+
+	&:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 2px;
+	}
+}
+
+.delete-saved-settings-btn {
+	align-self: flex-start;
+}
+
+.saved-sources-badge {
+	margin-left: 0.5rem;
+	font-size: 11px;
+	font-weight: 400;
+	color: var(--on-surface-variant);
 }
 
 .header-value-input {

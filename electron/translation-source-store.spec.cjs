@@ -46,7 +46,7 @@ test('saves encrypted sources, restores after store recreation, isolates project
 	const bytes = await fs.readFile(path.join(directory, 'translation-sources', filenames[0]));
 	assert.equal(bytes.includes(Buffer.from('test-secret')), false);
 	assert.equal(bytes.includes(Buffer.from('example.com')), false);
-	assert.deepEqual(await createTranslationSourceStore(options).load(project), sources);
+	assert.deepEqual((await createTranslationSourceStore(options).load(project)).sources, sources);
 	assert.equal(await store.load(path.join(directory, 'other-project')), undefined);
 	await store.delete(project);
 	await store.delete(project);
@@ -60,7 +60,7 @@ test('normalizes Windows project identity, preserves source order and omits tran
 		...sources[0], type: 'auto-http', selectedCandidateIndex: 2, draftId: 'transient', autoCandidates: [{ data: 'stale' }]
 	}];
 	await store.save(project, saved);
-	const loaded = await store.load(project.toUpperCase() + path.sep);
+	const loaded = (await store.load(project.toUpperCase() + path.sep)).sources;
 	assert.deepEqual(loaded.map((source) => source.type), ['http', 'filesystem', 'auto-http']);
 	assert.equal(loaded[2].selectedCandidateIndex, 2);
 	assert.equal(loaded[2].draftId, undefined);
@@ -94,7 +94,7 @@ test('failed replacement retains the previous settings and cleans temporary file
 	await store.save(project, sources);
 	const broken = createTranslationSourceStore({ ...options, fs: { ...fs, rename: async () => { throw new Error('write failed'); } } });
 	await assert.rejects(broken.save(project, [{ ...sources[0], id: 'changed' }]), /write failed/);
-	assert.deepEqual(await store.load(project), sources);
+	assert.deepEqual((await store.load(project)).sources, sources);
 	assert.equal((await fs.readdir(path.join(directory, 'translation-sources'))).length, 1);
 });
 
@@ -112,7 +112,7 @@ test('corrupt saved data yields a generic error and can still be deleted without
 test('serializes overlapping saves and deletion so deleted settings cannot reappear', async (t) => {
 	const { project, store } = await harness(t);
 	await Promise.all([store.save(project, sources), store.save(project, [{ ...sources[0], id: 'latest' }])]);
-	assert.equal((await store.load(project))[0].id, 'latest');
+	assert.equal((await store.load(project)).sources[0].id, 'latest');
 	await Promise.all([store.save(project, sources), store.delete(project)]);
 	assert.equal(await store.load(project), undefined);
 });
@@ -121,8 +121,30 @@ test('IPC handlers expose project-scoped save, load and delete', async (t) => {
 	const { project, options } = await harness(t);
 	const handlers = new Map();
 	registerIpcHandlers({ ...options, ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) }, dialog: {} });
-	await handlers.get(IPC_CHANNELS.saveTranslationSources)(null, project, sources);
-	assert.deepEqual(await handlers.get(IPC_CHANNELS.loadTranslationSources)(null, project), sources);
-	await handlers.get(IPC_CHANNELS.deleteTranslationSources)(null, project);
-	assert.equal(await handlers.get(IPC_CHANNELS.loadTranslationSources)(null, project), undefined);
+	await handlers.get(IPC_CHANNELS.saveProjectSettings)(null, project, sources);
+	assert.deepEqual((await handlers.get(IPC_CHANNELS.loadProjectSettings)(null, project)).sources, sources);
+	await handlers.get(IPC_CHANNELS.deleteProjectSettings)(null, project);
+	assert.equal(await handlers.get(IPC_CHANNELS.loadProjectSettings)(null, project), undefined);
+});
+
+test('persists scan guardrails together with sources and rejects invalid limits', async (t) => {
+	const { project, options, store } = await harness(t);
+	const guardrails = { maxFiles: 250, maxFileSizeBytes: 2097152 };
+	await store.save(project, sources, guardrails);
+	assert.deepEqual(await createTranslationSourceStore(options).load(project), { sources, guardrails });
+	for (const invalid of [{ maxFiles: 0, maxFileSizeBytes: 10 }, { maxFiles: 10, maxFileSizeBytes: -1 }, { maxFiles: 1.5, maxFileSizeBytes: 10 }]) {
+		assert.throws(() => store.save(project, sources, invalid), /Invalid saved scan settings/);
+	}
+});
+
+test('loads the previous source-only file format without requiring scan settings', async (t) => {
+	const { directory, project, options, store } = await harness(t);
+	await store.save(project, sources);
+	const [filename] = await fs.readdir(path.join(directory, 'translation-sources'));
+	const file = path.join(directory, 'translation-sources', filename);
+	const data = JSON.parse(options.safeStorage.decryptString(await fs.readFile(file)));
+	data.version = 1;
+	delete data.guardrails;
+	await fs.writeFile(file, options.safeStorage.encryptString(JSON.stringify(data)));
+	assert.deepEqual(await store.load(project), { sources, guardrails: undefined });
 });

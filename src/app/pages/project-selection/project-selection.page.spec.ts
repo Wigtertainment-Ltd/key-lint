@@ -17,8 +17,17 @@ describe('ProjectSelectionPage scan settings', () => {
 	let component: ProjectSelectionPage;
 	let scanService: jasmine.SpyObj<ScanOrchestrationService>;
 	let configService: jasmine.SpyObj<DesktopScannerConfigService>;
+	let storage: jasmine.SpyObj<Pick<ElectronService, 'loadProjectSettings' | 'saveProjectSettings' | 'deleteProjectSettings'>>;
+	const savedSources: IKeyLintSavedTranslationSource[] = [{
+		type: 'http', id: 'saved-api', includeGlobs: [], urlTemplate: 'https://example.com/{locale}.json', origin: '', locales: ['en'],
+		headers: [{ name: 'Authorization', value: 'Bearer saved-secret', environmentName: 'KEYLINT_SAVED_AUTH', configured: false }]
+	}];
 
 	beforeEach(async () => {
+		storage = jasmine.createSpyObj('sourceStorage', ['loadProjectSettings', 'saveProjectSettings', 'deleteProjectSettings']);
+		storage.loadProjectSettings.and.resolveTo(undefined);
+		storage.saveProjectSettings.and.resolveTo();
+		storage.deleteProjectSettings.and.resolveTo();
 		scanService = jasmine.createSpyObj<ScanOrchestrationService>('ScanOrchestrationService', [
 			'reset',
 			'setNextScanConfigOverrides',
@@ -45,6 +54,7 @@ describe('ProjectSelectionPage scan settings', () => {
 				{
 					provide: ElectronService,
 					useValue: {
+						...storage,
 						isElectron: true,
 						selectProjectDirectory: async () => 'C:/project',
 						readDirectory: async () => [{ name: 'loader.ts', isDirectory: false, isFile: true, isSymbolicLink: false, sizeBytes: 100 }],
@@ -79,6 +89,162 @@ describe('ProjectSelectionPage scan settings', () => {
 		fixture = TestBed.createComponent(ProjectSelectionPage);
 		component = fixture.componentInstance;
 		fixture.detectChanges();
+	});
+
+	it('restores saved sources and masked headers automatically without granting remote scan permission', async () => {
+		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		fixture.detectChanges();
+		expect(storage.loadProjectSettings).toHaveBeenCalledOnceWith('C:/project');
+		expect(component.hasSavedProjectSettings()).toBeTrue();
+		expect(component.translationSources[0].id).toBe('saved-api');
+		expect(component.translationSources[0].headers[0].value).toBe('Bearer saved-secret');
+		expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('.header-value-input input')?.type).toBe('password');
+		expect(scanService.authorizeNextRemoteScan).not.toHaveBeenCalled();
+		expect(storage.saveProjectSettings).not.toHaveBeenCalled();
+	});
+
+	it('saves only by explicit request and sends current header values without transient identifiers', async () => {
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		component.addHttpSource();
+		const source = component.translationSources[1];
+		component.onSourceIdInput(source.draftId, 'api');
+		component.onSourceUrlInput(source.draftId, 'https://example.com/{locale}.json');
+		component.onSourceLocalesInput(source.draftId, 'en');
+		component.addTemporaryHeader(source.draftId);
+		const header = component.translationSources[1].headers[0];
+		component.onHeaderNameInput(source.draftId, header.id, 'Authorization');
+		component.onHeaderValueInput(source.draftId, header.id, 'Bearer new-secret');
+		expect(storage.saveProjectSettings).not.toHaveBeenCalled();
+		await component.saveProjectSettings();
+		const [projectPath, saved] = storage.saveProjectSettings.calls.mostRecent().args;
+		expect(projectPath).toBe('C:/project');
+		expect(saved[1].headers[0].value).toBe('Bearer new-secret');
+		expect(Object.keys(saved[1])).not.toContain('draftId');
+		expect(component.hasSavedProjectSettings()).toBeTrue();
+		component.onSourceIdInput(source.draftId, 'edited');
+		expect(storage.saveProjectSettings).toHaveBeenCalledTimes(1);
+	});
+
+	it('deletes stored settings while preserving current inputs for the scan', async () => {
+		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		await component.deleteSavedProjectSettings();
+		expect(storage.deleteProjectSettings).toHaveBeenCalledOnceWith('C:/project');
+		expect(component.hasSavedProjectSettings()).toBeFalse();
+		expect(component.translationSources[0].headers[0].value).toBe('Bearer saved-secret');
+		expect(component.canStartAnalysis).toBeTrue();
+	});
+
+	it('falls back to project configuration when loading fails and offers deletion', async () => {
+		storage.loadProjectSettings.and.callFake(() => Promise.reject(new Error('sensitive internal detail')));
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		fixture.detectChanges();
+		expect(component.translationSources[0].type).toBe('filesystem');
+		expect(component.projectSettingsStorageError()).toContain('Project defaults');
+		expect(component.projectSettingsStorageError()).not.toContain('sensitive');
+		expect(component.hasSavedProjectSettings()).toBeTrue();
+		expect(component.canStartAnalysis).toBeTrue();
+	});
+
+	it('reports save and delete failures without losing inputs or blocking scans', async () => {
+		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
+		storage.saveProjectSettings.and.callFake(() => Promise.reject(new Error('secret')));
+		storage.deleteProjectSettings.and.callFake(() => Promise.reject(new Error('secret')));
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		component.onMaxFilesInput('251');
+		await component.saveProjectSettings();
+		expect(component.projectSettingsStorageError()).toContain('Could not save');
+		expect(component.translationSources[0].headers[0].value).toBe('Bearer saved-secret');
+		expect(component.projectSettingsStorageBusy()).toBeFalse();
+		expect(component.canStartAnalysis).toBeTrue();
+		await component.deleteSavedProjectSettings();
+		expect(component.projectSettingsStorageError()).toContain('Could not delete');
+		expect(component.hasSavedProjectSettings()).toBeTrue();
+	});
+
+	it('ignores a delayed saved-settings load after selecting another project', async () => {
+		let resolveFirst!: (settings: IKeyLintSavedProjectSettings) => void;
+		storage.loadProjectSettings.and.callFake((projectPath) => projectPath === 'C:/project'
+			? new Promise((resolve) => { resolveFirst = resolve; }) : Promise.resolve(undefined));
+		await component.openFolderDialog();
+		await Promise.resolve();
+		component.onSelectRecentProject({ path: 'C:/other', name: 'other', exists: true });
+		resolveFirst({ sources: savedSources });
+		await fixture.whenStable();
+		expect(component.pathDisplay).toBe('C:/other');
+		expect(component.translationSources[0].type).toBe('filesystem');
+		expect(component.hasSavedProjectSettings()).toBeFalse();
+	});
+
+	it('ignores completion of saving after project selection has been cleared', async () => {
+		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		let finish!: () => void;
+		storage.saveProjectSettings.and.returnValue(new Promise<void>((resolve) => { finish = resolve; }));
+		component.onMaxFilesInput('251');
+		const saving = component.saveProjectSettings();
+		expect(component.canStartAnalysis).toBeFalse();
+		component.clearSelection();
+		finish();
+		await saving;
+		expect(component.hasSavedProjectSettings()).toBeFalse();
+		expect(component.projectSettingsStorageMessage()).toBe('');
+		expect(component.projectSettingsStorageBusy()).toBeFalse();
+	});
+
+	it('enables the shared save button only for changes and disables it again after reverting or saving', async () => {
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		fixture.detectChanges();
+		const root = fixture.nativeElement as HTMLElement;
+		const button = root.querySelector<HTMLButtonElement>('.save-settings-btn')!;
+		expect(button.closest('details')).toBeNull();
+		expect(button.disabled).toBeTrue();
+		component.onMaxFilesInput('250');
+		fixture.detectChanges();
+		expect(button.disabled).toBeFalse();
+		component.onMaxFilesInput('500');
+		fixture.detectChanges();
+		expect(button.disabled).toBeTrue();
+		component.onMaxFileSizeMbInput('2');
+		await component.saveProjectSettings();
+		expect(storage.saveProjectSettings).toHaveBeenCalledWith('C:/project', jasmine.any(Array), { maxFiles: 500, maxFileSizeBytes: 2097152 });
+		fixture.detectChanges();
+		expect(button.disabled).toBeTrue();
+	});
+
+	it('restores saved scan settings as overrides while reset restores project defaults', async () => {
+		storage.loadProjectSettings.and.resolveTo({ sources: savedSources, guardrails: { maxFiles: 250, maxFileSizeBytes: 2097152 } });
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		expect(component.maxFilesInput).toBe('250');
+		expect(component.maxFileSizeMbInput).toBe('2');
+		expect(component.hasUnsavedSettings).toBeFalse();
+		expect(component.guardrailSourceLabel('maxFiles')).toBe('Desktop override');
+		component.resetScanSettings();
+		expect(component.maxFilesInput).toBe('500');
+		expect(component.maxFileSizeMbInput).toBe('4');
+		expect(component.hasUnsavedSettings).toBeTrue();
+	});
+
+	it('detects source edits and rejects saving invalid scan settings', async () => {
+		await component.openFolderDialog();
+		await fixture.whenStable();
+		const source = component.translationSources[0];
+		component.onSourceIdInput(source.draftId, 'local');
+		expect(component.canSaveProjectSettings).toBeTrue();
+		component.onSourceIdInput(source.draftId, '');
+		expect(component.canSaveProjectSettings).toBeFalse();
+		component.onMaxFilesInput('0');
+		expect(component.hasUnsavedSettings).toBeTrue();
+		expect(component.canSaveProjectSettings).toBeFalse();
 	});
 
 	it('loads effective project values and identifies their sources', async () => {
