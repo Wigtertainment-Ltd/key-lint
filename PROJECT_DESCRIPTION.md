@@ -154,7 +154,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `src/assets/i18n/en.json`: Base English translation resource for the app UI
 
 ## Current Status and Limitations
-- Only the Angular adapter is implemented; `TranslationFormat` already declares `yaml`, `xliff` and `po`, but only `json` is supported.
+- Angular and React/react-i18next adapters support JSON; `TranslationFormat` also declares `yaml`, `xliff` and `po`, which remain unsupported.
 - Persistence for recent projects and history relies on `localStorage`, not on files on disk.
 - The desktop UI has no dedicated report export flow yet; JSON/Markdown reporting is available via `@key-lint/cli` and the GitHub Action in `packages/action`.
 - Scanning requires the Electron runtime; in a plain browser context the filesystem adapter returns no files.
@@ -163,7 +163,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `strict: true` is not enabled in the TypeScript configuration.
 
 ## Suggested Next Milestones
-1. Add further framework adapters (React/i18next, Vue/vue-i18n).
+1. Add further framework adapters (Vue/vue-i18n, React Intl, Lingui).
 2. Support additional translation formats (YAML, XLIFF, PO).
 3. Add a desktop in-app report export flow (e.g. JSON/Markdown/CSV).
 4. Expand CI guidance and automation examples beyond the current GitHub Action + CLI baseline.

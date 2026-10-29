@@ -21,6 +21,8 @@ export type ITranslationResourceOrigin =
  */
 export interface ITranslationResource {
 	locale: string;
+	/** Optional namespace for adapters that separate resources within a locale. */
+	namespace?: string;
 	sourceType: TranslationResourceSourceType;
 	sourceId: string;
 	sourceIndex: number;

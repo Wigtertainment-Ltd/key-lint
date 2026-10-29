@@ -1,0 +1,4 @@
+{
+	"framework": "react", "translationFormat": "react-i18next-json", "scenario": "plurals-dynamic",
+	"covers": ["plural-forms", "dynamic-uncertain", "missing-in-language", "unused"]
+}

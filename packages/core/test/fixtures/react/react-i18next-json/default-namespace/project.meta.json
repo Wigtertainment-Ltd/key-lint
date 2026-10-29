@@ -1,0 +1,6 @@
+{
+	"framework": "react",
+	"translationFormat": "react-i18next-json",
+	"scenario": "default-namespace",
+	"covers": ["defaultNS", "used", "unused", "missing-in-language"]
+}

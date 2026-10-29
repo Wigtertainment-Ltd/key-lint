@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { NodeFileSystemAdapter } from '../fs/node-file-system.adapter.js';
+import { normalizePath } from '../util/path.util.js';
 import { runScan } from './run-scan.js';
 
 interface IFixtureCase {
@@ -75,6 +76,31 @@ const FIXTURE_CASES: IFixtureCase[] = [
 		expectedFile: fileURLToPath(
 			new URL('../../test/fixtures/angular/angular-i18n-xliff/basic/_expected.json', import.meta.url)
 		)
+	},
+	{
+		name: 'react react-i18next json basic',
+		fixtureRoot: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/basic', import.meta.url)),
+		expectedFile: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/basic/_expected.json', import.meta.url))
+	},
+	{
+		name: 'react react-i18next namespaces and keyPrefix',
+		fixtureRoot: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/namespaces', import.meta.url)),
+		expectedFile: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/namespaces/_expected.json', import.meta.url))
+	},
+	{
+		name: 'react react-i18next configured default namespace',
+		fixtureRoot: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/default-namespace', import.meta.url)),
+		expectedFile: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/default-namespace/_expected.json', import.meta.url))
+	},
+	{
+		name: 'react react-i18next Trans and placeholder contracts',
+		fixtureRoot: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/trans-placeholders', import.meta.url)),
+		expectedFile: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/trans-placeholders/_expected.json', import.meta.url))
+	},
+	{
+		name: 'react react-i18next plural forms and dynamic keys',
+		fixtureRoot: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/plurals-dynamic', import.meta.url)),
+		expectedFile: fileURLToPath(new URL('../../test/fixtures/react/react-i18next-json/plurals-dynamic/_expected.json', import.meta.url))
 	}
 ];
 
@@ -105,6 +131,14 @@ describe('runScan integration fixtures', () => {
 		it(`matches the ${fixtureCase.name} golden file`, async () => {
 			const expected = JSON.parse(await readFile(fixtureCase.expectedFile, 'utf8')) as IExpectedScan;
 			const fs = new NodeFileSystemAdapter();
+			const fixtureRoot = normalizePath(fixtureCase.fixtureRoot);
+			const fileExists = fs.fileExists.bind(fs);
+
+			// Keep ancestor detection from selecting the enclosing KeyLint repository.
+			vi.spyOn(fs, 'fileExists').mockImplementation((filePath): Promise<boolean> => {
+				const normalizedPath = normalizePath(filePath);
+				return normalizedPath === fixtureRoot || normalizedPath.startsWith(`${fixtureRoot}/`) ? fileExists(filePath) : Promise.resolve(false);
+			});
 
 			const result = await runScan({
 				projectRoot: fixtureCase.fixtureRoot,

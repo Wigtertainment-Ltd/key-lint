@@ -7,11 +7,13 @@ export const DEFAULT_SCANNER_CONFIG: IScannerConfig = {
 		'assets/i18n/**/*.json',
 		'i18n/**/*.json',
 		'locales/**/*.json',
+		'public/locales/**/*.json',
+		'src/locales/**/*.json',
 		'apps/**/src/assets/i18n/**/*.json',
 		'libs/**/src/assets/i18n/**/*.json',
 		'packages/**/src/assets/i18n/**/*.json'
 	],
-	includeSourceGlobs: ['**/*.html', '**/*.ts'],
+	includeSourceGlobs: ['**/*.html', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
 	excludeGlobs: [
 		'**/node_modules/**',
 		'**/dist/**',

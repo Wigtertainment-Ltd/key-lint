@@ -1,0 +1,22 @@
+{
+	"adapterId": "react",
+	"summary": {
+		"totalKeys": 2,
+		"used": 1,
+		"unused": 1,
+		"dynamicOrUncertain": 0,
+		"indirectUncertain": 0,
+		"missingInLanguage": 2,
+		"extraInLanguage": 0,
+		"placeholderMissing": 0,
+		"placeholderUncertain": 0,
+		"placeholderMismatch": 0,
+		"totalFindings": 4
+	},
+	"findings": [
+		{ "key": "common:title", "status": "used", "severity": "info" },
+		{ "key": "common:unused", "status": "unused", "severity": "warning" },
+		{ "key": "common:missing", "status": "missing-in-language", "severity": "error" },
+		{ "key": "common:missing", "status": "missing-in-language", "severity": "error" }
+	]
+}
