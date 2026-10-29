@@ -52,8 +52,8 @@
 		"@key-lint/core": "1.4.0"
 	},
 	"devDependencies": {
-		"@types/node": "26.6.4",
+		"@types/node": "26.6.6",
 		"typescript": "~6.0.3",
-		"vitest": "5.0.3"
+		"vitest": "5.0.5"
 	}
 }
