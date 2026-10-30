@@ -60,13 +60,14 @@ The fastest way to audit a project. No config required.
 
 ## ⚙️ Using KeyLint in your project
 
-KeyLint works out of the box for **Angular projects using ngx-translate** with
-**JSON** locale files. The scanner already knows the common layouts:
+KeyLint works out of the box for **Angular projects using ngx-translate** and
+**React projects using react-i18next** with **JSON** locale files. The scanner
+already knows the common layouts:
 
 - Translation files: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`,
-  `i18n/**/*.json`, `locales/**/*.json`, plus the usual Nx `apps|libs|packages`
-  paths.
-- Source files: `**/*.html` and `**/*.ts`.
+  `i18n/**/*.json`, `locales/**/*.json`, `public/locales/**/*.json`,
+  `src/locales/**/*.json`, plus the usual Nx `apps|libs|packages` paths.
+- Source files: `**/*.html`, `**/*.ts`, `**/*.tsx`, `**/*.js` and `**/*.jsx`.
 
 Nothing to configure to get started. When you need to tune it, drop a
 `keylint.config.json` in your project root (or a `"keylint"` key in
@@ -254,11 +255,15 @@ npx @key-lint/cli scan . --max-errors 0 \
 
 | Area | Status |
 | --- | --- |
-| Framework | Angular (ngx-translate style usage) |
+| Framework | Angular (ngx-translate style usage), React (react-i18next) |
 | Translation format | JSON |
 | Platforms (desktop) | Windows x64, macOS (Apple Silicon + Intel), Linux x64 |
 
-More framework adapters (React/i18next, Vue/vue-i18n) and formats (YAML, XLIFF,
+The React adapter supports `useTranslation`, explicit `<Trans i18nKey>` usage,
+namespaces, `keyPrefix`, static `defaultNS`, JSON v4 plurals and placeholder
+contracts. Dynamic keys produce warnings. See the [React adapter scope](packages/core/src/adapters/react/README.md).
+
+More framework adapters (Vue/vue-i18n, React Intl, Lingui) and formats (YAML, XLIFF,
 PO) are on the roadmap. Contributions welcome - see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 

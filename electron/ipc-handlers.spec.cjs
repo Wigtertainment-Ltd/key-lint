@@ -14,6 +14,7 @@ function createHarness(remoteTransport, loaderAnalyzer) {
 	const handlers = new Map();
 	const writes = [];
 	const remoteCalls = [];
+	const externalUrls = [];
 	const ipcMain = {
 		handle: (channel, handler) => handlers.set(channel, handler)
 	};
@@ -43,6 +44,7 @@ function createHarness(remoteTransport, loaderAnalyzer) {
 		ipcMain,
 		dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [PROJECT_PATH] }) },
 		app: { getVersion: () => '1.2.3' },
+		shell: { openExternal: async (url) => void externalUrls.push(url) },
 		fs,
 		remoteTransport: remoteTransport ?? {
 			fetch: async (request) => {
@@ -54,8 +56,14 @@ function createHarness(remoteTransport, loaderAnalyzer) {
 		loaderAnalyzer: loaderAnalyzer ?? (async (files) => ({ candidates: [], diagnostics: [], sourceFiles: files.map((file) => file.filePath) }))
 	});
 
-	return { handlers, writes, remoteCalls };
+	return { handlers, writes, remoteCalls, externalUrls };
 }
+
+test('opens only the fixed GitHub support page in the system browser', async () => {
+	const { handlers, externalUrls } = createHarness();
+	await handlers.get(IPC_CHANNELS.openSupportPage)(null, 'file:///untrusted');
+	assert.deepEqual(externalUrls, ['https://github.com/Wigtertainment-Ltd/key-lint/issues']);
+});
 
 test('registers the fixed IPC surface and returns serializable values', async () => {
 	const { handlers } = createHarness();

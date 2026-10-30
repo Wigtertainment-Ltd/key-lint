@@ -1,6 +1,7 @@
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import type { IFileSystemWarning, FileSystemWarningCode } from '@key-lint/core';
+import { DEFAULT_SCANNER_CONFIG } from '@key-lint/core';
 
 interface IFakeEntry {
 	name: string;
@@ -37,6 +38,19 @@ function electronWithTree(
 }
 
 describe('ElectronFileSystemAdapter', (): void => {
+	it('prunes Angular cache contents during source discovery', async (): Promise<void> => {
+		const electron: ElectronService = electronWithTree({
+			'C:/project': [{ name: 'src', type: 'directory' }, { name: '.angular', type: 'directory' }],
+			'C:/project/src': [{ name: 'app.ts', type: 'file' }],
+			'C:/project/.angular': [{ name: 'cache', type: 'directory' }],
+			'C:/project/.angular/cache': [{ name: 'generated.js', type: 'file', sizeBytes: 3000000 }]
+		});
+		const readDirectory: jasmine.Spy<(directoryPath: string) => Promise<IKeyLintDirectoryEntry[]>> = spyOn(electron, 'readDirectory').and.callThrough();
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter(electron);
+		expect(await adapter.listFiles('C:/project', DEFAULT_SCANNER_CONFIG.includeSourceGlobs, DEFAULT_SCANNER_CONFIG.excludeGlobs)).toEqual(['C:/project/src/app.ts']);
+		expect(readDirectory).not.toHaveBeenCalledWith('C:/project/.angular/cache');
+		expect(adapter.warnings).toEqual([]);
+	});
 	const tree: Record<string, IFakeEntry[]> = {
 		'C:/project': [
 			{ name: 'src', type: 'directory' },

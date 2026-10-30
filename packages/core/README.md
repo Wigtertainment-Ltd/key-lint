@@ -4,12 +4,12 @@ Framework-agnostic i18n scan engine. Detects missing, unused and dynamically res
 
 ## Features
 
-- **Adapter registry** with built-in Angular / ngx-translate support
+- **Adapter registry** with built-in Angular / ngx-translate and React / react-i18next support
 - **Configurable guardrails** (max files, max file size) to keep scans fast
 - **`ignoreKeys`** glob patterns to suppress known false positives
 - **Progress callbacks** for live UI updates or CI logging
 - **Per-locale consistency checks** with configurable or automatic base locale selection
-- **Mustache placeholder contracts** across locales and Angular usage sites
+- **Mustache placeholder contracts** across locales and Angular or React usage sites
 - **Fail-fast translation validation** with file-specific errors for unreadable JSON, malformed JSON and non-object roots
 - **Node-only APIs** (`@key-lint/core/node`) for CLI and pipeline usage
 
@@ -48,6 +48,12 @@ are accepted. Matrix rows expose placeholder names through `placeholders[locale]
 Every discovered translation file must be readable, contain valid JSON and use
 an object as its root value. A violation rejects `runScan` with a
 `TranslationFileError`; no partial result is returned.
+
+The React adapter handles `useTranslation` and explicit `<Trans i18nKey>` usage,
+local JSON namespaces, `keyPrefix`, static `defaultNS`, and JSON v4 cardinal and
+ordinal plurals. Canonical keys use `namespace:key`; computed keys remain
+warnings. Dynamic namespace configuration, namespace fallback lists, React Intl,
+Lingui and HTTP translation sources are unsupported by this adapter.
 
 ## Translation resources
 

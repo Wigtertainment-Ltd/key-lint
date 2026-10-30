@@ -106,6 +106,14 @@ export class DashboardPage implements OnInit {
 		return this.scanResult?.summary.totalKeys ?? 0;
 	}
 
+	get totalKeysTooltip(): string {
+		return [
+			'Total Keys counts distinct keys in the translation files.',
+			`Usage categories: Used (${this.usedKeys}) + Dynamic (${this.dynamicKeys}) + Unused (${this.unusedKeys}).`,
+			'Dynamic keys may be used at runtime; their usage cannot be confirmed statically.'
+		].join('\n');
+	}
+
 	get usedKeys(): number {
 		return this.scanResult?.summary.used ?? 0;
 	}

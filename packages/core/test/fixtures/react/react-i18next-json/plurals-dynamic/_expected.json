@@ -1,0 +1,21 @@
+{
+	"adapterId": "react",
+	"summary": {
+		"totalKeys": 9, "used": 6, "unused": 1, "dynamicOrUncertain": 2, "indirectUncertain": 0, "missingInLanguage": 3,
+		"extraInLanguage": 0, "placeholderMissing": 0, "placeholderUncertain": 0, "placeholderMismatch": 0, "totalFindings": 12
+	},
+	"findings": [
+		{ "key": "common:items_zero", "status": "used", "severity": "info" },
+		{ "key": "common:items_one", "status": "used", "severity": "info" },
+		{ "key": "common:items_other", "status": "used", "severity": "info" },
+		{ "key": "common:items_few", "status": "used", "severity": "info" },
+		{ "key": "common:items_many", "status": "used", "severity": "info" },
+		{ "key": "common:title", "status": "used", "severity": "info" },
+		{ "key": "common:status.ok", "status": "dynamic-uncertain", "severity": "warning" },
+		{ "key": "common:status.error", "status": "dynamic-uncertain", "severity": "warning" },
+		{ "key": "common:unused", "status": "unused", "severity": "warning" },
+		{ "key": "common:missing_other", "status": "missing-in-language", "severity": "error" },
+		{ "key": "common:missing_other", "status": "missing-in-language", "severity": "error" },
+		{ "key": "common:missing_few", "status": "missing-in-language", "severity": "error" }
+	]
+}

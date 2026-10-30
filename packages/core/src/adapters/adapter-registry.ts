@@ -1,5 +1,6 @@
 import { IAdapterMatch } from './adapter.interfaces.js';
 import { IFileSystemAdapter, IScanAdapter, IAdapterDetectionResult } from './scan-adapter.interface.js';
+import { normalizePath } from '../util/path.util.js';
 
 export class AdapterRegistry {
 	private readonly adapters: IScanAdapter[] = [];
@@ -38,8 +39,8 @@ export class AdapterRegistry {
 	}
 
 	/**
-	 * Runs every registered detector sequentially and selects the supported result with highest confidence.
-	 * Equal confidence retains the earlier registration; an unsupported result is ignored.
+	 * Runs every registered detector sequentially and prefers the nearest supported project root.
+	 * Confidence resolves matches at the same or unrelated roots; ties retain the earlier registration.
 	 *
 	 * @param projectRoot - Project directory passed unchanged to each detector.
 	 * @param fs - Filesystem implementation available to the detectors.
@@ -55,7 +56,11 @@ export class AdapterRegistry {
 				continue;
 			}
 
-			if (!bestMatch || result.confidence > bestMatch.detection.confidence) {
+			const candidateRoot: string = normalizePath(result.resolvedProjectRoot ?? projectRoot).replace(/\/$/, '');
+			const bestRoot: string = bestMatch ? normalizePath(bestMatch.detection.resolvedProjectRoot ?? projectRoot).replace(/\/$/, '') : '';
+			const closerRoot: boolean | null = bestMatch && candidateRoot.startsWith(`${bestRoot}/`);
+			const parentRoot: boolean = bestRoot.startsWith(`${candidateRoot}/`);
+			if (!bestMatch || closerRoot || (!parentRoot && result.confidence > bestMatch.detection.confidence)) {
 				bestMatch = { adapter, detection: result };
 			}
 		}

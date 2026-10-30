@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import {
 	DEFAULT_SCANNER_CONFIG,
+	defaultAdapterRegistry,
 	extractMustachePlaceholders,
 	IScannerConfig,
 	IScannerConfigOverrides,
@@ -18,7 +19,9 @@ import {
 	ITranslationMatrixRow,
 	ITranslationSourceConfig,
 	IHttpTranslationSourceConfig,
-	IScanProgress
+	IScanProgress,
+	IScanAdapter,
+	ITranslationWriteTarget
 } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
@@ -135,9 +138,13 @@ export class ScanOrchestrationService {
 		}
 
 		const projectRoot: string = normalizePath(currentResult.projectRoot);
-		const match: string = await this.resolveLocaleTranslationFile(projectRoot, locale);
+		const adapter: IScanAdapter | undefined = defaultAdapterRegistry.list().find((entry: IScanAdapter): boolean => entry.id === currentResult.adapterId);
+		const target: ITranslationWriteTarget = adapter?.resolveTranslationWriteTarget
+			? await adapter.resolveTranslationWriteTarget({ projectRoot, config: this.activeScannerConfig }, this.fsAdapter, locale, key)
+			: { filePath: await this.resolveLocaleTranslationFile(projectRoot, locale), key };
+		const match: string = target.filePath;
 		const parsed: Record<string, unknown> = await this.readTranslationJson(match);
-		setNestedTranslationKey(parsed, key, value);
+		setNestedTranslationKey(parsed, target.key, value);
 		const serialized: string = `${JSON.stringify(parsed, null, 2)}\n`;
 		await this.electronService.writeFile(match, serialized);
 		this.updateMatrixWithAddedKey(locale, key, value);
@@ -199,11 +206,13 @@ export class ScanOrchestrationService {
 			}))
 		];
 		const row: ITranslationMatrixRow | undefined = updatedRows.find((entry: ITranslationMatrixRow): boolean => entry.key === key);
+		const adapter: IScanAdapter | undefined = defaultAdapterRegistry.list().find((entry: IScanAdapter): boolean => entry.id === existingResult.adapterId);
+		const placeholders: string[] = adapter?.extractPlaceholders?.(value) ?? extractMustachePlaceholders(value);
 
 		if (row) {
 			row.values[locale] = value;
 			row.keyPresence = row.keyPresence ? { ...row.keyPresence, [locale]: true } : { [locale]: true };
-			row.placeholders = { ...(row.placeholders ?? {}), [locale]: extractMustachePlaceholders(value) };
+			row.placeholders = { ...(row.placeholders ?? {}), [locale]: placeholders };
 		} else {
 			const values: Record<string, string> = {};
 			const keyPresence: Record<string, boolean> = {};
@@ -214,7 +223,7 @@ export class ScanOrchestrationService {
 			values[locale] = value;
 			keyPresence[locale] = true;
 
-			updatedRows.push({ key, values, keyPresence, placeholders: { [locale]: extractMustachePlaceholders(value) } });
+			updatedRows.push({ key, values, keyPresence, placeholders: { [locale]: placeholders } });
 			updatedRows.sort((a: ITranslationMatrixRow, b: ITranslationMatrixRow): number => a.key.localeCompare(b.key));
 		}
 

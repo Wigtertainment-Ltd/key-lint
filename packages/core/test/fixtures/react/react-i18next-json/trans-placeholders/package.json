@@ -1,0 +1,5 @@
+{
+	"name": "fixture-react-i18next-trans-placeholders",
+	"private": true,
+	"dependencies": { "react": "^19.0.0", "react-i18next": "^17.0.13", "i18next": "^26.0.0" }
+}

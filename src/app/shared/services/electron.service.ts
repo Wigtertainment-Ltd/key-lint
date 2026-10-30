@@ -21,6 +21,10 @@ export class ElectronService {
 		return this.bridge().getAppVersion();
 	}
 
+	openSupportPage(): Promise<void> {
+		return this.bridge().openSupportPage();
+	}
+
 	pathExists(filePath: string): Promise<boolean> {
 		return this.bridge().pathExists(filePath);
 	}

@@ -1,0 +1,10 @@
+{
+	"framework": "react",
+	"translationFormat": "react-i18next-json",
+	"scenario": "basic",
+	"covers": [
+		"used",
+		"unused",
+		"missing-in-language"
+	]
+}

@@ -1,0 +1,4 @@
+{
+	"items_one": "{{count}} предмет", "items_few": "{{count}} предмета", "items_many": "{{count}} предметов", "items_other": "{{count}} предмета",
+	"title": "Корзина", "status": { "ok": "Готово", "error": "Ошибка" }, "unused": "Не используется"
+}

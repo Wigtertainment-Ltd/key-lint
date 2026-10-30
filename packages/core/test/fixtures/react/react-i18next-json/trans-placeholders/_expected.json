@@ -1,0 +1,23 @@
+{
+	"adapterId": "react",
+	"summary": {
+		"totalKeys": 8, "used": 7, "unused": 1, "dynamicOrUncertain": 0, "indirectUncertain": 0,
+		"missingInLanguage": 2, "extraInLanguage": 0, "placeholderMissing": 1, "placeholderUncertain": 2, "placeholderMismatch": 1, "totalFindings": 14
+	},
+	"findings": [
+		{ "key": "common:good", "status": "used", "severity": "info" },
+		{ "key": "common:missing", "status": "used", "severity": "info" },
+		{ "key": "common:missing", "status": "placeholder-missing", "severity": "error" },
+		{ "key": "common:nested", "status": "used", "severity": "info" },
+		{ "key": "common:nested", "status": "placeholder-uncertain", "severity": "warning" },
+		{ "key": "common:uncertain", "status": "used", "severity": "info" },
+		{ "key": "common:uncertain", "status": "placeholder-uncertain", "severity": "warning" },
+		{ "key": "common:mismatch", "status": "used", "severity": "info" },
+		{ "key": "common:mismatch", "status": "placeholder-mismatch", "severity": "error" },
+		{ "key": "common:formatted", "status": "used", "severity": "info" },
+		{ "key": "common:child", "status": "used", "severity": "info" },
+		{ "key": "common:unused", "status": "unused", "severity": "warning" },
+		{ "key": "common:notDefined", "status": "missing-in-language", "severity": "error" },
+		{ "key": "common:notDefined", "status": "missing-in-language", "severity": "error" }
+	]
+}

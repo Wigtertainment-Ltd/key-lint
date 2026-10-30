@@ -1,10 +1,10 @@
 import { fileURLToPath } from 'node:url';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi, Mock } from 'vitest';
 
-import { normalizePath } from '@key-lint/core';
+import { normalizePath, IProjectScanResult } from '@key-lint/core';
 import { parseCliArgs, USAGE } from './args.js';
 import { runCli } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
@@ -46,6 +46,8 @@ function createIo(): ICapturedIo {
 
 interface IJsonReport {
 	schemaVersion: number;
+	adapterId: string;
+	summary: IProjectScanResult['summary'];
 	severityCounts: { error: number; warning: number; info: number };
 	metadata: {
 		baseLocale?: string;
@@ -117,6 +119,47 @@ async function createAutoHttpFixture(
 afterEach((): typeof vi => vi.unstubAllGlobals());
 
 describe('runCli', (): void => {
+	it.each(['basic', 'namespaces', 'default-namespace', 'trans-placeholders', 'plurals-dynamic'])('scans the React %s fixture through the default registry', async (scenario: string): Promise<void> => {
+		const root: string = fileURLToPath(new URL(`../../core/test/fixtures/react/react-i18next-json/${scenario}`, import.meta.url));
+		const expected: { summary: IProjectScanResult['summary']; } = JSON.parse(await readFile(join(root, '_expected.json'), 'utf8')) as { summary: IProjectScanResult['summary'] };
+		const io: ICapturedIo = createIo();
+		const code: number = await runCli(['scan', root, '--quiet', '--reporter', 'json'], io);
+		const report: IJsonReport = parseJsonReport(io);
+		expect(code).toBe(EXIT_THRESHOLD_EXCEEDED);
+		expect(report.adapterId).toBe('react');
+		expect(report.summary).toEqual(expected.summary);
+		expect(report.metadata.translationReadOnly).toBe(false);
+	});
+
+	it('applies React warning thresholds and namespace-qualified ignore patterns', async (): Promise<void> => {
+		const root: string = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/plurals-dynamic', import.meta.url));
+		const passing: ICapturedIo = createIo();
+		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '3'], passing)).toBe(EXIT_OK);
+		const failing: ICapturedIo = createIo();
+		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '2'], failing)).toBe(EXIT_THRESHOLD_EXCEEDED);
+		const ignored: ICapturedIo = createIo();
+		expect(
+			await runCli(
+				['scan', root, '--quiet', '--reporter', 'json', '--ignore', 'common:missing_*', '--ignore', 'common:status.*', '--ignore', 'common:unused', '--max-warnings', '0'],
+				ignored
+			)
+		).toBe(EXIT_OK);
+		expect(parseJsonReport(ignored).findings.every((finding: { key: string; status: string; severity: string; language: string | null; }): boolean => finding.status === 'used')).toBe(true);
+	});
+
+	it('renders React results through text, Markdown and HTML reporters', async (): Promise<void> => {
+		const root: string = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/basic', import.meta.url));
+		const io: ICapturedIo = createIo();
+		const code: number = await runCli(['scan', root, '--quiet', '--max-errors', '1', '--output', 'text=react.txt', '--output', 'markdown=react.md', '--output', 'html=react.html'], io);
+		expect(code).toBe(EXIT_OK);
+		expect(io.files.size).toBe(3);
+		for (const report of io.files.values()) {
+			expect(report).toContain('react');
+			expect(report).toContain('app.missing');
+			expect(report).toContain('App.tsx');
+		}
+	});
+
 	it('reports missing keys as errors and fails with the default thresholds', async (): Promise<void> => {
 		const io: ICapturedIo = createIo();
 		const exitCode: number = await runCli(

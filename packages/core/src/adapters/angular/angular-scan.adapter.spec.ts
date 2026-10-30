@@ -96,7 +96,7 @@ describe('angularScanAdapter', (): void => {
 		expect(result.resolvedProjectRoot).toBe(projectRoot);
 	});
 
-	it('detects angular monorepo when a nested project path is selected', async (): Promise<void> => {
+	it('keeps a selected Angular project inside its enclosing Nx workspace', async (): Promise<void> => {
 		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/mono/nx.json': '{"npmScope":"demo"}',
 			'workspace/mono/package.json': '{"dependencies":{"@angular/core":"18.1.0"},"devDependencies":{"@nx/angular":"19.0.0"}}',
@@ -107,8 +107,27 @@ describe('angularScanAdapter', (): void => {
 		const result: IAdapterDetectionResult = await angularScanAdapter.detect(nestedSelection, fs);
 
 		expect(result.supported).toBeTrue();
-		expect(result.confidence).toBe(0.9);
-		expect(result.resolvedProjectRoot).toBe('workspace/mono');
+		expect(result.confidence).toBe(0.85);
+		expect(result.resolvedProjectRoot).toBe(nestedSelection);
+	});
+
+	it('resolves a source directory to its closest project instead of an enclosing workspace', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			'workspace/mono/nx.json': '{}',
+			'workspace/mono/package.json': '{"dependencies":{"@angular/core":"18.1.0"}}',
+			'workspace/mono/apps/admin/project.json': '{"name":"admin"}'
+		});
+		const result: IAdapterDetectionResult = await angularScanAdapter.detect('workspace/mono/apps/admin/src', fs);
+		expect(result.resolvedProjectRoot).toBe('workspace/mono/apps/admin');
+	});
+
+	it('detects the Nx workspace when the selected subtree has no project markers', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			'workspace/mono/nx.json': '{}',
+			'workspace/mono/package.json': '{"dependencies":{"@angular/core":"18.1.0"}}'
+		});
+		const result: IAdapterDetectionResult = await angularScanAdapter.detect('workspace/mono/apps/admin/src', fs);
+		expect(result).toMatchObject({ supported: true, confidence: 0.9, resolvedProjectRoot: 'workspace/mono' });
 	});
 
 	it('discovers keys, usages, and rules for static and missing keys', async (): Promise<void> => {

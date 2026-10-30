@@ -4,6 +4,7 @@ const IPC_CHANNELS = Object.freeze({
 	deleteProjectSettings: 'keylint:settings:delete-project',
 	selectProjectDirectory: 'keylint:dialog:select-project-directory',
 	getAppVersion: 'keylint:app:get-version',
+	openSupportPage: 'keylint:app:open-support-page',
 	pathExists: 'keylint:fs:path-exists',
 	readFile: 'keylint:fs:read-file',
 	writeFile: 'keylint:fs:write-file',

@@ -20,6 +20,7 @@ describe('ScanOrchestrationService translation updates', (): void => {
 	let historyService: jasmine.SpyObj<ProjectHistoryService>;
 	let remoteRequestCount: number;
 	let remoteRequests: IKeyLintTranslationFetchRequest[];
+	let tree: Record<string, IFakeEntry[]>;
 
 	beforeEach((): void => {
 		writtenPath = undefined;
@@ -27,7 +28,7 @@ describe('ScanOrchestrationService translation updates', (): void => {
 		unreadablePaths = new Set<string>();
 		remoteRequestCount = 0;
 		remoteRequests = [];
-		const tree: Record<string, IFakeEntry[]> = {
+		tree = {
 			'C:/project': [
 				{ name: 'angular.json', type: 'file' },
 				{ name: 'keylint.config.json', type: 'file' },
@@ -80,6 +81,7 @@ describe('ScanOrchestrationService translation updates', (): void => {
 			writeFile: async (path: string, content: string): Promise<void> => {
 				writtenPath = path;
 				writtenContent = content;
+				contents[path] = content;
 				return Promise.resolve();
 			},
 			pathExists: async (path: string): Promise<boolean> => Promise.resolve(path in tree || path in contents),
@@ -106,6 +108,62 @@ describe('ScanOrchestrationService translation updates', (): void => {
 				{ provide: LoggerService, useValue: jasmine.createSpyObj<LoggerService>('LoggerService', ['info', 'error']) }
 			]
 		});
+	});
+
+	function useReactProject(): void {
+		tree = {
+			'C:/project': [{ name: 'package.json', type: 'file' }, { name: 'src', type: 'directory' }, { name: 'locales', type: 'directory' }],
+			'C:/project/src': [{ name: 'App.tsx', type: 'file' }],
+			'C:/project/locales': [{ name: 'en', type: 'directory' }, { name: 'de', type: 'directory' }],
+			'C:/project/locales/en': [{ name: 'common.json', type: 'file' }, { name: 'admin.json', type: 'file' }],
+			'C:/project/locales/de': [{ name: 'common.json', type: 'file' }, { name: 'admin.json', type: 'file' }]
+		};
+		contents = {
+			'C:/project/package.json': '{"dependencies":{"react":"^19","react-i18next":"^17","i18next":"^26"}}',
+			'C:/project/src/App.tsx': `import { Trans, useTranslation } from 'react-i18next'; function App({ count, state }) {
+				const { t } = useTranslation('common'); return <><Trans t={t} i18nKey="greeting" values={{ name: 'Ada' }} />{t('items', { count })}{t('status.' + state)}</>; }`,
+			'C:/project/locales/en/common.json': '{"greeting":"Hello {{name}}","items_one":"{{count}} item","items_other":"{{count}} items","status":{"ok":"OK","error":"Error"}}',
+			'C:/project/locales/de/common.json': '{"items_one":"{{count}} Eintrag","items_other":"{{count}} Einträge","status":{"ok":"OK","error":"Fehler"}}',
+			'C:/project/locales/en/admin.json': '{"greeting":"Admin greeting"}',
+			'C:/project/locales/de/admin.json': '{"greeting":"Admin-Begrüßung"}'
+		};
+	}
+
+	it('scans React through the desktop filesystem and records its adapter in history', async (): Promise<void> => {
+		useReactProject();
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
+		const result: IProjectScanResult = await service.scanProject('C:/project');
+		expect(result.adapterId).toBe('react');
+		expect(result.summary).toEqual(jasmine.objectContaining({ totalKeys: 6, used: 3, unused: 1, missingInLanguage: 1, dynamicOrUncertain: 2 }));
+		expect(service.snapshot.state).toBe('completed');
+		expect(result.metadata?.['translationFileCount']).toBe(4);
+		expect(result.metadata?.['fileSystemWarningCount']).toBe(0);
+		expect(historyService.addEvent.calls.allArgs()).toContain([
+			jasmine.objectContaining({ type: 'scan-completed', payload: jasmine.objectContaining({ adapterId: 'react' }) })
+		]);
+	});
+
+	it('writes React keys into the correct namespace and retains React interpolation metadata', async (): Promise<void> => {
+		useReactProject();
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
+		await service.scanProject('C:/project');
+		const adminBefore: string = contents['C:/project/locales/de/admin.json'];
+		const value: string = 'Hallo {{name}} {{- html}} {{price, number}}';
+		const file: string = await service.addTranslationKeyForLocale('de', 'common:greeting', value, 'results-overview');
+		expect(file).toBe('C:/project/locales/de/common.json');
+		expect(JSON.parse(writtenContent ?? '{}') as Record<string, unknown>).toEqual(jasmine.objectContaining({ greeting: value }));
+		expect(JSON.parse(writtenContent ?? '{}') as Record<string, unknown>).not.toEqual(jasmine.objectContaining({ 'common:greeting': value }));
+		expect(contents['C:/project/locales/de/admin.json']).toBe(adminBefore);
+		expect(service.snapshot.result?.summary.missingInLanguage).toBe(0);
+		expect(service.snapshot.result?.translationMatrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'common:greeting')?.placeholders?.['de']).toEqual(['html', 'name', 'price']);
+	});
+
+	it('does not write a React key into an unrelated namespace when its target file is missing', async (): Promise<void> => {
+		useReactProject();
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
+		await service.scanProject('C:/project');
+		await expectAsync(service.addTranslationKeyForLocale('de', 'absent:greeting', 'Hallo')).toBeRejectedWithError(/namespace "absent"/);
+		expect(writtenPath).toBeUndefined();
 	});
 
 	it('uses project config for both scanning and later translation writes', async (): Promise<void> => {

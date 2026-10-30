@@ -24,6 +24,13 @@
 							"zone.js"
 						],
 						"tsConfig": "tsconfig.app.json",
+						"allowedCommonJsDependencies": ["typescript"],
+						"fileReplacements": [
+							{
+								"replace": "node_modules/source-map-support/source-map-support.js",
+								"with": "src/app/shared/browser-source-map-support.js"
+							}
+						],
 						"inlineStyleLanguage": "scss",
 						"assets": [
 							{
