@@ -1,11 +1,12 @@
-import { Component, computed, effect, inject, Injector, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, Injector, OnInit, signal, Signal, WritableSignal, EffectCleanupRegisterFn } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { IScanCompletedHistoryPayload, IProjectScanResult, normalizePath } from '@key-lint/core';
+import { IScanCompletedHistoryPayload, IProjectScanResult, normalizePath, IProjectHistoryEvent } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
-import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
 import { ITrendBar } from './dashboard.interfaces';
+import type { Subscription } from 'rxjs';
 
 @Component({
 	selector: 'app-dashboard-page',
@@ -19,42 +20,42 @@ export class DashboardPage implements OnInit {
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
 	private readonly injector: Injector = inject(Injector);
-	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+	private readonly scanSnapshot: Signal<ScanExecutionSnapshot> = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
-	private readonly scanResultSignal = computed(() => this.scanSnapshot().result);
-	private watchedProjectPath = '';
-	private readonly scanTrendEvents = signal<ITrendBar[]>([]);
-	private readonly selectedTrendDayKey = signal<string | undefined>(undefined);
+	private readonly scanResultSignal: Signal<IProjectScanResult | undefined> = computed((): IProjectScanResult | undefined => this.scanSnapshot().result);
+	private watchedProjectPath: string = '';
+	private readonly scanTrendEvents: WritableSignal<ITrendBar[]> = signal<ITrendBar[]>([]);
+	private readonly selectedTrendDayKey: WritableSignal<string | undefined> = signal<string | undefined>(undefined);
 
 	ngOnInit(): void {
 		effect(
-			(onCleanup) => {
-				const normalizedProjectRoot = this.resolveProjectRoot();
+			(onCleanup: EffectCleanupRegisterFn): void => {
+				const normalizedProjectRoot: string = this.resolveProjectRoot();
 				if (!normalizedProjectRoot || normalizedProjectRoot === this.watchedProjectPath) {
 					return;
 				}
 
 				this.watchedProjectPath = normalizedProjectRoot;
-				const subscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events) => {
+				const subscription: Subscription = this.historyService.watchEventsForProject(normalizedProjectRoot).subscribe((events: IProjectHistoryEvent[]): void => {
 					const selected: ITrendBar[] = [];
 					for (const event of events) {
 						if (event.type !== 'scan-completed') {
 							continue;
 						}
 
-						const eventTime = new Date(event.timestamp);
+						const eventTime: Date = new Date(event.timestamp);
 						if (Number.isNaN(eventTime.getTime())) {
 							continue;
 						}
 
-						const dayKey = this.toDayKey(eventTime);
-						const payload = event.payload as IScanCompletedHistoryPayload;
-						const hasDetailedIssueCounts = typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
-						const missingCount = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
-						const unusedCount = typeof payload.unusedCount === 'number' ? payload.unusedCount : 0;
-						const placeholderIssueCount = typeof payload.placeholderIssueCount === 'number' ? payload.placeholderIssueCount : 0;
-						const issues = hasDetailedIssueCounts ? Math.max(0, missingCount + unusedCount + placeholderIssueCount) : Math.max(0, payload.totalFindings);
+						const dayKey: string = this.toDayKey(eventTime);
+						const payload: IScanCompletedHistoryPayload = event.payload as IScanCompletedHistoryPayload;
+						const hasDetailedIssueCounts: boolean = typeof payload.missingCount === 'number' || typeof payload.unusedCount === 'number';
+						const missingCount: number = typeof payload.missingCount === 'number' ? payload.missingCount : 0;
+						const unusedCount: number = typeof payload.unusedCount === 'number' ? payload.unusedCount : 0;
+						const placeholderIssueCount: number = typeof payload.placeholderIssueCount === 'number' ? payload.placeholderIssueCount : 0;
+						const issues: number = hasDetailedIssueCounts ? Math.max(0, missingCount + unusedCount + placeholderIssueCount) : Math.max(0, payload.totalFindings);
 
 						selected.push({
 							id: event.id,
@@ -66,16 +67,16 @@ export class DashboardPage implements OnInit {
 						});
 					}
 
-					selected.sort((left, right) => this.timestampToMillis(right.timestamp) - this.timestampToMillis(left.timestamp));
+					selected.sort((left: ITrendBar, right: ITrendBar): number => this.timestampToMillis(right.timestamp) - this.timestampToMillis(left.timestamp));
 					this.scanTrendEvents.set(selected);
 
-					const activeDay = this.selectedTrendDayKey();
-					if (activeDay && !selected.some((scan) => scan.dayKey === activeDay)) {
+					const activeDay: string | undefined = this.selectedTrendDayKey();
+					if (activeDay && !selected.some((scan: ITrendBar): boolean => scan.dayKey === activeDay)) {
 						this.selectedTrendDayKey.set(undefined);
 					}
 				});
 
-				onCleanup(() => subscription.unsubscribe());
+				onCleanup((): void => subscription.unsubscribe());
 			},
 			{ injector: this.injector }
 		);
@@ -154,7 +155,7 @@ export class DashboardPage implements OnInit {
 	}
 
 	get frameworkLabel(): string {
-		const adapterId = this.scanResult?.adapterId ?? 'unknown';
+		const adapterId: string = this.scanResult?.adapterId ?? 'unknown';
 		if (adapterId === 'angular') {
 			return 'Angular';
 		}
@@ -163,12 +164,12 @@ export class DashboardPage implements OnInit {
 	}
 
 	get filesScanned(): number {
-		const value = this.scanResult?.metadata?.['usedKeyEvidenceCount'];
+		const value: unknown = this.scanResult?.metadata?.['usedKeyEvidenceCount'];
 		return typeof value === 'number' ? value : 0;
 	}
 
 	get scanDurationLabel(): string {
-		const durationMs = this.scanResult?.durationMs ?? 0;
+		const durationMs: number = this.scanResult?.durationMs ?? 0;
 		if (durationMs >= 1000) {
 			return `${(durationMs / 1000).toFixed(1)}s`;
 		}
@@ -181,12 +182,12 @@ export class DashboardPage implements OnInit {
 	}
 
 	get trendBars(): ITrendBar[] {
-		const drilldownBars = this.buildDrilldownTrendBars();
+		const drilldownBars: ITrendBar[] | undefined = this.buildDrilldownTrendBars();
 		if (drilldownBars) {
 			return drilldownBars;
 		}
 
-		const overviewBars = this.buildOverviewTrendBars();
+		const overviewBars: ITrendBar[] = this.buildOverviewTrendBars();
 		if (overviewBars.length > 0) {
 			return overviewBars;
 		}
@@ -199,17 +200,17 @@ export class DashboardPage implements OnInit {
 	}
 
 	get trendViewLabel(): string {
-		const selectedDayKey = this.selectedTrendDayKey();
+		const selectedDayKey: string | undefined = this.selectedTrendDayKey();
 		if (!selectedDayKey) {
 			return 'Last 5 scan days';
 		}
 
-		const activeDay = this.trendBars[0]?.timestamp;
+		const activeDay: string = this.trendBars[0]?.timestamp;
 		if (!activeDay) {
 			return 'Selected day scans';
 		}
 
-		const date = new Date(activeDay);
+		const date: Date = new Date(activeDay);
 		if (Number.isNaN(date.getTime())) {
 			return 'Selected day scans';
 		}
@@ -222,7 +223,7 @@ export class DashboardPage implements OnInit {
 	}
 
 	get trendGridTemplateColumns(): string {
-		const columnCount = Math.max(this.trendBars.length, 1);
+		const columnCount: number = Math.max(this.trendBars.length, 1);
 		return `repeat(${columnCount}, minmax(0, 1fr))`;
 	}
 
@@ -259,7 +260,7 @@ export class DashboardPage implements OnInit {
 	}
 
 	private get maxTrendMetric(): number {
-		let maxValue = 0;
+		let maxValue: number = 0;
 		for (const bar of this.trendBars) {
 			maxValue = Math.max(maxValue, bar.keys, bar.issues);
 		}
@@ -268,28 +269,30 @@ export class DashboardPage implements OnInit {
 	}
 
 	private resolveProjectRoot(): string {
-		const snapshotProjectRoot = this.scanResult?.projectRoot ?? '';
-		const queryProjectRoot = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
+		const snapshotProjectRoot: string = this.scanResult?.projectRoot ?? '';
+		const queryProjectRoot: string = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
 		return normalizePath(snapshotProjectRoot || queryProjectRoot);
 	}
 
 	private buildDrilldownTrendBars(): ITrendBar[] | undefined {
-		const selectedDayKey = this.selectedTrendDayKey();
+		const selectedDayKey: string | undefined = this.selectedTrendDayKey();
 		if (!this.isTrendDrilldown || !selectedDayKey) {
 			return undefined;
 		}
 
-		const dayScans = this.scanTrendEvents().filter((item) => item.dayKey === selectedDayKey);
-		const chronologicallySorted = [...dayScans].sort((left, right) => this.timestampToMillis(left.timestamp) - this.timestampToMillis(right.timestamp));
+		const dayScans: ITrendBar[] = this.scanTrendEvents().filter((item: ITrendBar): boolean => item.dayKey === selectedDayKey);
+		const chronologicallySorted: ITrendBar[] = [...dayScans].sort(
+			(left: ITrendBar, right: ITrendBar): number => this.timestampToMillis(left.timestamp) - this.timestampToMillis(right.timestamp)
+		);
 
 		if (chronologicallySorted.length === 0) {
 			this.selectedTrendDayKey.set(undefined);
 			return undefined;
 		}
 
-		const latestTenScans = chronologicallySorted.slice(-10);
+		const latestTenScans: ITrendBar[] = chronologicallySorted.slice(-10);
 
-		return latestTenScans.map((item) => ({
+		return latestTenScans.map((item: ITrendBar): { label: string; isLatest: false; id: string; keys: number; issues: number; dayKey: string; timestamp: string; } => ({
 			...item,
 			label: this.formatTrendTimeLabel(item.timestamp),
 			isLatest: false
@@ -297,12 +300,12 @@ export class DashboardPage implements OnInit {
 	}
 
 	private buildOverviewTrendBars(): ITrendBar[] {
-		const trendEvents = this.scanTrendEvents();
+		const trendEvents: ITrendBar[] = this.scanTrendEvents();
 		if (trendEvents.length === 0) {
 			return [];
 		}
 
-		const seenDays = new Set<string>();
+		const seenDays: Set<string> = new Set<string>();
 		const latestPerDay: ITrendBar[] = [];
 
 		for (const scan of trendEvents) {
@@ -322,8 +325,8 @@ export class DashboardPage implements OnInit {
 			}
 		}
 
-		const chronologicallyOrdered = [...latestPerDay].reverse();
-		const latestBar = chronologicallyOrdered.at(-1);
+		const chronologicallyOrdered: ITrendBar[] = [...latestPerDay].reverse();
+		const latestBar: ITrendBar | undefined = chronologicallyOrdered.at(-1);
 		if (latestBar) {
 			latestBar.isLatest = true;
 		}
@@ -336,7 +339,7 @@ export class DashboardPage implements OnInit {
 			return [];
 		}
 
-		const scanTimestamp = this.scanResult.finishedAt;
+		const scanTimestamp: string = this.scanResult.finishedAt;
 		return [
 			{
 				id: `fallback-${scanTimestamp}`,
@@ -351,14 +354,14 @@ export class DashboardPage implements OnInit {
 	}
 
 	private toDayKey(date: Date): string {
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
+		const year: number = date.getFullYear();
+		const month: string = String(date.getMonth() + 1).padStart(2, '0');
+		const day: string = String(date.getDate()).padStart(2, '0');
 		return `${year}-${month}-${day}`;
 	}
 
 	private formatTrendLabel(timestamp: string): string {
-		const date = new Date(timestamp);
+		const date: Date = new Date(timestamp);
 		if (Number.isNaN(date.getTime())) {
 			return 'Unknown';
 		}
@@ -370,7 +373,7 @@ export class DashboardPage implements OnInit {
 	}
 
 	private formatTrendTimeLabel(timestamp: string): string {
-		const date = new Date(timestamp);
+		const date: Date = new Date(timestamp);
 		if (Number.isNaN(date.getTime())) {
 			return 'Unknown';
 		}
@@ -382,7 +385,7 @@ export class DashboardPage implements OnInit {
 	}
 
 	private timestampToMillis(timestamp: string): number {
-		const parsed = Date.parse(timestamp);
+		const parsed: number = Date.parse(timestamp);
 		if (!Number.isNaN(parsed)) {
 			return parsed;
 		}

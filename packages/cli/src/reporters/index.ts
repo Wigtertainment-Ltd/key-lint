@@ -11,7 +11,7 @@ export const REPORTERS: Record<ReporterName, IReporter> = {
 	html: htmlReporter
 };
 
-export const REPORTER_NAMES = Object.keys(REPORTERS) as ReporterName[];
+export const REPORTER_NAMES: ReporterName[] = Object.keys(REPORTERS) as ReporterName[];
 
 export function isReporterName(value: string): value is ReporterName {
 	return (REPORTER_NAMES as string[]).includes(value);

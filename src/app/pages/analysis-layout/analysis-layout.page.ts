@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit, WritableSignal, inject, signal } from '@a
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IFileSystemWarning } from '@key-lint/core';
 import { Subscription } from 'rxjs';
-import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
 import { ThemeService } from '../../services/theme.service';
 
@@ -39,7 +39,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '/root/apps/web-client';
 
-		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot) => {
+		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot: ScanExecutionSnapshot): void => {
 			if (snapshot.result?.finishedAt) {
 				this.lastScanText = snapshot.result.finishedAt;
 			}
@@ -62,7 +62,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	}
 
 	get displayProjectName(): string {
-		let normalizedPath = this.projectPath.trim();
+		let normalizedPath: string = this.projectPath.trim();
 
 		while (normalizedPath.endsWith('/') || normalizedPath.endsWith('\\')) {
 			normalizedPath = normalizedPath.slice(0, -1);
@@ -73,7 +73,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 		}
 
 		// Split on one or more Windows or Unix path separators and discard empty segments.
-		const segments = normalizedPath.split(/[\\/]+/).filter(Boolean);
+		const segments: string[] = normalizedPath.split(/[\\/]+/).filter(Boolean);
 		return segments.at(-1) ?? this.projectPath;
 	}
 
@@ -98,7 +98,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 			return [];
 		}
 
-		return value.filter((warning): warning is IFileSystemWarning =>
+		return value.filter((warning: unknown): warning is IFileSystemWarning =>
 			warning !== null &&
 			typeof warning === 'object' &&
 			typeof (warning as IFileSystemWarning).code === 'string' &&

@@ -1,6 +1,6 @@
 import { IAutoHttpTranslationSourceConfig, IHttpTranslationSourceConfig, ITranslationSourceConfig } from '../config/config.interfaces.js';
 import { parseScannerConfigOverrides } from '../config/scanner-config.js';
-import { ILoaderDetectionDiagnostic, ITranslationLoaderCandidate } from './loader-detection.interfaces.js';
+import { ILoaderDetectionDiagnostic, ITranslationLoaderCandidate, ILoaderResourceTemplate } from './loader-detection.interfaces.js';
 
 export type AutoHttpResolutionErrorCode = 'auto-http-no-candidate' | 'auto-http-multiple-candidates' | 'auto-http-selection-invalid' | 'auto-http-origin-required' | 'auto-http-locales-required' | 'auto-http-invalid-url';
 
@@ -80,13 +80,15 @@ function diagnosticLocation(diagnostic: ILoaderDetectionDiagnostic): string {
  * @returns A display template with a redacted query, or `[invalid URL]` when parsing fails.
  */
 export function redactAutoHttpUrlTemplate(value: string): string {
-	const marker = '__KEYLINT_LOCALE__';
-	const absolute = /^https?:\/\//i.test(value);
+	const marker: string = '__KEYLINT_LOCALE__';
+	const absolute: boolean = /^https?:\/\//i.test(value);
 	try {
-		const url = new URL(value.replace('{locale}', marker), absolute ? undefined : 'https://keylint.invalid');
-		if (url.search) url.search = '?[redacted]';
+		const url: URL = new URL(value.replace('{locale}', marker), absolute ? undefined : 'https://keylint.invalid');
+		if (url.search) {
+			url.search = '?[redacted]';
+		}
 		url.hash = '';
-		const result = absolute ? url.toString() : `${url.pathname}${url.search}`;
+		const result: string = absolute ? url.toString() : `${url.pathname}${url.search}`;
 		return result.replace(marker, '{locale}');
 	} catch {
 		return '[invalid URL]';
@@ -101,7 +103,8 @@ export function redactAutoHttpUrlTemplate(value: string): string {
  * @returns A single-line description suitable for selection diagnostics.
  */
 export function formatAutoHttpCandidate(candidate: ITranslationLoaderCandidate, index: number): string {
-	return `${index + 1}. ${candidate.framework}/${candidate.api} at ${candidateLocation(candidate)} -> ${candidate.resources.map((resource) => redactAutoHttpUrlTemplate(resource.urlTemplate)).join(', ')}`;
+	return `${index + 1}. ${candidate.framework}/${candidate.api} at ${candidateLocation(candidate)} -> ${candidate.resources
+		.map((resource: ILoaderResourceTemplate): string => redactAutoHttpUrlTemplate(resource.urlTemplate)).join(', ')}`;
 }
 
 /**
@@ -119,8 +122,8 @@ function resolvedTemplate(resource: ITranslationLoaderCandidate['resources'][num
 	if (resource.requiresOrigin && !source.origin) {
 		throw new AutoHttpResolutionError('auto-http-origin-required', `The detected relative translation URL "${redactAutoHttpUrlTemplate(resource.urlTemplate)}" at ${candidateLocation(candidate)} requires an origin in the auto-http source. No request was made. ${manualFallback()}`, analysis.candidates, analysis.diagnostics);
 	}
-	const marker = '__KEYLINT_LOCALE__';
-	const input = resource.urlTemplate.replace('{locale}', marker);
+	const marker: string = '__KEYLINT_LOCALE__';
+	const input: string = resource.urlTemplate.replace('{locale}', marker);
 	let parsed: URL;
 	try {
 		parsed = resource.requiresOrigin ? new URL(input, source.origin) : new URL(input);
@@ -146,14 +149,21 @@ function resolvedTemplate(resource: ITranslationLoaderCandidate['resources'][num
  * @throws {AutoHttpResolutionError} When selection, locales, origin, or endpoint resolution is invalid.
  */
 export function resolveAutoHttpCandidate(source: IAutoHttpTranslationSourceConfig, sourceIndex: number, candidateIndex: number, analysis: IAutoHttpProjectAnalysis): IResolvedAutoHttpSource {
-	const candidate = analysis.candidates[candidateIndex];
-	if (!candidate) throw new AutoHttpResolutionError('auto-http-selection-invalid', `The selected auto-http candidate ${candidateIndex + 1} does not exist. No request was made.`, analysis.candidates, analysis.diagnostics);
-	const locales = source.locales?.length ? source.locales : candidate.locales;
+	const candidate: ITranslationLoaderCandidate = analysis.candidates[candidateIndex];
+	if (!candidate) {
+		throw new AutoHttpResolutionError(
+			'auto-http-selection-invalid',
+			`The selected auto-http candidate ${candidateIndex + 1} does not exist. No request was made.`,
+			analysis.candidates,
+			analysis.diagnostics
+		);
+	}
+	const locales: string[] = source.locales?.length ? source.locales : candidate.locales;
 	if (locales.length === 0) {
 		throw new AutoHttpResolutionError('auto-http-locales-required', `The detected loader at ${candidateLocation(candidate)} has no static locales. Configure locales in the auto-http source before continuing. No request was made. ${manualFallback()}`, analysis.candidates, analysis.diagnostics);
 	}
-	const baseId = source.id ?? `auto-http-${sourceIndex + 1}`;
-	const sources = candidate.resources.map((resource, resourceIndex): IHttpTranslationSourceConfig => ({
+	const baseId: string = source.id ?? `auto-http-${sourceIndex + 1}`;
+	const sources: IHttpTranslationSourceConfig[] = candidate.resources.map((resource: ILoaderResourceTemplate, resourceIndex: number): IHttpTranslationSourceConfig => ({
 		type: 'http',
 		id: candidate.resources.length === 1 ? baseId : `${baseId}-${resourceIndex + 1}`,
 		urlTemplate: resolvedTemplate(resource, source, candidate, analysis),
@@ -184,14 +194,14 @@ export function expandAutoHttpTranslationSources(translationSources: readonly IT
 			continue;
 		}
 		if (analysis.candidates.length === 0) {
-			const locations = analysis.diagnostics.map((diagnostic) => `${diagnostic.code} at ${diagnosticLocation(diagnostic)}`).join('; ');
+			const locations: string = analysis.diagnostics.map((diagnostic: ILoaderDetectionDiagnostic): string => `${diagnostic.code} at ${diagnosticLocation(diagnostic)}`).join('; ');
 			throw new AutoHttpResolutionError('auto-http-no-candidate', `No compatible static ngx-translate or Transloco HTTP loader candidate was found. No request was made.${locations ? ` Diagnostics: ${locations}.` : ''} ${manualFallback()}`, analysis.candidates, analysis.diagnostics);
 		}
-		const selected = selections.get(sourceIndex);
+		const selected: number | undefined = selections.get(sourceIndex);
 		if (selected === undefined && analysis.candidates.length > 1) {
 			throw new AutoHttpResolutionError('auto-http-multiple-candidates', `Multiple compatible translation loader candidates were found; the CLI will not guess. No request was made:\n${analysis.candidates.map(formatAutoHttpCandidate).join('\n')}\n${manualFallback()}`, analysis.candidates, analysis.diagnostics);
 		}
-		const item = resolveAutoHttpCandidate(source, sourceIndex, selected ?? 0, analysis);
+		const item: IResolvedAutoHttpSource = resolveAutoHttpCandidate(source, sourceIndex, selected ?? 0, analysis);
 		resolved.push(item);
 		expanded.push(...item.sources);
 	}

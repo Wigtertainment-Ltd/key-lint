@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, WritableSignal, Signal } from '@angular/core';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -12,21 +12,21 @@ export interface IToastMessage {
 	providedIn: 'root'
 })
 export class ToastService {
-	private readonly messageSignal = signal<IToastMessage | undefined>(undefined);
+	private readonly messageSignal: WritableSignal<IToastMessage | undefined> = signal<IToastMessage | undefined>(undefined);
 	private timer?: ReturnType<typeof setTimeout>;
-	private nextId = 0;
+	private nextId: number = 0;
 
-	readonly message = this.messageSignal.asReadonly();
+	readonly message: Signal<IToastMessage | undefined> = this.messageSignal.asReadonly();
 
-	success(text: string, durationMs = 2500): void {
+	success(text: string, durationMs: number = 2500): void {
 		this.show('success', text, durationMs);
 	}
 
-	error(text: string, durationMs = 3200): void {
+	error(text: string, durationMs: number = 3200): void {
 		this.show('error', text, durationMs);
 	}
 
-	info(text: string, durationMs = 2500): void {
+	info(text: string, durationMs: number = 2500): void {
 		this.show('info', text, durationMs);
 	}
 
@@ -48,7 +48,7 @@ export class ToastService {
 		});
 
 		if (durationMs > 0) {
-			this.timer = setTimeout(() => {
+			this.timer = setTimeout((): void => {
 				this.messageSignal.set(undefined);
 				this.timer = undefined;
 			}, durationMs);

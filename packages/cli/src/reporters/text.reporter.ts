@@ -2,7 +2,7 @@ import { IFileEvidence, IFinding, IProjectScanResult } from '@key-lint/core';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 import { severityRank } from './reporter.js';
 
-const ANSI = {
+const ANSI: { reset: string; bold: string; dim: string; red: string; yellow: string; cyan: string; } = {
 	reset: '\u001B[0m',
 	bold: '\u001B[1m',
 	dim: '\u001B[2m',
@@ -21,7 +21,7 @@ function formatLocation(finding: IFinding): string {
 		return '';
 	}
 
-	const position: string = [evidence.line, evidence.column].filter((value) => value !== undefined).join(':');
+	const position: string = [evidence.line, evidence.column].filter((value: number | undefined): value is number => value !== undefined).join(':');
 
 	return position ? `${evidence.filePath}:${position}` : evidence.filePath;
 }
@@ -29,12 +29,12 @@ function formatLocation(finding: IFinding): string {
 export const textReporter: IReporter = {
 	name: 'text',
 	format(result: IProjectScanResult, context: IReporterContext): string {
-		const { color } = context;
+		const { color }: IReporterContext = context;
 		const lines: string[] = [];
 
 		lines.push(paint(`KeyLint scan: ${result.projectRoot}`, ANSI.bold, color));
 		lines.push(paint(`adapter=${result.adapterId}  duration=${result.durationMs}ms  keys=${result.summary.totalKeys}`, ANSI.dim, color));
-		const baseLocale: unknown = result.metadata?.['baseLocale'];
+		const baseLocale: unknown = result.metadata?.baseLocale;
 		if (typeof baseLocale === 'string') {
 			lines.push(paint(`base locale: ${baseLocale}`, ANSI.dim, color));
 		}
@@ -46,8 +46,8 @@ export const textReporter: IReporter = {
 		lines.push('');
 
 		const reportable: IFinding[] = result.findings
-			.filter((finding) => finding.severity !== 'info')
-			.sort((a, b) => severityRank(a.severity) - severityRank(b.severity) || a.key.localeCompare(b.key));
+			.filter((finding: IFinding): boolean => finding.severity !== 'info')
+			.sort((a: IFinding, b: IFinding): number => severityRank(a.severity) - severityRank(b.severity) || a.key.localeCompare(b.key));
 
 		if (reportable.length === 0) {
 			lines.push('No errors or warnings found.');

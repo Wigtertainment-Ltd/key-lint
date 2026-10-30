@@ -1,30 +1,31 @@
-import { IDesktopTranslationSourceDraft } from './desktop-remote-translation.interfaces';
+import { IDesktopTranslationSourceDraft, IDesktopRemoteHeaderDraft, IDesktopAutoHttpCandidate } from './desktop-remote-translation.interfaces';
+import type { ILoaderDetectionDiagnostic } from '@key-lint/core/detection';
 
 export function cloneDraft(source: IDesktopTranslationSourceDraft): IDesktopTranslationSourceDraft {
 	return {
 		...source,
 		includeGlobs: [...source.includeGlobs],
 		locales: [...source.locales],
-		headers: source.headers.map((header) => ({ ...header })),
-		autoCandidates: source.autoCandidates.map((candidate) => ({
+		headers: source.headers.map((header: IDesktopRemoteHeaderDraft): IDesktopRemoteHeaderDraft => ({ ...header })),
+		autoCandidates: source.autoCandidates.map((candidate: IDesktopAutoHttpCandidate): IDesktopAutoHttpCandidate => ({
 			...candidate,
 			urlTemplates: [...candidate.urlTemplates],
 			locales: [...candidate.locales]
 		})),
-		autoDiagnostics: source.autoDiagnostics.map((diagnostic) => ({ ...diagnostic, location: { ...diagnostic.location } }))
+		autoDiagnostics: source.autoDiagnostics.map((diagnostic: ILoaderDetectionDiagnostic): ILoaderDetectionDiagnostic => ({ ...diagnostic, location: { ...diagnostic.location } }))
 	};
 }
 
 export function isPrivateOrLocalHostname(hostname: string): boolean {
-	const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+	const normalized: string = hostname.toLowerCase().replace(/^\[|\]$/g, '');
 	if (normalized === 'localhost' || normalized.endsWith('.localhost') || normalized.endsWith('.local')) {
 		return true;
 	}
 	if (normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:')) {
 		return true;
 	}
-	const parts = normalized.split('.').map(Number);
-	if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+	const parts: number[] = normalized.split('.').map(Number);
+	if (parts.length !== 4 || parts.some((part: number): boolean => !Number.isInteger(part) || part < 0 || part > 255)) {
 		return false;
 	}
 	return parts[0] === 10 ||

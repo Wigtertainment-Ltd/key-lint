@@ -6,7 +6,7 @@
  * @returns The normalized path, preserving its letter case.
  */
 export function normalizePath(value: string): string {
-	const normalized = value
+	const normalized: string = value
 		.trim()
 		// Convert every Windows path separator to the cross-platform forward-slash form.
 		.replace(/\\/g, '/')
@@ -38,11 +38,11 @@ export function pathDedupeKey(value: string): string {
  * @returns The inferred locale, or the extensionless filename when no dotted suffix exists.
  */
 export function inferLocaleFromTranslationFile(filePath: string): string {
-	const normalized = normalizePath(filePath);
-	const fileName = normalized.split('/').at(-1) ?? normalized;
+	const normalized: string = normalizePath(filePath);
+	const fileName: string = normalized.split('/').at(-1) ?? normalized;
 	// Remove the final extension while preserving earlier dots used before a locale suffix.
-	const withoutExtension = fileName.replace(/\.[^.]+$/, '');
-	const dottedParts = withoutExtension.split('.').filter(Boolean);
+	const withoutExtension: string = fileName.replace(/\.[^.]+$/, '');
+	const dottedParts: string[] = withoutExtension.split('.').filter(Boolean);
 
 	if (dottedParts.length > 1) {
 		return dottedParts.at(-1) ?? withoutExtension;

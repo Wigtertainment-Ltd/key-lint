@@ -1,19 +1,19 @@
 import { ThemeService } from './theme.service';
 
-describe('ThemeService', () => {
-	beforeEach(() => {
+describe('ThemeService', (): void => {
+	beforeEach((): void => {
 		localStorage.clear();
 		document.documentElement.removeAttribute('data-theme');
 	});
 
-	afterEach(() => {
+	afterEach((): void => {
 		localStorage.clear();
 		document.documentElement.removeAttribute('data-theme');
 	});
 
-	it('restores and applies a stored theme', () => {
+	it('restores and applies a stored theme', (): void => {
 		localStorage.setItem('app-theme', 'dark');
-		const service = new ThemeService();
+		const service: ThemeService = new ThemeService();
 
 		service.initialize();
 
@@ -21,9 +21,9 @@ describe('ThemeService', () => {
 		expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
 	});
 
-	it('toggles, applies, and persists the next theme', () => {
+	it('toggles, applies, and persists the next theme', (): void => {
 		localStorage.setItem('app-theme', 'light');
-		const service = new ThemeService();
+		const service: ThemeService = new ThemeService();
 
 		service.toggle();
 
@@ -32,9 +32,9 @@ describe('ThemeService', () => {
 		expect(localStorage.getItem('app-theme')).toBe('dark');
 	});
 
-	it('ignores invalid stored values', () => {
+	it('ignores invalid stored values', (): void => {
 		localStorage.setItem('app-theme', 'blue');
-		const service = new ThemeService();
+		const service: ThemeService = new ThemeService();
 
 		expect(['light', 'dark']).toContain(service.getCurrent());
 	});

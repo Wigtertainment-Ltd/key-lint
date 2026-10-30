@@ -3,20 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { IFileSystemAdapter } from '../adapters/scan-adapter.interface.js';
 import { DEFAULT_SCANNER_CONFIG } from '../config/scanner-defaults.js';
 import {
-	analyzeProjectTranslationLoaders, AutoHttpResolutionError, expandAutoHttpTranslationSources, IAutoHttpProjectAnalysis, redactAutoHttpUrlTemplate
+	analyzeProjectTranslationLoaders,
+	AutoHttpResolutionError,
+	expandAutoHttpTranslationSources,
+	IAutoHttpProjectAnalysis,
+	redactAutoHttpUrlTemplate,
+	IExpandedAutoHttpSources
 } from './auto-http-translation-source.js';
+import { ITranslationLoaderCandidate } from './loader-detection.interfaces.js';
 
 function memoryFs(files: Record<string, string>): IFileSystemAdapter {
 	return {
-		fileExists: async (filePath) => filePath in files,
-		readFile: async (filePath) => files[filePath],
-		listFiles: async () => Object.keys(files)
+		fileExists: (filePath: string): Promise<boolean> => Promise.resolve(filePath in files),
+		readFile: (filePath: string): Promise<string> => Promise.resolve(files[filePath]),
+		listFiles: (): Promise<string[]> => Promise.resolve(Object.keys(files))
 	};
 }
 
-describe('auto-http translation source integration', () => {
-	it('runs both static detectors without executing project code', async () => {
-		const files = {
+describe('auto-http translation source integration', (): void => {
+	it('runs both static detectors without executing project code', async (): Promise<void> => {
+		const files: { '/project/ngx.ts': string; '/project/transloco.ts': string; } = {
 			'/project/ngx.ts': `
 				import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 				const AVAILABLE_LANGS = ['en'];
@@ -32,14 +38,14 @@ describe('auto-http translation source integration', () => {
 				provideTransloco({ availableLangs: ['de'], loader: Loader });`
 		};
 
-		const result = await analyzeProjectTranslationLoaders('/project', memoryFs(files), DEFAULT_SCANNER_CONFIG);
+		const result: IAutoHttpProjectAnalysis = await analyzeProjectTranslationLoaders('/project', memoryFs(files), DEFAULT_SCANNER_CONFIG);
 
-		expect(result.candidates.map((candidate) => candidate.framework)).toEqual(['ngx-translate', 'transloco']);
-		expect(result.candidates.map((candidate) => candidate.locales)).toEqual([['en'], ['en', 'de']]);
+		expect(result.candidates.map((candidate: ITranslationLoaderCandidate): 'ngx-translate' | 'transloco' => candidate.framework)).toEqual(['ngx-translate', 'transloco']);
+		expect(result.candidates.map((candidate: ITranslationLoaderCandidate): string[] => candidate.locales)).toEqual([['en'], ['en', 'de']]);
 		expect(result.diagnostics).toEqual([]);
 	});
 
-	it('expands resources at the configured position and preserves detected order', () => {
+	it('expands resources at the configured position and preserves detected order', (): void => {
 		const analysis: IAutoHttpProjectAnalysis = {
 			sourceFiles: [],
 			diagnostics: [],
@@ -54,7 +60,7 @@ describe('auto-http translation source integration', () => {
 			}]
 		};
 
-		const result = expandAutoHttpTranslationSources([
+		const result: IExpandedAutoHttpSources = expandAutoHttpTranslationSources([
 			{ type: 'filesystem', id: 'base' },
 			{ type: 'auto-http', id: 'detected', origin: 'https://app.example', locales: ['de', 'fr'], headersFromEnv: { Authorization: 'KEYLINT_AUTH' } },
 			{ type: 'filesystem', id: 'overrides' }
@@ -68,24 +74,28 @@ describe('auto-http translation source integration', () => {
 		]);
 	});
 
-	it('refuses zero, multiple, missing-origin, and missing-locale candidates before scanning', () => {
-		const source = [{ type: 'auto-http' as const }];
-		const candidate = {
+	it('refuses zero, multiple, missing-origin, and missing-locale candidates before scanning', (): void => {
+		const source: { type: 'auto-http'; }[] = [{ type: 'auto-http' as const }];
+		const candidate: ITranslationLoaderCandidate = {
 			framework: 'transloco' as const, loader: 'http' as const, api: 'TranslocoLoader' as const, confidence: 'deterministic' as const,
 			locales: ['en'], resources: [{ urlTemplate: '/i18n/{locale}.json', urlKind: 'relative' as const, requiresOrigin: true }],
 			location: { filePath: 'loader.ts', line: 1, column: 1, endLine: 1, endColumn: 2 }
 		};
 		const empty: IAutoHttpProjectAnalysis = { candidates: [], diagnostics: [], sourceFiles: [] };
-		expect(() => expandAutoHttpTranslationSources(source, empty)).toThrowError(AutoHttpResolutionError);
-		const multiple = { ...empty, candidates: [candidate, { ...candidate, framework: 'ngx-translate' as const }] };
-		expect(() => expandAutoHttpTranslationSources(source, multiple)).toThrowError(/Multiple compatible/);
-		expect(() => expandAutoHttpTranslationSources(source, { ...empty, candidates: [candidate] })).toThrowError(/requires an origin/);
-		const noLocales = { ...candidate, locales: [], resources: [{ ...candidate.resources[0], requiresOrigin: false, urlKind: 'absolute' as const, urlTemplate: 'https://example/{locale}.json' }] };
-		expect(() => expandAutoHttpTranslationSources(source, { ...empty, candidates: [noLocales] })).toThrowError(/no static locales/);
+		expect((): IExpandedAutoHttpSources => expandAutoHttpTranslationSources(source, empty)).toThrowError(AutoHttpResolutionError);
+		const multiple: IAutoHttpProjectAnalysis = { ...empty, candidates: [candidate, { ...candidate, framework: 'ngx-translate' as const }] };
+		expect((): IExpandedAutoHttpSources => expandAutoHttpTranslationSources(source, multiple)).toThrowError(/Multiple compatible/);
+		expect((): IExpandedAutoHttpSources => expandAutoHttpTranslationSources(source, { ...empty, candidates: [candidate] })).toThrowError(/requires an origin/);
+		const noLocales: ITranslationLoaderCandidate = {
+			...candidate,
+			locales: [],
+			resources: [{ ...candidate.resources[0], requiresOrigin: false, urlKind: 'absolute' as const, urlTemplate: 'https://example/{locale}.json' }]
+		};
+		expect((): IExpandedAutoHttpSources => expandAutoHttpTranslationSources(source, { ...empty, candidates: [noLocales] })).toThrowError(/no static locales/);
 	});
 
-	it('redacts query values from candidate and endpoint summaries', () => {
-		const displayed = redactAutoHttpUrlTemplate('https://example.com/{locale}.json?api_key=secret#fragment');
+	it('redacts query values from candidate and endpoint summaries', (): void => {
+		const displayed: string = redactAutoHttpUrlTemplate('https://example.com/{locale}.json?api_key=secret#fragment');
 
 		expect(displayed).toContain('?[redacted]');
 		expect(displayed).not.toContain('secret');

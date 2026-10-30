@@ -8,7 +8,7 @@ function nextScanId(): string {
 	return `renderer-${Date.now().toString(36)}-${scanSequence.toString(36)}`;
 }
 
-const REMOTE_ERROR_CODES = new Set<RemoteTranslationErrorCode>([
+const REMOTE_ERROR_CODES: Set<RemoteTranslationErrorCode> = new Set<RemoteTranslationErrorCode>([
 	'remote-fetch-failed',
 	'remote-http-error',
 	'remote-timeout',
@@ -55,7 +55,7 @@ export class ElectronRemoteTranslationFetcher implements IRemoteTranslationFetch
 			return;
 		}
 		this.closed = true;
-		const result = await this.electronService.endTranslationScan(this.scanId);
+		const result: IKeyLintTranslationEndResult = await this.electronService.endTranslationScan(this.scanId);
 		if ('error' in result) {
 			throw new RemoteTranslationError('remote-fetch-failed', result.error.message);
 		}

@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, MatcherResult } from 'vitest';
 
 /**
  * The adapter specs were written against Jasmine before the engine moved into
@@ -6,26 +6,23 @@ import { expect } from 'vitest';
  * registered here instead of rewriting every assertion.
  */
 expect.extend({
-	toBeTrue(received: unknown) {
+	toBeTrue(received: unknown): MatcherResult {
 		return {
 			pass: received === true,
-			message: () => `expected ${String(received)} to be true`
+			message: (): string => `expected ${String(received)} to be true`
 		};
 	},
-	toBeFalse(received: unknown) {
+	toBeFalse(received: unknown): MatcherResult {
 		return {
 			pass: received === false,
-			message: () => `expected ${String(received)} to be false`
+			message: (): string => `expected ${String(received)} to be false`
 		};
 	}
 });
 
-interface JasmineStyleMatchers<R = unknown> {
-	toBeTrue(): R;
-	toBeFalse(): R;
-}
-
 declare module 'vitest' {
-	interface Assertion<T = any> extends JasmineStyleMatchers<T> { }
-	interface AsymmetricMatchersContaining extends JasmineStyleMatchers { }
+	interface Matchers<R> {
+		toBeTrue(): R;
+		toBeFalse(): R;
+	}
 }

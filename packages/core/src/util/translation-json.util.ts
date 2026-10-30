@@ -56,12 +56,12 @@ function errorMessage(error: unknown): string {
  * @throws {TranslationFileError} When JSON syntax is invalid or the root is not an object.
  */
 export function parseTranslationJson(raw: string, filePath: string): Record<string, unknown> {
-	const normalizedFilePath = normalizeTranslationLocation(filePath);
+	const normalizedFilePath: string = normalizeTranslationLocation(filePath);
 	let parsed: unknown;
 
 	try {
 		parsed = JSON.parse(raw) as unknown;
-	} catch (error) {
+	} catch (error: unknown) {
 		throw new TranslationFileError(
 			'translation-file-invalid-json',
 			normalizedFilePath,
@@ -94,12 +94,12 @@ export async function readTranslationJson(
 	fs: IFileSystemAdapter,
 	filePath: string
 ): Promise<Record<string, unknown>> {
-	const normalizedFilePath = normalizePath(filePath);
+	const normalizedFilePath: string = normalizePath(filePath);
 	let raw: string;
 
 	try {
 		raw = await fs.readFile(filePath);
-	} catch (error) {
+	} catch (error: unknown) {
 		throw new TranslationFileError(
 			'translation-file-unreadable',
 			normalizedFilePath,
@@ -121,15 +121,15 @@ export async function readTranslationJson(
  * @param value - String assigned to the final property, replacing any existing value.
  */
 export function setNestedTranslationKey(target: Record<string, unknown>, key: string, value: string): void {
-	const segments = key.split('.').map((segment) => segment.trim()).filter(Boolean);
+	const segments: string[] = key.split('.').map((segment: string): string => segment.trim()).filter(Boolean);
 	if (!segments.length) {
 		return;
 	}
 
 	let cursor: Record<string, unknown> = target;
-	for (let i = 0; i < segments.length - 1; i += 1) {
-		const segment = segments[i];
-		const current = cursor[segment];
+	for (let i: number = 0; i < segments.length - 1; i += 1) {
+		const segment: string = segments[i];
+		const current: unknown = cursor[segment];
 		if (current === null || typeof current !== 'object' || Array.isArray(current)) {
 			cursor[segment] = {};
 		}
@@ -137,5 +137,5 @@ export function setNestedTranslationKey(target: Record<string, unknown>, key: st
 		cursor = cursor[segment] as Record<string, unknown>;
 	}
 
-	cursor[segments.at(-1) as string] = value;
+	cursor[segments.at(-1)!] = value;
 }

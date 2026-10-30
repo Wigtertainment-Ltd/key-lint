@@ -46,7 +46,7 @@
 		"test:action": "node --test packages/action/action.spec.cjs",
 		"test:packages": "npm run build:core && npm run test --workspaces --if-present && npm run test:action && npm run test:electron",
 		"lint": "npm run build:core && npm run lint:desktop && npm run lint --workspace @key-lint/core && npm run lint --workspace @key-lint/cli",
-		"lint:desktop": "eslint \"src/**/*.ts\" \"src/**/*.html\"",
+		"lint:desktop": "eslint \"src/**/*.ts\" \"src/**/*.html\" --max-warnings 0",
 		"e2e": "ng e2e",
 		"icons": "powershell -NoProfile -ExecutionPolicy Bypass -File build/generate-icons.ps1"
 	},
@@ -75,6 +75,7 @@
 		"@angular/cli": "22.2.5",
 		"@angular/compiler-cli": "22.2.4",
 		"@eslint/js": "^10.0.1",
+		"@stylistic/eslint-plugin": "5.10.0",
 		"@types/jasmine": "6.0.0",
 		"angular-eslint": "^22.6.0",
 		"concurrently": "10.0.6",

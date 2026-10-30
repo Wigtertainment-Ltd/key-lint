@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { IProjectScanResult } from '@key-lint/core';
+import { IProjectScanResult, IFinding } from '@key-lint/core';
 import { BehaviorSubject } from 'rxjs';
 
 import { LoggerService } from '../../shared/services/logging/logger.service';
@@ -43,12 +43,12 @@ const result: IProjectScanResult = {
 	errors: []
 };
 
-describe('ResultsOverviewPage placeholder findings', () => {
+describe('ResultsOverviewPage placeholder findings', (): void => {
 	let fixture: ComponentFixture<ResultsOverviewPage>;
 	let component: ResultsOverviewPage;
 	let state: BehaviorSubject<ScanExecutionSnapshot>;
 
-	beforeEach(async () => {
+	beforeEach(async (): Promise<void> => {
 		state = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'completed', result });
 		await TestBed.configureTestingModule({
 			imports: [ResultsOverviewPage],
@@ -64,10 +64,10 @@ describe('ResultsOverviewPage placeholder findings', () => {
 		fixture.detectChanges();
 	});
 
-	it('groups placeholder statuses and renders structured contract details', () => {
+	it('groups placeholder statuses and renders structured contract details', (): void => {
 		expect(component.placeholderFilterCount).toBe(1);
 		component.onFilterChange('placeholders');
-		expect(component.filteredFindings.map((finding) => finding.id)).toEqual(['missing-params']);
+		expect(component.filteredFindings.map((finding: IFinding): string => finding.id)).toEqual(['missing-params']);
 		component.onSelectFinding(result.findings[1]);
 		fixture.detectChanges();
 		expect(component.statusLabel('placeholder-missing')).toBe('Missing Params');
@@ -75,8 +75,8 @@ describe('ResultsOverviewPage placeholder findings', () => {
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Required: name');
 	});
 
-	it('disables translation writes and explains remote read-only results', async () => {
-		const missingFinding = {
+	it('disables translation writes and explains remote read-only results', async (): Promise<void> => {
+		const missingFinding: IFinding = {
 			id: 'missing-remote',
 			adapterId: 'angular',
 			key: 'APP.REMOTE',
@@ -96,7 +96,7 @@ describe('ResultsOverviewPage placeholder findings', () => {
 		});
 		fixture.detectChanges();
 		await fixture.whenStable();
-		component.onSelectFinding(component.findings.find((finding) => finding.id === missingFinding.id)!);
+		component.onSelectFinding(component.findings.find((finding: IFinding): boolean => finding.id === missingFinding.id)!);
 		fixture.detectChanges();
 
 		expect(component.isRemoteReadOnly).toBeTrue();

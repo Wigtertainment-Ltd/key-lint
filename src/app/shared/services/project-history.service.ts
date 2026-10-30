@@ -14,8 +14,8 @@ export interface ICreateIProjectHistoryEventInput<TPayload extends ProjectHistor
 	timestamp?: string;
 }
 
-const PROJECT_HISTORY_STORAGE_KEY = 'key-lint.project-history.v1';
-const MAX_EVENTS_PER_PROJECT = 500;
+const PROJECT_HISTORY_STORAGE_KEY: string = 'key-lint.project-history.v1';
+const MAX_EVENTS_PER_PROJECT: number = 500;
 
 function compareByNewest(a: IProjectHistoryEvent, b: IProjectHistoryEvent): number {
 	const left: number = Date.parse(a.timestamp);
@@ -54,7 +54,7 @@ export class ProjectHistoryService {
 		}
 
 		return this.eventsSubject.getValue()
-			.filter((event) => pathDedupeKey(event.projectPath) === pathDedupeKey(normalizedProjectPath))
+			.filter((event: IProjectHistoryEvent): boolean => pathDedupeKey(event.projectPath) === pathDedupeKey(normalizedProjectPath))
 			.sort(compareByNewest);
 	}
 
@@ -63,9 +63,9 @@ export class ProjectHistoryService {
 		const projectKey: string = pathDedupeKey(normalizedProjectPath);
 
 		return this.eventsSubject.asObservable().pipe(
-			map((events) =>
+			map((events: IProjectHistoryEvent[]): IProjectHistoryEvent[] =>
 				events
-					.filter((event) => pathDedupeKey(event.projectPath) === projectKey)
+					.filter((event: IProjectHistoryEvent): boolean => pathDedupeKey(event.projectPath) === projectKey)
 					.sort(compareByNewest)
 			)
 		);
@@ -89,14 +89,14 @@ export class ProjectHistoryService {
 
 		const allEvents: IProjectHistoryEvent[] = this.eventsSubject.getValue();
 		const retainedForProject: IProjectHistoryEvent[] = allEvents
-			.filter((existing) => pathDedupeKey(existing.projectPath) === pathDedupeKey(normalizedProjectPath))
+			.filter((existing: IProjectHistoryEvent): boolean => pathDedupeKey(existing.projectPath) === pathDedupeKey(normalizedProjectPath))
 			.concat(event)
 			.sort(compareByNewest)
 			.slice(0, MAX_EVENTS_PER_PROJECT);
 		const retainedOtherProjects: IProjectHistoryEvent[] = allEvents.filter(
-			(existing) => pathDedupeKey(existing.projectPath) !== pathDedupeKey(normalizedProjectPath)
+			(existing: IProjectHistoryEvent): boolean => pathDedupeKey(existing.projectPath) !== pathDedupeKey(normalizedProjectPath)
 		);
-		const nextEvents = retainedOtherProjects.concat(retainedForProject);
+		const nextEvents: IProjectHistoryEvent[] = retainedOtherProjects.concat(retainedForProject);
 
 		this.replaceEvents(nextEvents);
 		return event;
@@ -109,7 +109,7 @@ export class ProjectHistoryService {
 		}
 
 		const filtered: IProjectHistoryEvent[] = this.eventsSubject.getValue().filter(
-			(event) => pathDedupeKey(event.projectPath) !== pathDedupeKey(normalizedProjectPath)
+			(event: IProjectHistoryEvent): boolean => pathDedupeKey(event.projectPath) !== pathDedupeKey(normalizedProjectPath)
 		);
 
 		this.replaceEvents(filtered);
@@ -138,7 +138,7 @@ export class ProjectHistoryService {
 			}
 
 			return payload.events
-				.filter((event): event is IProjectHistoryEvent =>
+				.filter((event: IProjectHistoryEvent): event is IProjectHistoryEvent =>
 					Boolean(
 						event &&
 						typeof event.id === 'string' &&
@@ -148,11 +148,11 @@ export class ProjectHistoryService {
 						event.payload !== undefined
 					)
 				)
-				.map((event) => ({
+				.map((event: IProjectHistoryEvent): { projectPath: string; id: string; timestamp: string; type: ProjectHistoryEventType; payload: ProjectHistoryPayload; } => ({
 					...event,
 					projectPath: normalizePath(event.projectPath)
 				}))
-				.filter((event) => Boolean(event.projectPath));
+				.filter((event: { projectPath: string; id: string; timestamp: string; type: ProjectHistoryEventType; payload: ProjectHistoryPayload; }): boolean => Boolean(event.projectPath));
 		} catch {
 			return [];
 		}

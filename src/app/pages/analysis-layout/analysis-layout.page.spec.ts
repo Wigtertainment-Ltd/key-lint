@@ -34,11 +34,11 @@ function scanResult(fileSystemWarnings: unknown[]): IProjectScanResult {
 	};
 }
 
-describe('AnalysisLayoutPage app status bar', () => {
+describe('AnalysisLayoutPage app status bar', (): void => {
 	let fixture: ComponentFixture<AnalysisLayoutPage>;
 	let scanState: BehaviorSubject<ScanExecutionSnapshot>;
 
-	beforeEach(async () => {
+	beforeEach(async (): Promise<void> => {
 		scanState = new BehaviorSubject<ScanExecutionSnapshot>({
 			state: 'completed',
 			result: scanResult([{
@@ -62,7 +62,7 @@ describe('AnalysisLayoutPage app status bar', () => {
 				{ provide: AppVersionService, useValue: { version: '1.2.0' } },
 				{
 					provide: ThemeService,
-					useValue: { getCurrent: () => 'light', toggle: jasmine.createSpy('toggle') }
+					useValue: { getCurrent: (): string => 'light', toggle: jasmine.createSpy('toggle') }
 				}
 			]
 		}).compileComponents();
@@ -71,10 +71,10 @@ describe('AnalysisLayoutPage app status bar', () => {
 		fixture.detectChanges();
 	});
 
-	it('shows scan warnings above the routed page content', () => {
-		const element = fixture.nativeElement as HTMLElement;
-		const statusBar = element.querySelector('.app-status-bar');
-		const content = element.querySelector('.content-shell');
+	it('shows scan warnings above the routed page content', (): void => {
+		const element: HTMLElement = fixture.nativeElement as HTMLElement;
+		const statusBar: Element | null = element.querySelector('.app-status-bar');
+		const content: Element | null = element.querySelector('.content-shell');
 
 		expect(statusBar).not.toBeNull();
 		expect(statusBar?.textContent).toContain('Scan completed with 1 filesystem warning');
@@ -86,7 +86,7 @@ describe('AnalysisLayoutPage app status bar', () => {
 			.toBeTruthy();
 	});
 
-	it('removes the global status bar when a result has no warnings', async () => {
+	it('removes the global status bar when a result has no warnings', async (): Promise<void> => {
 		scanState.next({
 			state: 'completed',
 			result: scanResult([])

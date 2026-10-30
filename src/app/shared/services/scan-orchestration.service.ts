@@ -1,14 +1,30 @@
 import { inject, Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 import {
-	DEFAULT_SCANNER_CONFIG, extractMustachePlaceholders, IScannerConfig, IScannerConfigOverrides, inferLocaleFromTranslationFile, normalizePath, IProjectScanResult,
-	readTranslationJson, runScan, setNestedTranslationKey, TranslationEventSource, ITranslationMatrix
+	DEFAULT_SCANNER_CONFIG,
+	extractMustachePlaceholders,
+	IScannerConfig,
+	IScannerConfigOverrides,
+	inferLocaleFromTranslationFile,
+	normalizePath,
+	IProjectScanResult,
+	readTranslationJson,
+	runScan,
+	setNestedTranslationKey,
+	TranslationEventSource,
+	ITranslationMatrix,
+	IScanSummary,
+	IFinding,
+	ITranslationMatrixRow,
+	ITranslationSourceConfig,
+	IHttpTranslationSourceConfig,
+	IScanProgress
 } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
 import { ProjectHistoryService } from './project-history.service';
 import { LoggerService } from './logging/logger.service';
-import { DesktopScannerConfigService } from './desktop-scanner-config.service';
+import { DesktopScannerConfigService, IDesktopLoadedScannerConfig } from './desktop-scanner-config.service';
 import { ElectronRemoteTranslationFetcher } from './electron-remote-translation.fetcher';
 
 export type ScanExecutionState = 'idle' | 'running' | 'completed' | 'failed';
@@ -24,8 +40,8 @@ export interface ScanExecutionSnapshot {
 	providedIn: 'root'
 })
 export class ScanOrchestrationService {
-	private readonly stateSubject = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'idle' });
-	readonly state$ = this.stateSubject.asObservable();
+	private readonly stateSubject: BehaviorSubject<ScanExecutionSnapshot> = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'idle' });
+	readonly state$: Observable<ScanExecutionSnapshot> = this.stateSubject.asObservable();
 
 	private readonly fsAdapter: ElectronFileSystemAdapter;
 	private readonly electronService: ElectronService = inject(ElectronService);
@@ -42,9 +58,7 @@ export class ScanOrchestrationService {
 	private scanExecutionId: number = 0;
 
 	private withNormalizedSummary(result: IProjectScanResult): IProjectScanResult {
-		const summaryWithOptionalIndirect = result.summary as IProjectScanResult['summary'] & {
-			indirectUncertain?: number;
-		};
+		const summaryWithOptionalIndirect: IScanSummary & { indirectUncertain?: number; } = result.summary;
 		if (
 			typeof summaryWithOptionalIndirect.indirectUncertain === 'number' &&
 			typeof result.summary.placeholderMissing === 'number' &&
@@ -54,16 +68,16 @@ export class ScanOrchestrationService {
 			return result;
 		}
 
-		const indirectUncertain: number = result.findings.filter((finding) => finding.status === 'indirect-uncertain').length;
+		const indirectUncertain: number = result.findings.filter((finding: IFinding): boolean => finding.status === 'indirect-uncertain').length;
 
 		return {
 			...result,
 			summary: {
 				...result.summary,
 				indirectUncertain,
-				placeholderMissing: result.summary.placeholderMissing ?? result.findings.filter((finding) => finding.status === 'placeholder-missing').length,
-				placeholderUncertain: result.summary.placeholderUncertain ?? result.findings.filter((finding) => finding.status === 'placeholder-uncertain').length,
-				placeholderMismatch: result.summary.placeholderMismatch ?? result.findings.filter((finding) => finding.status === 'placeholder-mismatch').length
+				placeholderMissing: result.summary.placeholderMissing ?? result.findings.filter((finding: IFinding): boolean => finding.status === 'placeholder-missing').length,
+				placeholderUncertain: result.summary.placeholderUncertain ?? result.findings.filter((finding: IFinding): boolean => finding.status === 'placeholder-uncertain').length,
+				placeholderMismatch: result.summary.placeholderMismatch ?? result.findings.filter((finding: IFinding): boolean => finding.status === 'placeholder-mismatch').length
 			}
 		};
 	}
@@ -80,7 +94,7 @@ export class ScanOrchestrationService {
 		this.scanExecutionId += 1;
 		this.clearRemoteAuthorization();
 		if (this.activeRemoteFetcher) {
-			void this.activeRemoteFetcher.close().catch(() => undefined);
+			void this.activeRemoteFetcher.close().catch((): undefined => undefined);
 			this.activeRemoteFetcher = undefined;
 		}
 		this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
@@ -147,9 +161,9 @@ export class ScanOrchestrationService {
 
 		const normalizedLocale: string = locale.trim().toLowerCase();
 		const match: string | undefined = translationFiles
-			.map((filePath) => normalizePath(filePath))
-			.sort((a, b) => a.localeCompare(b))
-			.find((filePath) => inferLocaleFromTranslationFile(filePath).toLowerCase() === normalizedLocale);
+			.map((filePath: string): string => normalizePath(filePath))
+			.sort((a: string, b: string): number => a.localeCompare(b))
+			.find((filePath: string): boolean => inferLocaleFromTranslationFile(filePath).toLowerCase() === normalizedLocale);
 
 		if (!match) {
 			throw new Error(`No translation file found for locale "${locale}".`);
@@ -173,18 +187,18 @@ export class ScanOrchestrationService {
 		const locales: string[] = [...existingMatrix.locales];
 		if (!locales.includes(locale)) {
 			locales.push(locale);
-			locales.sort((a, b) => a.localeCompare(b));
+			locales.sort((a: string, b: string): number => a.localeCompare(b));
 		}
 
-		const updatedRows = [
-			...existingMatrix.rows.map((row) => ({
+		const updatedRows: ITranslationMatrixRow[] = [
+			...existingMatrix.rows.map((row: ITranslationMatrixRow): ITranslationMatrixRow => ({
 				...row,
 				values: { ...row.values },
 				keyPresence: row.keyPresence ? { ...row.keyPresence } : undefined,
 				placeholders: row.placeholders ? { ...row.placeholders } : undefined
 			}))
 		];
-		const row = updatedRows.find((entry) => entry.key === key);
+		const row: ITranslationMatrixRow | undefined = updatedRows.find((entry: ITranslationMatrixRow): boolean => entry.key === key);
 
 		if (row) {
 			row.values[locale] = value;
@@ -201,18 +215,18 @@ export class ScanOrchestrationService {
 			keyPresence[locale] = true;
 
 			updatedRows.push({ key, values, keyPresence, placeholders: { [locale]: extractMustachePlaceholders(value) } });
-			updatedRows.sort((a, b) => a.key.localeCompare(b.key));
+			updatedRows.sort((a: ITranslationMatrixRow, b: ITranslationMatrixRow): number => a.key.localeCompare(b.key));
 		}
 
 		const resolvedFindingCount: number = existingResult.findings.filter(
-			(finding) => finding.status === 'missing-in-language' && finding.key === key && finding.language === locale
+			(finding: IFinding): boolean => finding.status === 'missing-in-language' && finding.key === key && finding.language === locale
 		).length;
 
 		this.stateSubject.next({
 			...snapshot,
 			result: {
 				...existingResult,
-				findings: existingResult.findings.filter((finding) => !(finding.status === 'missing-in-language' && finding.key === key && finding.language === locale)),
+				findings: existingResult.findings.filter((finding: IFinding): boolean => !(finding.status === 'missing-in-language' && finding.key === key && finding.language === locale)),
 				summary: {
 					...existingResult.summary,
 					missingInLanguage: Math.max(0, existingResult.summary.missingInLanguage - resolvedFindingCount),
@@ -250,8 +264,9 @@ export class ScanOrchestrationService {
 		this.stateSubject.next({ state: 'running', stage: 'Loading scanner configuration...' });
 
 		try {
-			const loadedConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot, this.nextScanConfigOverrides);
-			const hasRemoteSources = loadedConfig.config.translationSources?.some((source) => source.type === 'http') ?? false;
+			const loadedConfig: IDesktopLoadedScannerConfig = await this.desktopScannerConfigService.load(normalizedProjectRoot, this.nextScanConfigOverrides);
+			const hasRemoteSources: boolean =
+				loadedConfig.config.translationSources?.some((source: ITranslationSourceConfig): source is IHttpTranslationSourceConfig => source.type === 'http') ?? false;
 			if (hasRemoteSources && !remoteScanApproved) {
 				throw new Error('Remote translation network access was not confirmed for this scan.');
 			}
@@ -259,7 +274,7 @@ export class ScanOrchestrationService {
 			this.fsAdapter.configureGuardrails(loadedConfig.config.guardrails);
 			remoteFetcher = hasRemoteSources ? new ElectronRemoteTranslationFetcher(this.electronService) : undefined;
 			this.activeRemoteFetcher = remoteFetcher;
-			const rawResult = await runScan({
+			const rawResult: IProjectScanResult = await runScan({
 				projectRoot: normalizedProjectRoot,
 				fs: this.fsAdapter,
 				config: loadedConfig.config,
@@ -269,7 +284,7 @@ export class ScanOrchestrationService {
 					fetcher: remoteFetcher,
 					environment: remoteEnvironment
 				} : undefined,
-				onProgress: (progress) => {
+				onProgress: (progress: IScanProgress): void => {
 					if (executionId !== this.scanExecutionId) {
 						return;
 					}
@@ -321,7 +336,7 @@ export class ScanOrchestrationService {
 			});
 
 			return result;
-		} catch (error) {
+		} catch (error: unknown) {
 			this.activeScannerConfig = DEFAULT_SCANNER_CONFIG;
 			this.fsAdapter.configureGuardrails(DEFAULT_SCANNER_CONFIG.guardrails);
 			if (executionId !== this.scanExecutionId) {
@@ -337,7 +352,7 @@ export class ScanOrchestrationService {
 			throw error;
 		} finally {
 			if (remoteFetcher) {
-				await remoteFetcher.close().catch(() => undefined);
+				await remoteFetcher.close().catch((): undefined => undefined);
 			}
 			if (this.activeRemoteFetcher === remoteFetcher) {
 				this.activeRemoteFetcher = undefined;

@@ -1,27 +1,27 @@
 import { ElectronService } from './electron.service';
 
-describe('ElectronService preload bridge', () => {
-	const originalBridge = window.keyLint;
+describe('ElectronService preload bridge', (): void => {
+	const originalBridge: IKeyLintDesktopApi | undefined = window.keyLint;
 
-	afterEach(() => {
+	afterEach((): void => {
 		Object.defineProperty(window, 'keyLint', {
 			configurable: true,
 			value: originalBridge
 		});
 	});
 
-	it('reports a regular browser when no preload bridge exists', () => {
+	it('reports a regular browser when no preload bridge exists', (): void => {
 		Object.defineProperty(window, 'keyLint', { configurable: true, value: undefined });
-		const service = new ElectronService();
+		const service: ElectronService = new ElectronService();
 
 		expect(service.isElectron).toBeFalse();
-		expect(() => service.readFile('C:/project/en.json')).toThrowError(
+		expect((): Promise<string> => service.readFile('C:/project/en.json')).toThrowError(
 			'Electron preload bridge is not available.'
 		);
 	});
 
-	it('forwards only typed operations to the preload bridge', async () => {
-		const bridge = jasmine.createSpyObj<IKeyLintDesktopApi>('keyLint', [
+	it('forwards only typed operations to the preload bridge', async (): Promise<void> => {
+		const bridge: jasmine.SpyObj<IKeyLintDesktopApi> = jasmine.createSpyObj<IKeyLintDesktopApi>('keyLint', [
 			'selectProjectDirectory',
 			'getPathForFile',
 			'getAppVersion',
@@ -47,7 +47,7 @@ describe('ElectronService preload bridge', () => {
 		});
 		bridge.endTranslationScan.and.resolveTo({ ok: true });
 		Object.defineProperty(window, 'keyLint', { configurable: true, value: bridge });
-		const service = new ElectronService();
+		const service: ElectronService = new ElectronService();
 
 		expect(service.isElectron).toBeTrue();
 		expect(await service.selectProjectDirectory()).toBe('C:/project');
@@ -72,6 +72,6 @@ describe('ElectronService preload bridge', () => {
 			value: { body: '{}', finalUrl: 'https://example.com/en.json' }
 		});
 		expect(await service.endTranslationScan('scan-1')).toEqual({ ok: true });
-		expect(bridge.writeFile).toHaveBeenCalledOnceWith('C:/project/de.json', '{}');
+		expect(bridge.writeFile.calls.allArgs()).toEqual([['C:/project/de.json', '{}']]);
 	});
 });

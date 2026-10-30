@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { CONFIG_FILE_NAME, resolveScannerConfigSources } from './resolve-config.js';
 import { normalizePath } from '../util/path.util.js';
-import { ILoadedScannerConfig, ILoadScannerConfigOptions, ScannerConfigError } from './config.interfaces.js';
+import { ILoadedScannerConfig, ILoadScannerConfigOptions, ScannerConfigError, IResolvedScannerConfig } from './config.interfaces.js';
 
 export { CONFIG_FILE_NAME, PACKAGE_JSON_CONFIG_KEY } from './resolve-config.js';
 
@@ -23,7 +23,7 @@ async function readJsonFile(filePath: string): Promise<unknown> {
 
 	try {
 		return JSON.parse(raw) as unknown;
-	} catch (error) {
+	} catch (error: unknown) {
 		throw new ScannerConfigError(
 			`Could not parse "${normalizePath(filePath)}": ${error instanceof Error ? error.message : 'invalid JSON'}`
 		);
@@ -41,18 +41,18 @@ async function readJsonFile(filePath: string): Promise<unknown> {
  * @throws {ScannerConfigError} When JSON or configuration values are invalid, or an explicit config file cannot be read.
  */
 export async function loadScannerConfig(options: ILoadScannerConfigOptions): Promise<ILoadedScannerConfig> {
-	const projectRoot = resolve(options.projectRoot);
+	const projectRoot: string = resolve(options.projectRoot);
 	let appliedConfigFilePath: string | undefined;
 
-	const packageJson = await readJsonFile(resolve(projectRoot, 'package.json'));
+	const packageJson: unknown = await readJsonFile(resolve(projectRoot, 'package.json'));
 
-	const explicitPath = options.configPath
+	const explicitPath: string | undefined = options.configPath
 		? isAbsolute(options.configPath)
 			? options.configPath
 			: resolve(process.cwd(), options.configPath)
 		: undefined;
-	const configFilePath = explicitPath ?? resolve(projectRoot, CONFIG_FILE_NAME);
-	const fileContent = await readJsonFile(configFilePath);
+	const configFilePath: string = explicitPath ?? resolve(projectRoot, CONFIG_FILE_NAME);
+	const fileContent: unknown = await readJsonFile(configFilePath);
 
 	if (fileContent === undefined && explicitPath) {
 		throw new ScannerConfigError(`Config file not found: ${normalizePath(explicitPath)}`);
@@ -62,7 +62,7 @@ export async function loadScannerConfig(options: ILoadScannerConfigOptions): Pro
 		appliedConfigFilePath = normalizePath(configFilePath);
 	}
 
-	const { config } = resolveScannerConfigSources({
+	const { config }: IResolvedScannerConfig = resolveScannerConfigSources({
 		packageJson,
 		configFile: fileContent,
 		overrides: options.overrides

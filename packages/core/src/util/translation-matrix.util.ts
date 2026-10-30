@@ -37,7 +37,7 @@ export function hasTranslationKey(row: ITranslationMatrixRow, locale: string): b
  * @returns The number of present keys, using the matrix's presence metadata when available.
  */
 function localeKeyCount(matrix: ITranslationMatrix, locale: string): number {
-	return matrix.rows.filter((row) => hasTranslationKey(row, locale)).length;
+	return matrix.rows.filter((row: ITranslationMatrixRow): boolean => hasTranslationKey(row, locale)).length;
 }
 
 /**
@@ -49,8 +49,8 @@ function localeKeyCount(matrix: ITranslationMatrix, locale: string): number {
  * @returns The highest-coverage candidate, with locale ordering as the tie-breaker.
  */
 function mostCompleteLocale(matrix: ITranslationMatrix, candidates: string[]): string {
-	return [...candidates].sort((left, right) => {
-		const countDifference = localeKeyCount(matrix, right) - localeKeyCount(matrix, left);
+	return [...candidates].sort((left: string, right: string): number => {
+		const countDifference: number = localeKeyCount(matrix, right) - localeKeyCount(matrix, left);
 		return countDifference || left.localeCompare(right);
 	})[0];
 }
@@ -70,9 +70,9 @@ export function resolveBaseLocale(
 	configuredLocale?: string
 ): IBaseLocaleSelection {
 	if (configuredLocale !== undefined) {
-		const normalizedConfigured = configuredLocale.trim();
-		const configuredMatch = matrix.locales.find(
-			(locale) => locale.toLowerCase() === normalizedConfigured.toLowerCase()
+		const normalizedConfigured: string = configuredLocale.trim();
+		const configuredMatch: string | undefined = matrix.locales.find(
+			(locale: string): boolean => locale.toLowerCase() === normalizedConfigured.toLowerCase()
 		);
 		if (!configuredMatch) {
 			throw new ScannerConfigError(
@@ -87,13 +87,13 @@ export function resolveBaseLocale(
 		return { source: 'none' };
 	}
 
-	const exactEnglish = matrix.locales.find((locale) => locale.toLowerCase() === 'en');
+	const exactEnglish: string | undefined = matrix.locales.find((locale: string): boolean => locale.toLowerCase() === 'en');
 	if (exactEnglish) {
 		return { locale: exactEnglish, source: 'exact-en' };
 	}
 
 	// Match locale identifiers that begin with "en-" or "en_", case-insensitively.
-	const englishVariants = matrix.locales.filter((locale) => /^en[-_]/i.test(locale));
+	const englishVariants: string[] = matrix.locales.filter((locale: string): boolean => /^en[-_]/i.test(locale));
 	if (englishVariants.length > 0) {
 		return { locale: mostCompleteLocale(matrix, englishVariants), source: 'english-variant' };
 	}

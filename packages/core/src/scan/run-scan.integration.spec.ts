@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { NodeFileSystemAdapter } from '../fs/node-file-system.adapter.js';
 import { runScan } from './run-scan.js';
+import { IProjectScanResult } from '../models/scan-result.model.js';
+import { FindingStatus, FindingSeverity, IFinding } from '../models/finding.model.js';
 
 interface IFixtureCase {
 	name: string;
@@ -100,29 +102,29 @@ interface IExpectedScan {
 	}[];
 }
 
-describe('runScan integration fixtures', () => {
+describe('runScan integration fixtures', (): void => {
 	for (const fixtureCase of FIXTURE_CASES) {
-		it(`matches the ${fixtureCase.name} golden file`, async () => {
-			const expected = JSON.parse(await readFile(fixtureCase.expectedFile, 'utf8')) as IExpectedScan;
-			const fs = new NodeFileSystemAdapter();
+		it(`matches the ${fixtureCase.name} golden file`, async (): Promise<void> => {
+			const expected: IExpectedScan = JSON.parse(await readFile(fixtureCase.expectedFile, 'utf8')) as IExpectedScan;
+			const fs: NodeFileSystemAdapter = new NodeFileSystemAdapter();
 
-			const result = await runScan({
+			const result: IProjectScanResult = await runScan({
 				projectRoot: fixtureCase.fixtureRoot,
 				fs
 			});
 
 			expect(result.adapterId).toBe(expected.adapterId);
 
-			const normalizedFindings = result.findings
-				.map((finding) => ({
+			const normalizedFindings: { key: string; status: FindingStatus; severity: FindingSeverity; }[] = result.findings
+				.map((finding: IFinding): { key: string; status: FindingStatus; severity: FindingSeverity; } => ({
 					key: finding.key,
 					status: finding.status,
 					severity: finding.severity
 				}))
-				.sort((a, b) => a.key.localeCompare(b.key) || a.status.localeCompare(b.status));
+				.sort((a: IExpectedScan['findings'][number], b: IExpectedScan['findings'][number]): number => a.key.localeCompare(b.key) || a.status.localeCompare(b.status));
 
-			const expectedFindings = [...expected.findings].sort(
-				(a, b) => a.key.localeCompare(b.key) || a.status.localeCompare(b.status)
+			const expectedFindings: { key: string; status: string; severity: string; }[] = [...expected.findings].sort(
+				(a: IExpectedScan['findings'][number], b: IExpectedScan['findings'][number]): number => a.key.localeCompare(b.key) || a.status.localeCompare(b.status)
 			);
 
 			expect(result.summary).toEqual(expected.summary);

@@ -5,7 +5,7 @@ import { IFinding, FindingSeverity, FindingStatus, IProjectScanResult, normalize
 import { redactReporterText, severityRank } from './reporter.js';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
-const DASHBOARD_SCRIPT = `(() => {
+const DASHBOARD_SCRIPT: string = `(() => {
 	'use strict';
 	const table = document.querySelector('.findings-table');
 	const body = table?.tBodies[0];
@@ -179,9 +179,9 @@ function stripProjectRoot(value: string, projectRoot: string): string {
 			normalizePath(projectRoot),
 			normalizePath(resolve(projectRoot))
 		])
-	].filter(Boolean).sort((left, right) => right.length - left.length);
+	].filter(Boolean).sort((left: string, right: string): number => right.length - left.length);
 
-	return candidates.reduce((text, candidate) => {
+	return candidates.reduce((text: string, candidate: string): string => {
 		let sanitized: string = text;
 		let offset: number = sanitized.toLowerCase().indexOf(candidate.toLowerCase());
 		while (offset >= 0) {
@@ -214,7 +214,7 @@ function thresholdStatus(context: IReporterContext): 'passed' | 'failed' {
 	return context.counts.error > context.thresholds.maxErrors || warningsExceeded ? 'failed' : 'passed';
 }
 
-function metricCard(label: string, value: number, context: IReporterContext, tone = ''): string {
+function metricCard(label: string, value: number, context: IReporterContext, tone: string = ''): string {
 	return `<div class="metric${tone ? ` metric--${tone}` : ''}"><dt>${escapeHtml(label, context)}</dt><dd>${escapeHtml(value, context)}</dd></div>`;
 }
 
@@ -223,7 +223,7 @@ function option(value: string, label: string, context: IReporterContext): string
 }
 
 function statusGuide(context: IReporterContext): string {
-	return STATUS_GUIDE.map((item) => `
+	return STATUS_GUIDE.map((item: { status: FindingStatus; severity: FindingSeverity; description: string; }): string => `
 				<div class="status-guide-item">
 					<div class="status-guide-heading"><code>${escapeHtml(item.status, context)}</code><span class="badge badge--${item.severity}">${item.severity}</span></div>
 					<p>${escapeHtml(item.description, context)}</p>
@@ -235,7 +235,7 @@ function evidenceDetails(finding: IFinding, result: IProjectScanResult, context:
 		return '';
 	}
 
-	const items: string = finding.evidence.map((evidence) => {
+	const items: string = finding.evidence.map((evidence: IFileEvidence): string => {
 		const location: string = locationOf({ ...finding, evidence: [evidence] }, result.projectRoot);
 		const matchType: string = evidence.matchType
 			? ` <span class="detail-meta">(${escapeHtml(evidence.matchType, context)})</span>`
@@ -259,9 +259,9 @@ function placeholderDetails(finding: IFinding, context: IReporterContext): strin
 		['Actual', finding.placeholderDetails.actual]
 	];
 	const rows: string = entries
-		.filter((entry): entry is [string, string[]] => entry[1] !== undefined)
-		.map(([label, values]) => `<div><dt>${escapeHtml(label, context)}</dt><dd>${values.length > 0
-			? values.map((value) => `<code>${escapeHtml(value, context)}</code>`).join(', ')
+		.filter((entry: [string, string[] | undefined]): entry is [string, string[]] => entry[1] !== undefined)
+		.map(([label, values]: [string, string[]]): string => `<div><dt>${escapeHtml(label, context)}</dt><dd>${values.length > 0
+			? values.map((value: string): string => `<code>${escapeHtml(value, context)}</code>`).join(', ')
 			: '<span class="detail-meta">none</span>'}</dd></div>`)
 		.join('');
 
@@ -308,24 +308,26 @@ export const htmlReporter: IReporter = {
 	name: 'html',
 	format(result: IProjectScanResult, context: IReporterContext): string {
 		const status: 'passed' | 'failed' = thresholdStatus(context);
-		const baseLocale: unknown = result.metadata?.['baseLocale'];
-		const findings: IFinding[] = [...result.findings].sort((left, right) =>
+		const baseLocale: unknown = result.metadata?.baseLocale;
+		const findings: IFinding[] = [...result.findings].sort((left: IFinding, right: IFinding): number =>
 			severityRank(left.severity) - severityRank(right.severity)
 			|| left.key.localeCompare(right.key)
 			|| left.id.localeCompare(right.id)
 		);
-		const defaultSeverity: 'warning' | 'error' | 'all' = findings.some((finding) => finding.severity === 'error')
+		const defaultSeverity: 'warning' | 'error' | 'all' = findings.some((finding: IFinding): boolean => finding.severity === 'error')
 			? 'error'
-			: findings.some((finding) => finding.severity === 'warning') ? 'warning' : 'all';
+			: findings.some((finding: IFinding): boolean => finding.severity === 'warning') ? 'warning' : 'all';
 		const findingRows: string = findings.length > 0
-			? findings.map((finding, index) => findingRow(finding, index, result, context)).join('\n')
+			? findings.map((finding: IFinding, index: number): string => findingRow(finding, index, result, context)).join('\n')
 			: '<tr><td colspan="7" class="empty">No findings.</td></tr>';
-		const statuses: FindingStatus[] = [...new Set(findings.map((finding) => finding.status))].sort();
-		const locales: string[] = [...new Set(findings.map((finding) => finding.language).filter((value): value is string => Boolean(value)))]
-			.sort((left, right) => left.localeCompare(right));
-		const hasFindingsWithoutLocale: boolean = findings.some((finding) => !finding.language);
+		const statuses: FindingStatus[] = [...new Set(findings.map((finding: IFinding): FindingStatus => finding.status))].sort();
+		const locales: string[] = [...new Set(findings
+			.map((finding: IFinding): string | undefined => finding.language)
+			.filter((value: string | undefined): value is string => Boolean(value)))]
+			.sort((left: string, right: string): number => left.localeCompare(right));
+		const hasFindingsWithoutLocale: boolean = findings.some((finding: IFinding): boolean => !finding.language);
 		const warningItems: string = context.warnings
-			.map((warning) => `<li>${escapeHtml(stripProjectRoot(warning, result.projectRoot), context)}</li>`)
+			.map((warning: string): string => `<li>${escapeHtml(stripProjectRoot(warning, result.projectRoot), context)}</li>`)
 			.join('\n');
 		const configPath: string | undefined = context.configFilePath
 			? displayPath(result.projectRoot, context.configFilePath)
@@ -475,8 +477,8 @@ export const htmlReporter: IReporter = {
 			<div class="toolbar" aria-label="Finding filters">
 				<div class="control control--search"><label for="finding-search">Search</label><input id="finding-search" type="search" placeholder="Key, message, locale or path"></div>
 				<div class="control"><label for="severity-filter">Severity</label><select id="severity-filter">${option('all', 'All severities', context)}${option('error', 'Error', context)}${option('warning', 'Warning', context)}${option('info', 'Info', context)}</select></div>
-				<div class="control"><label for="status-filter">Status</label><select id="status-filter">${option('all', 'All statuses', context)}${statuses.map((value) => option(value, value, context)).join('')}</select></div>
-				<div class="control"><label for="locale-filter">Locale</label><select id="locale-filter">${option('all', 'All locales', context)}${hasFindingsWithoutLocale ? option('__none__', 'No locale', context) : ''}${locales.map((value) => option(value.toLocaleLowerCase(), value, context)).join('')}</select></div>
+				<div class="control"><label for="status-filter">Status</label><select id="status-filter">${option('all', 'All statuses', context)}${statuses.map((value: FindingStatus): string => option(value, value, context)).join('')}</select></div>
+				<div class="control"><label for="locale-filter">Locale</label><select id="locale-filter">${option('all', 'All locales', context)}${hasFindingsWithoutLocale ? option('__none__', 'No locale', context) : ''}${locales.map((value: string): string => option(value.toLocaleLowerCase(), value, context)).join('')}</select></div>
 				<button id="reset-filters" type="button">Reset</button>
 			</div>
 			<p id="finding-count" class="result-summary" role="status" aria-live="polite">Showing ${escapeHtml(findings.length, context)} of ${escapeHtml(findings.length, context)} findings</p>

@@ -3,16 +3,16 @@ import ts from 'typescript';
 import {
 	ILoaderAnalysisSourceFile, ILoaderDetectionDiagnostic, ILoaderResourceTemplate, ITranslationLoaderAnalysisResult, ITranslationLoaderCandidate
 } from './loader-detection.interfaces.js';
-import { IAnalysisContext, IStaticExpressionFailure } from './shared/typescript-analysis.interfaces.js';
+import { IAnalysisContext, IStaticExpressionFailure, IResolvedExpression, IImportedSymbol } from './shared/typescript-analysis.interfaces.js';
 import {
 	classifyStaticExpression, collectAnalysisContext, collectNamedLiteralStringArrays, conditionalAncestor, findProperty, locationOf, propertyExpression, resolveExpression,
 	resolveFactoryDeclarations, resolveImportedSymbol, resolveStaticString, templateResource, uniqueDiagnostics, unsafeObjectElement, unwrapExpression
 } from './shared/typescript-analysis.util.js';
 
-const HTTP_LOADER_MODULE = '@ngx-translate/http-loader';
-const TRANSLATE_CORE_MODULE = '@ngx-translate/core';
-const DEFAULT_PREFIX = '/assets/i18n/';
-const DEFAULT_SUFFIX = '.json';
+const HTTP_LOADER_MODULE: string = '@ngx-translate/http-loader';
+const TRANSLATE_CORE_MODULE: string = '@ngx-translate/core';
+const DEFAULT_PREFIX: string = '/assets/i18n/';
+const DEFAULT_SUFFIX: string = '.json';
 
 /**
  * Maps a static-resolution failure to ngx-translate-specific diagnostic text and coordinates.
@@ -21,7 +21,7 @@ const DEFAULT_SUFFIX = '.json';
  * @returns A framework-specific diagnostic without evaluating the expression.
  */
 function diagnosticForFailure(failure: IStaticExpressionFailure, context: IAnalysisContext): ILoaderDetectionDiagnostic {
-	const details = {
+	const details: Record<IStaticExpressionFailure['kind'], readonly [ILoaderDetectionDiagnostic['code'], ILoaderDetectionDiagnostic['category'], string]> = {
 		environment: ['ngx-http-dynamic-environment', 'dynamic', 'ngx-translate loader URLs that depend on runtime environment values require explicit configuration.'],
 		conditional: ['ngx-http-conditional-url', 'dynamic', 'Conditional ngx-translate loader URL construction cannot be resolved deterministically.'],
 		merge: ['ngx-http-ambiguous-merge', 'ambiguous', 'Spread or merged ngx-translate loader configuration may override URL fields and requires explicit configuration.'],
@@ -29,7 +29,7 @@ function diagnosticForFailure(failure: IStaticExpressionFailure, context: IAnaly
 		unsupported: ['ngx-http-unsupported-expression', 'unsupported', 'ngx-translate loader URL values must be statically resolvable string literals.'],
 		ambiguous: ['ngx-http-ambiguous-reference', 'ambiguous', 'This ngx-translate loader reference has multiple possible static declarations and was not guessed.']
 	} as const;
-	const [code, category, message] = details[failure.kind];
+	const [code, category, message]: readonly [ILoaderDetectionDiagnostic['code'], ILoaderDetectionDiagnostic['category'], string] = details[failure.kind];
 	return { code, category, message, location: locationOf(failure.node, context) };
 }
 
@@ -50,7 +50,7 @@ function diagnosticForExpression(node: ts.Node, context: IAnalysisContext): ILoa
  * @returns Literal text or a diagnostic explaining why it could not be resolved.
  */
 function resolveString(expression: ts.Expression, context: IAnalysisContext): { value?: string; diagnostic?: ILoaderDetectionDiagnostic } {
-	const resolved = resolveStaticString(expression, context);
+	const resolved: { value?: string; failure?: IStaticExpressionFailure; } = resolveStaticString(expression, context);
 	return resolved.failure ? { diagnostic: diagnosticForFailure(resolved.failure, context) } : { value: resolved.value };
 }
 
@@ -61,9 +61,11 @@ function resolveString(expression: ts.Expression, context: IAnalysisContext): { 
  * @returns Resolved text or a diagnostic for ambiguous or unsupported syntax.
  */
 function resolvePropertyString(property: ts.ObjectLiteralElementLike, context: IAnalysisContext): { value?: string; diagnostic?: ILoaderDetectionDiagnostic } {
-	const resolved = propertyExpression(property, context);
-	if (resolved.ambiguousNode) return { diagnostic: diagnosticForFailure({ kind: 'ambiguous', node: resolved.ambiguousNode }, context) };
-	return resolveString(resolved.expression as ts.Expression, context);
+	const resolved: IResolvedExpression = propertyExpression(property, context);
+	if (resolved.ambiguousNode) {
+		return { diagnostic: diagnosticForFailure({ kind: 'ambiguous', node: resolved.ambiguousNode }, context) };
+	}
+	return resolveString(resolved.expression!, context);
 }
 
 /**
@@ -74,22 +76,34 @@ function resolvePropertyString(property: ts.ObjectLiteralElementLike, context: I
  * @returns A locale URL template or a diagnostic; does not validate or fetch the URL.
  */
 function parseResourceEntry(entry: ts.Expression, context: IAnalysisContext): { resource?: ILoaderResourceTemplate; diagnostic?: ILoaderDetectionDiagnostic } {
-	const resolved = resolveExpression(entry, context);
-	if (resolved.ambiguousNode) return { diagnostic: diagnosticForFailure({ kind: 'ambiguous', node: resolved.ambiguousNode }, context) };
-	const value = resolved.expression as ts.Expression;
+	const resolved: IResolvedExpression = resolveExpression(entry, context);
+	if (resolved.ambiguousNode) {
+		return { diagnostic: diagnosticForFailure({ kind: 'ambiguous', node: resolved.ambiguousNode }, context) };
+	}
+	const value: ts.Expression = resolved.expression!;
 	if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) {
 		return { resource: templateResource(`${value.text}{locale}${DEFAULT_SUFFIX}`) };
 	}
-	if (!ts.isObjectLiteralExpression(value)) return { diagnostic: diagnosticForExpression(value, context) };
-	const unsafeProperty = unsafeObjectElement(value);
-	if (unsafeProperty) return { diagnostic: diagnosticForExpression(unsafeProperty, context) };
-	const prefixProperty = findProperty(value, 'prefix');
-	if (!prefixProperty) return { diagnostic: diagnosticForExpression(value, context) };
-	const prefix = resolvePropertyString(prefixProperty, context);
-	if (prefix.diagnostic) return { diagnostic: prefix.diagnostic };
-	const suffixProperty = findProperty(value, 'suffix');
-	const suffix = suffixProperty ? resolvePropertyString(suffixProperty, context) : { value: DEFAULT_SUFFIX };
-	if (suffix.diagnostic) return { diagnostic: suffix.diagnostic };
+	if (!ts.isObjectLiteralExpression(value)) {
+		return { diagnostic: diagnosticForExpression(value, context) };
+	}
+	const unsafeProperty: ts.ObjectLiteralElementLike | undefined = unsafeObjectElement(value);
+	if (unsafeProperty) {
+		return { diagnostic: diagnosticForExpression(unsafeProperty, context) };
+	}
+	const prefixProperty: ts.ObjectLiteralElementLike | undefined = findProperty(value, 'prefix');
+	if (!prefixProperty) {
+		return { diagnostic: diagnosticForExpression(value, context) };
+	}
+	const prefix: { value?: string; diagnostic?: ILoaderDetectionDiagnostic; } = resolvePropertyString(prefixProperty, context);
+	if (prefix.diagnostic) {
+		return { diagnostic: prefix.diagnostic };
+	}
+	const suffixProperty: ts.ObjectLiteralElementLike | undefined = findProperty(value, 'suffix');
+	const suffix: { value?: string; diagnostic?: ILoaderDetectionDiagnostic; } = suffixProperty ? resolvePropertyString(suffixProperty, context) : { value: DEFAULT_SUFFIX };
+	if (suffix.diagnostic) {
+		return { diagnostic: suffix.diagnostic };
+	}
 	return { resource: templateResource(`${prefix.value}{locale}${suffix.value}`) };
 }
 
@@ -103,44 +117,65 @@ function parseResourceEntry(entry: ts.Expression, context: IAnalysisContext): { 
 function parseModernCall(call: ts.CallExpression, context: IAnalysisContext): { candidate?: ITranslationLoaderCandidate; diagnostics: ILoaderDetectionDiagnostic[] } {
 	const diagnostics: ILoaderDetectionDiagnostic[] = [];
 	let resources: ILoaderResourceTemplate[] = [];
-	if (call.arguments.length > 1) return { diagnostics: [diagnosticForExpression(call.arguments[1], context)] };
+	if (call.arguments.length > 1) {
+		return { diagnostics: [diagnosticForExpression(call.arguments[1], context)] };
+	}
 	if (call.arguments.length === 0) {
 		resources = [templateResource(`${DEFAULT_PREFIX}{locale}${DEFAULT_SUFFIX}`)];
 	} else {
-		const config = resolveExpression(call.arguments[0], context);
-		if (config.ambiguousNode) return { diagnostics: [diagnosticForFailure({ kind: 'ambiguous', node: config.ambiguousNode }, context)] };
+		const config: IResolvedExpression = resolveExpression(call.arguments[0], context);
+		if (config.ambiguousNode) {
+			return { diagnostics: [diagnosticForFailure({ kind: 'ambiguous', node: config.ambiguousNode }, context)] };
+		}
 		if (!config.expression || !ts.isObjectLiteralExpression(config.expression)) {
 			return { diagnostics: [diagnosticForExpression(config.expression ?? call.arguments[0], context)] };
 		}
-		const unsafeProperty = unsafeObjectElement(config.expression);
-		if (unsafeProperty) return { diagnostics: [diagnosticForExpression(unsafeProperty, context)] };
-		const resourcesProperty = findProperty(config.expression, 'resources');
+		const unsafeProperty: ts.ObjectLiteralElementLike | undefined = unsafeObjectElement(config.expression);
+		if (unsafeProperty) {
+			return { diagnostics: [diagnosticForExpression(unsafeProperty, context)] };
+		}
+		const resourcesProperty: ts.ObjectLiteralElementLike | undefined = findProperty(config.expression, 'resources');
 		if (resourcesProperty) {
-			const resolvedResources = propertyExpression(resourcesProperty, context);
-			if (resolvedResources.ambiguousNode) return { diagnostics: [diagnosticForFailure({ kind: 'ambiguous', node: resolvedResources.ambiguousNode }, context)] };
-			const resourceArray = resolvedResources.expression ? unwrapExpression(resolvedResources.expression) : undefined;
+			const resolvedResources: IResolvedExpression = propertyExpression(resourcesProperty, context);
+			if (resolvedResources.ambiguousNode) {
+				return { diagnostics: [diagnosticForFailure({ kind: 'ambiguous', node: resolvedResources.ambiguousNode }, context)] };
+			}
+			const resourceArray: ts.Expression | undefined = resolvedResources.expression ? unwrapExpression(resolvedResources.expression) : undefined;
 			if (!resourceArray || !ts.isArrayLiteralExpression(resourceArray) || resourceArray.elements.length === 0) {
 				return { diagnostics: [diagnosticForExpression(resourceArray ?? resourcesProperty, context)] };
 			}
 			for (const entry of resourceArray.elements) {
-				if (ts.isSpreadElement(entry)) diagnostics.push(diagnosticForExpression(entry, context));
-				else {
-					const parsed = parseResourceEntry(entry, context);
-					if (parsed.diagnostic) diagnostics.push(parsed.diagnostic);
-					if (parsed.resource) resources.push(parsed.resource);
+				if (ts.isSpreadElement(entry)) {
+					diagnostics.push(diagnosticForExpression(entry, context));
+				} else {
+					const parsed: { resource?: ILoaderResourceTemplate; diagnostic?: ILoaderDetectionDiagnostic } = parseResourceEntry(entry, context);
+					if (parsed.diagnostic) {
+						diagnostics.push(parsed.diagnostic);
+					}
+					if (parsed.resource) {
+						resources.push(parsed.resource);
+					}
 				}
 			}
 		} else {
-			const prefixProperty = findProperty(config.expression, 'prefix');
-			const suffixProperty = findProperty(config.expression, 'suffix');
-			const prefix = prefixProperty ? resolvePropertyString(prefixProperty, context) : { value: DEFAULT_PREFIX };
-			const suffix = suffixProperty ? resolvePropertyString(suffixProperty, context) : { value: DEFAULT_SUFFIX };
-			if (prefix.diagnostic) diagnostics.push(prefix.diagnostic);
-			if (suffix.diagnostic) diagnostics.push(suffix.diagnostic);
-			if (!diagnostics.length) resources = [templateResource(`${prefix.value}{locale}${suffix.value}`)];
+			const prefixProperty: ts.ObjectLiteralElementLike | undefined = findProperty(config.expression, 'prefix');
+			const suffixProperty: ts.ObjectLiteralElementLike | undefined = findProperty(config.expression, 'suffix');
+			const prefix: { value?: string; diagnostic?: ILoaderDetectionDiagnostic; } = prefixProperty ? resolvePropertyString(prefixProperty, context) : { value: DEFAULT_PREFIX };
+			const suffix: { value?: string; diagnostic?: ILoaderDetectionDiagnostic; } = suffixProperty ? resolvePropertyString(suffixProperty, context) : { value: DEFAULT_SUFFIX };
+			if (prefix.diagnostic) {
+				diagnostics.push(prefix.diagnostic);
+			}
+			if (suffix.diagnostic) {
+				diagnostics.push(suffix.diagnostic);
+			}
+			if (!diagnostics.length) {
+				resources = [templateResource(`${prefix.value}{locale}${suffix.value}`)];
+			}
 		}
 	}
-	if (diagnostics.length || resources.length === 0) return { diagnostics };
+	if (diagnostics.length || resources.length === 0) {
+		return { diagnostics };
+	}
 	return {
 		diagnostics,
 		candidate: {
@@ -158,12 +193,18 @@ function parseModernCall(call: ts.CallExpression, context: IAnalysisContext): { 
  * @returns A candidate using omitted-fragment defaults, or diagnostics for unsupported arguments.
  */
 function parseLegacyNew(expression: ts.NewExpression, context: IAnalysisContext): { candidate?: ITranslationLoaderCandidate; diagnostics: ILoaderDetectionDiagnostic[] } {
-	const args = expression.arguments ?? [];
-	if (args.length === 0 || args.length > 3) return { diagnostics: [diagnosticForExpression(args[3] ?? expression, context)] };
-	const prefix = args[1] ? resolveString(args[1], context) : { value: DEFAULT_PREFIX };
-	const suffix = args[2] ? resolveString(args[2], context) : { value: DEFAULT_SUFFIX };
-	const diagnostics = [prefix.diagnostic, suffix.diagnostic].filter((value): value is ILoaderDetectionDiagnostic => Boolean(value));
-	if (diagnostics.length) return { diagnostics };
+	const args: ts.NodeArray<ts.Expression> | never[] = expression.arguments ?? [];
+	if (args.length === 0 || args.length > 3) {
+		return { diagnostics: [diagnosticForExpression(args[3] ?? expression, context)] };
+	}
+	const prefix: { value?: string; diagnostic?: ILoaderDetectionDiagnostic; } = args[1] ? resolveString(args[1], context) : { value: DEFAULT_PREFIX };
+	const suffix: { value?: string; diagnostic?: ILoaderDetectionDiagnostic; } = args[2] ? resolveString(args[2], context) : { value: DEFAULT_SUFFIX };
+	const diagnostics: ILoaderDetectionDiagnostic[] = [prefix.diagnostic, suffix.diagnostic].filter(
+		(value: ILoaderDetectionDiagnostic | undefined): value is ILoaderDetectionDiagnostic => Boolean(value)
+	);
+	if (diagnostics.length) {
+		return { diagnostics };
+	}
 	return {
 		diagnostics: [],
 		candidate: {
@@ -185,28 +226,41 @@ function extractLiteralLocales(contexts: IAnalysisContext[], diagnostics: ILoade
 	 * Adds a non-empty locale only when not previously collected.
 	 * @param value - Literal locale string to append.
 	 */
-	const addLocale = (value: string): void => { if (value && !locales.includes(value)) locales.push(value); };
-	const namedArrays = collectNamedLiteralStringArrays(contexts, /^(supported|available|app)?(locales|languages|langs)$/);
+	const addLocale: (value: string) => void = (value: string): void => {
+		if (value && !locales.includes(value)) {
+			locales.push(value);
+		}
+	};
+	const namedArrays: ReturnType<typeof collectNamedLiteralStringArrays> = collectNamedLiteralStringArrays(contexts, /^(supported|available|app)?(locales|languages|langs)$/);
 	namedArrays.values.forEach(addLocale);
-	for (const { context, failure } of namedArrays.failures) diagnostics.push(diagnosticForFailure(failure, context));
+	for (const { context, failure } of namedArrays.failures) {
+		diagnostics.push(diagnosticForFailure(failure, context));
+	}
 	for (const context of contexts) {
 		/**
 		 * Walks service configuration calls and appends static locale values or diagnostics.
 		 * @param node - Current source node and subtree to inspect.
 		 */
-		const visit = (node: ts.Node): void => {
+		const visit: (node: ts.Node) => void = (node: ts.Node): void => {
 			if (ts.isCallExpression(node)) {
-				const symbol = resolveImportedSymbol(node.expression, context);
+				const symbol: IImportedSymbol | undefined = resolveImportedSymbol(node.expression, context);
 				if (symbol?.moduleName === TRANSLATE_CORE_MODULE && symbol.importedName === 'provideTranslateService' && node.arguments[0]) {
-					const config = resolveExpression(node.arguments[0], context);
-					if (config.ambiguousNode) diagnostics.push(diagnosticForFailure({ kind: 'ambiguous', node: config.ambiguousNode }, context));
-					else if (config.expression && ts.isObjectLiteralExpression(config.expression)) {
+					const config: IResolvedExpression = resolveExpression(node.arguments[0], context);
+					if (config.ambiguousNode) {
+						diagnostics.push(diagnosticForFailure({ kind: 'ambiguous', node: config.ambiguousNode }, context));
+					} else if (config.expression && ts.isObjectLiteralExpression(config.expression)) {
 						for (const name of ['lang', 'fallbackLang']) {
-							const property = findProperty(config.expression, name);
-							if (!property) continue;
-							const locale = resolvePropertyString(property, context);
-							if (locale.diagnostic) diagnostics.push(locale.diagnostic);
-							if (locale.value) addLocale(locale.value);
+							const property: ts.ObjectLiteralElementLike | undefined = findProperty(config.expression, name);
+							if (!property) {
+								continue;
+							}
+							const locale: { value?: string; diagnostic?: ILoaderDetectionDiagnostic } = resolvePropertyString(property, context);
+							if (locale.diagnostic) {
+								diagnostics.push(locale.diagnostic);
+							}
+							if (locale.value) {
+								addLocale(locale.value);
+							}
 						}
 					}
 				}
@@ -225,17 +279,21 @@ function extractLiteralLocales(contexts: IAnalysisContext[], diagnostics: ILoade
  * @returns Whether a recognized TranslateHttpLoader construction occurs anywhere in the subtree.
  */
 function containsImportedLegacyNew(node: ts.Node, context: IAnalysisContext): boolean {
-	let found = false;
+	let found: boolean = false;
 	/**
 	 * Visits descendants until an imported legacy HTTP loader construction is found.
 	 * @param child - AST node being checked.
 	 */
-	const visit = (child: ts.Node): void => {
+	const visit: (child: ts.Node) => void = (child: ts.Node): void => {
 		if (ts.isNewExpression(child)) {
-			const symbol = resolveImportedSymbol(child.expression, context);
-			if (symbol?.moduleName === HTTP_LOADER_MODULE && symbol.importedName === 'TranslateHttpLoader') found = true;
+			const symbol: IImportedSymbol | undefined = resolveImportedSymbol(child.expression, context);
+			if (symbol?.moduleName === HTTP_LOADER_MODULE && symbol.importedName === 'TranslateHttpLoader') {
+				found = true;
+			}
 		}
-		if (!found) ts.forEachChild(child, visit);
+		if (!found) {
+			ts.forEachChild(child, visit);
+		}
 	};
 	visit(node);
 	return found;
@@ -252,18 +310,20 @@ function diagnoseArbitraryFactories(context: IAnalysisContext, diagnostics: ILoa
 	 * Walks provider objects and diagnoses unsupported custom translation factories.
 	 * @param node - Current source node and descendants.
 	 */
-	const visit = (node: ts.Node): void => {
+	const visit: (node: ts.Node) => void = (node: ts.Node): void => {
 		if (ts.isObjectLiteralExpression(node)) {
-			const provide = findProperty(node, 'provide');
-			const useFactory = findProperty(node, 'useFactory');
+			const provide: ts.ObjectLiteralElementLike | undefined = findProperty(node, 'provide');
+			const useFactory: ts.ObjectLiteralElementLike | undefined = findProperty(node, 'useFactory');
 			if (provide && useFactory) {
-				const provided = propertyExpression(provide, context).expression;
-				const symbol = provided ? resolveImportedSymbol(provided, context) : undefined;
+				const provided: ts.Expression | undefined = propertyExpression(provide, context).expression;
+				const symbol: IImportedSymbol | undefined = provided ? resolveImportedSymbol(provided, context) : undefined;
 				if (symbol?.moduleName === TRANSLATE_CORE_MODULE && symbol.importedName === 'TranslateLoader') {
-					const factoryExpression = propertyExpression(useFactory, context).expression;
+					const factoryExpression: ts.Expression | undefined = propertyExpression(useFactory, context).expression;
 					let factories: ts.Node[] = factoryExpression ? [factoryExpression] : [];
-					if (factoryExpression && ts.isIdentifier(factoryExpression)) factories = resolveFactoryDeclarations(factoryExpression, context);
-					if (!factories.some((factory) => containsImportedLegacyNew(factory, context))) {
+					if (factoryExpression && ts.isIdentifier(factoryExpression)) {
+						factories = resolveFactoryDeclarations(factoryExpression, context);
+					}
+					if (!factories.some((factory: ts.Node): boolean => containsImportedLegacyNew(factory, context))) {
 						diagnostics.push({
 							code: 'ngx-http-unsupported-factory', category: 'unsupported',
 							message: 'Custom ngx-translate loader factories are not executed; configure the endpoint explicitly.',
@@ -286,31 +346,37 @@ function diagnoseArbitraryFactories(context: IAnalysisContext, diagnostics: ILoa
  * @returns Detected candidates and diagnostics deduplicated by code and source range.
  */
 export function analyzeNgxTranslateHttpLoaders(files: readonly ILoaderAnalysisSourceFile[]): ITranslationLoaderAnalysisResult {
-	const contexts = files.map(collectAnalysisContext);
+	const contexts: IAnalysisContext[] = files.map(collectAnalysisContext);
 	const candidates: ITranslationLoaderCandidate[] = [];
 	const diagnostics: ILoaderDetectionDiagnostic[] = [];
-	const locales = extractLiteralLocales(contexts, diagnostics);
+	const locales: string[] = extractLiteralLocales(contexts, diagnostics);
 	for (const context of contexts) {
 		/**
 		 * Visits imported loader calls and constructions to collect candidates or diagnostics.
 		 * @param node - Current node in the source-file traversal.
 		 */
-		const visit = (node: ts.Node): void => {
+		const visit: (node: ts.Node) => void = (node: ts.Node): void => {
 			if (ts.isCallExpression(node)) {
-				const symbol = resolveImportedSymbol(node.expression, context);
+				const symbol: IImportedSymbol | undefined = resolveImportedSymbol(node.expression, context);
 				if (symbol?.moduleName === HTTP_LOADER_MODULE && symbol.importedName === 'provideTranslateHttpLoader') {
-					const conditional = conditionalAncestor(node);
-					const parsed = conditional ? { diagnostics: [diagnosticForExpression(conditional, context)] } : parseModernCall(node, context);
-					if (parsed.candidate) candidates.push({ ...parsed.candidate, locales: [...locales] });
+					const conditional: ts.ConditionalExpression | undefined = conditionalAncestor(node);
+				const parsed: { candidate?: ITranslationLoaderCandidate; diagnostics: ILoaderDetectionDiagnostic[]; } = conditional
+					? { diagnostics: [diagnosticForExpression(conditional, context)] } : parseModernCall(node, context);
+					if (parsed.candidate) {
+						candidates.push({ ...parsed.candidate, locales: [...locales] });
+					}
 					diagnostics.push(...parsed.diagnostics);
 				}
 			}
 			if (ts.isNewExpression(node)) {
-				const symbol = resolveImportedSymbol(node.expression, context);
+				const symbol: IImportedSymbol | undefined = resolveImportedSymbol(node.expression, context);
 				if (symbol?.moduleName === HTTP_LOADER_MODULE && symbol.importedName === 'TranslateHttpLoader') {
-					const conditional = conditionalAncestor(node);
-					const parsed = conditional ? { diagnostics: [diagnosticForExpression(conditional, context)] } : parseLegacyNew(node, context);
-					if (parsed.candidate) candidates.push({ ...parsed.candidate, locales: [...locales] });
+					const conditional: ts.ConditionalExpression | undefined = conditionalAncestor(node);
+				const parsed: { candidate?: ITranslationLoaderCandidate; diagnostics: ILoaderDetectionDiagnostic[]; } = conditional
+					? { diagnostics: [diagnosticForExpression(conditional, context)] } : parseLegacyNew(node, context);
+					if (parsed.candidate) {
+						candidates.push({ ...parsed.candidate, locales: [...locales] });
+					}
 					diagnostics.push(...parsed.diagnostics);
 				}
 			}

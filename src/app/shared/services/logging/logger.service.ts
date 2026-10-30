@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, WritableSignal } from '@angular/core';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'log';
 
@@ -12,7 +12,7 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 
 @Injectable({ providedIn: 'root' })
 export class LoggerService {
-	private readonly level = signal<LogLevel>('info');
+	private readonly level: WritableSignal<LogLevel> = signal<LogLevel>('info');
 
 	/** Set the minimum log level. Only logs at this level or higher will be output. */
 	setLevel(level: LogLevel): void {
@@ -28,27 +28,37 @@ export class LoggerService {
 	}
 
 	private format(prefix: string, message: string, levelLabel: string): string {
-		const timestamp = new Date().toISOString();
+		const timestamp: string = new Date().toISOString();
 		return `[${timestamp}] [${levelLabel}] [${prefix}] ${message}`;
 	}
 
 	debug(prefix: string, message: string, ...args: unknown[]): void {
-		if (this.shouldLog('debug')) console.debug(this.format(prefix, message, 'DEBUG'), ...args);
+		if (this.shouldLog('debug')) {
+			console.debug(this.format(prefix, message, 'DEBUG'), ...args);
+		}
 	}
 
 	info(prefix: string, message: string, ...args: unknown[]): void {
-		if (this.shouldLog('info')) console.info(this.format(prefix, message, 'INFO'), ...args);
+		if (this.shouldLog('info')) {
+			console.info(this.format(prefix, message, 'INFO'), ...args);
+		}
 	}
 
 	log(prefix: string, message: string, ...args: unknown[]): void {
-		if (this.shouldLog('log')) console.log(this.format(prefix, message, 'LOG'), ...args);
+		if (this.shouldLog('log')) {
+			console.log(this.format(prefix, message, 'LOG'), ...args);
+		}
 	}
 
 	warn(prefix: string, message: string, ...args: unknown[]): void {
-		if (this.shouldLog('warn')) console.warn(this.format(prefix, message, 'WARN'), ...args);
+		if (this.shouldLog('warn')) {
+			console.warn(this.format(prefix, message, 'WARN'), ...args);
+		}
 	}
 
 	error(prefix: string, message: string, ...args: unknown[]): void {
-		if (this.shouldLog('error')) console.error(this.format(prefix, message, 'ERROR'), ...args);
+		if (this.shouldLog('error')) {
+			console.error(this.format(prefix, message, 'ERROR'), ...args);
+		}
 	}
 }

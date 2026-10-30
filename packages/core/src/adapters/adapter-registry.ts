@@ -1,5 +1,5 @@
 import { IAdapterMatch } from './adapter.interfaces.js';
-import { IFileSystemAdapter, IScanAdapter } from './scan-adapter.interface.js';
+import { IFileSystemAdapter, IScanAdapter, IAdapterDetectionResult } from './scan-adapter.interface.js';
 
 export class AdapterRegistry {
 	private readonly adapters: IScanAdapter[] = [];
@@ -21,7 +21,7 @@ export class AdapterRegistry {
 	 * @param adapter - Adapter instance to retain; existing registrations are not replaced.
 	 */
 	register(adapter: IScanAdapter): void {
-		if (this.adapters.some((item) => item.id === adapter.id)) {
+		if (this.adapters.some((item: IScanAdapter): boolean => item.id === adapter.id)) {
 			return;
 		}
 
@@ -50,7 +50,7 @@ export class AdapterRegistry {
 		let bestMatch: IAdapterMatch | null = null;
 
 		for (const adapter of this.adapters) {
-			const result = await adapter.detect(projectRoot, fs);
+			const result: IAdapterDetectionResult = await adapter.detect(projectRoot, fs);
 			if (!result.supported) {
 				continue;
 			}

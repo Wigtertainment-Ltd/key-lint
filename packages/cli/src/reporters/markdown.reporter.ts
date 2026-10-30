@@ -1,7 +1,7 @@
 import { IFileEvidence, IFinding, IProjectScanResult } from '@key-lint/core';
 import type { IReporter, IReporterContext } from './reporter.interfaces.js';
 
-const MAX_LISTED_FINDINGS = 50;
+const MAX_LISTED_FINDINGS: number = 50;
 
 function escapeCell(value: string): string {
 	return (
@@ -32,7 +32,7 @@ export const markdownReporter: IReporter = {
 		lines.push('## KeyLint');
 		lines.push('');
 		lines.push(`**Result:** ${status} - adapter \`${result.adapterId}\` - ${result.durationMs} ms`);
-		const baseLocale: unknown = result.metadata?.['baseLocale'];
+		const baseLocale: unknown = result.metadata?.baseLocale;
 		if (typeof baseLocale === 'string') {
 			lines.push(`**Base locale:** \`${escapeCell(baseLocale)}\``);
 		}
@@ -52,7 +52,7 @@ export const markdownReporter: IReporter = {
 		lines.push(`| Warnings | ${context.counts.warning} |`);
 		lines.push('');
 
-		const reportable: IFinding[] = result.findings.filter((finding) => finding.severity === 'error');
+		const reportable: IFinding[] = result.findings.filter((finding: IFinding): boolean => finding.severity === 'error');
 		if (reportable.length > 0) {
 			lines.push('### Errors');
 			lines.push('');
@@ -70,7 +70,7 @@ export const markdownReporter: IReporter = {
 			lines.push('');
 		}
 
-		const warningFindings: IFinding[] = result.findings.filter((finding) => finding.severity === 'warning');
+		const warningFindings: IFinding[] = result.findings.filter((finding: IFinding): boolean => finding.severity === 'warning');
 		if (warningFindings.length > 0) {
 			lines.push('### Warnings');
 			lines.push('');

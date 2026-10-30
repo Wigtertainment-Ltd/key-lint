@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import {
 	CONFIG_FILE_NAME,
 	IScannerConfigOverrides,
@@ -7,7 +7,8 @@ import {
 	normalizePath,
 	resolveScannerConfigSources,
 	ScannerConfigValueSource,
-	ScannerConfigError
+	ScannerConfigError,
+	IResolvedScannerConfig
 } from '@key-lint/core';
 
 import { ElectronService } from './electron.service';
@@ -21,16 +22,16 @@ export interface IDesktopLoadedScannerConfig {
 
 @Injectable({ providedIn: 'root' })
 export class DesktopScannerConfigService {
-	constructor(private readonly electronService: ElectronService) {}
+	private readonly electronService: ElectronService = inject(ElectronService);
 
 	async load(
 		projectRoot: string,
 		overrides: IScannerConfigOverrides = {}
 	): Promise<IDesktopLoadedScannerConfig> {
 		// Remove one trailing forward slash before appending configuration filenames.
-		const normalizedRoot = normalizePath(projectRoot).replace(/\/$/, '');
+		const normalizedRoot: string = normalizePath(projectRoot).replace(/\/$/, '');
 		if (!this.electronService.isElectron) {
-			const resolved = resolveScannerConfigSources({ overrides });
+			const resolved: IResolvedScannerConfig = resolveScannerConfigSources({ overrides });
 			return {
 				config: resolved.config,
 				packageJsonConfigApplied: false,
@@ -38,11 +39,11 @@ export class DesktopScannerConfigService {
 			};
 		}
 
-		const packageJsonPath = `${normalizedRoot}/package.json`;
-		const configFilePath = `${normalizedRoot}/${CONFIG_FILE_NAME}`;
-		const packageJson = await this.readJsonFileIfPresent(packageJsonPath);
-		const configFile = await this.readJsonFileIfPresent(configFilePath);
-		const resolved = resolveScannerConfigSources({ packageJson, configFile, overrides });
+		const packageJsonPath: string = `${normalizedRoot}/package.json`;
+		const configFilePath: string = `${normalizedRoot}/${CONFIG_FILE_NAME}`;
+		const packageJson: unknown = await this.readJsonFileIfPresent(packageJsonPath);
+		const configFile: unknown = await this.readJsonFileIfPresent(configFilePath);
+		const resolved: IResolvedScannerConfig = resolveScannerConfigSources({ packageJson, configFile, overrides });
 
 		return {
 			config: resolved.config,
@@ -60,7 +61,7 @@ export class DesktopScannerConfigService {
 		let raw: string;
 		try {
 			raw = await this.electronService.readFile(filePath);
-		} catch (error) {
+		} catch (error: unknown) {
 			throw new ScannerConfigError(
 				`Could not read "${filePath}": ${error instanceof Error ? error.message : 'unknown error'}`
 			);
@@ -68,7 +69,7 @@ export class DesktopScannerConfigService {
 
 		try {
 			return JSON.parse(raw) as unknown;
-		} catch (error) {
+		} catch (error: unknown) {
 			throw new ScannerConfigError(
 				`Could not parse "${filePath}": ${error instanceof Error ? error.message : 'invalid JSON'}`
 			);

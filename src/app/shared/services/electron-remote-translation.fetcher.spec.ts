@@ -1,11 +1,11 @@
-import { RemoteTranslationError } from '@key-lint/core';
+import { RemoteTranslationError, IRemoteTranslationFetchResponse } from '@key-lint/core';
 
 import { ElectronRemoteTranslationFetcher } from './electron-remote-translation.fetcher';
 import { ElectronService } from './electron.service';
 
-describe('ElectronRemoteTranslationFetcher', () => {
-	it('adapts the Core fetcher contract to the narrow Electron bridge', async () => {
-		const electron = jasmine.createSpyObj<ElectronService>('ElectronService', [
+describe('ElectronRemoteTranslationFetcher', (): void => {
+	it('adapts the Core fetcher contract to the narrow Electron bridge', async (): Promise<void> => {
+		const electron: jasmine.SpyObj<ElectronService> = jasmine.createSpyObj<ElectronService>('ElectronService', [
 			'fetchTranslationResource',
 			'endTranslationScan'
 		]);
@@ -14,9 +14,9 @@ describe('ElectronRemoteTranslationFetcher', () => {
 			value: { body: '{"APP":{}}', finalUrl: 'https://example.com/en.json' }
 		});
 		electron.endTranslationScan.and.resolveTo({ ok: true });
-		const fetcher = new ElectronRemoteTranslationFetcher(electron);
+		const fetcher: ElectronRemoteTranslationFetcher = new ElectronRemoteTranslationFetcher(electron);
 
-		const response = await fetcher.fetch({
+		const response: IRemoteTranslationFetchResponse = await fetcher.fetch({
 			url: 'https://example.com/en.json',
 			headers: { Authorization: 'Bearer secret' },
 			timeoutMs: 15_000,
@@ -25,19 +25,19 @@ describe('ElectronRemoteTranslationFetcher', () => {
 		});
 
 		expect(response.body).toContain('APP');
-		expect(electron.fetchTranslationResource).toHaveBeenCalledWith(jasmine.objectContaining({
+		expect(electron.fetchTranslationResource.calls.allArgs()).toContain([jasmine.objectContaining({
 			method: 'GET',
 			url: 'https://example.com/en.json',
 			timeoutMs: 15_000,
 			maxRedirects: 3,
 			maxResponseBytes: 2_048
-		}));
+		})]);
 		await fetcher.close();
-		expect(electron.endTranslationScan).toHaveBeenCalledOnceWith(jasmine.stringMatching(/^renderer-/));
+		expect(electron.endTranslationScan.calls.allArgs()).toEqual([[jasmine.stringMatching(/^renderer-/)]]);
 	});
 
-	it('normalizes safe IPC errors into Core errors', async () => {
-		const electron = jasmine.createSpyObj<ElectronService>('ElectronService', [
+	it('normalizes safe IPC errors into Core errors', async (): Promise<void> => {
+		const electron: jasmine.SpyObj<ElectronService> = jasmine.createSpyObj<ElectronService>('ElectronService', [
 			'fetchTranslationResource',
 			'endTranslationScan'
 		]);
@@ -45,7 +45,7 @@ describe('ElectronRemoteTranslationFetcher', () => {
 			ok: false,
 			error: { code: 'remote-http-error', message: 'Request returned HTTP 401.' }
 		});
-		const fetcher = new ElectronRemoteTranslationFetcher(electron);
+		const fetcher: ElectronRemoteTranslationFetcher = new ElectronRemoteTranslationFetcher(electron);
 
 		let error: unknown;
 		try {
@@ -56,7 +56,7 @@ describe('ElectronRemoteTranslationFetcher', () => {
 				maxRedirects: 3,
 				maxResponseBytes: 2_048
 			});
-		} catch (caught) {
+		} catch (caught: unknown) {
 			error = caught;
 		}
 		expect(error).toBeInstanceOf(RemoteTranslationError);

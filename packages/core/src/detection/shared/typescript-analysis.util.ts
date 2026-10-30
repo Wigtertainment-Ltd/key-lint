@@ -104,13 +104,15 @@ export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnaly
 	 *
 	 * @param node - Current AST node whose declarations and descendants are indexed.
 	 */
-	const collectDeclarations = (node: ts.Node): void => {
+	const collectDeclarations: (node: ts.Node) => void = (node: ts.Node): void => {
 		if (
 			((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name)) ||
 			((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && Boolean(node.name))
 		) {
 			const name: ts.BindingName | undefined = node.name;
-			if (name && ts.isIdentifier(name)) appendMapValue(context.shadowDeclarations, name.text, node);
+			if (name && ts.isIdentifier(name)) {
+				appendMapValue(context.shadowDeclarations, name.text, node);
+			}
 		}
 		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isConstDeclaration(node)) {
 			appendMapValue(context.constantInitializers, node.name.text, { declaration: node, initializer: node.initializer });
@@ -135,7 +137,9 @@ export function collectAnalysisContext(input: ILoaderAnalysisSourceFile): IAnaly
 export function declarationScope(node: ts.Node): ts.Node {
 	let current: ts.Node = node.parent;
 	while (current && !ts.isSourceFile(current)) {
-		if (ts.isBlock(current) || ts.isFunctionLike(current) || ts.isClassLike(current)) return current;
+		if (ts.isBlock(current) || ts.isFunctionLike(current) || ts.isClassLike(current)) {
+			return current;
+		}
 		current = current.parent;
 	}
 	return current;
@@ -151,7 +155,9 @@ export function declarationScope(node: ts.Node): ts.Node {
 export function isInside(node: ts.Node, possibleAncestor: ts.Node): boolean {
 	let current: ts.Node | undefined = node;
 	while (current) {
-		if (current === possibleAncestor) return true;
+		if (current === possibleAncestor) {
+			return true;
+		}
 		current = current.parent;
 	}
 	return false;
@@ -166,10 +172,12 @@ export function isInside(node: ts.Node, possibleAncestor: ts.Node): boolean {
  * @returns Visible declarations in the most narrowly sized scope, or all matches when fewer than two exist.
  */
 function visibleConstantDeclarations(identifier: ts.Identifier, declarations: IConstantDeclaration[]): IConstantDeclaration[] {
-	const visible: IConstantDeclaration[] = declarations.filter(({ declaration }) => isInside(identifier, declarationScope(declaration)));
-	if (visible.length < 2) return visible;
-	const smallestScopeSize: number = Math.min(...visible.map(({ declaration }) => declarationScope(declaration).getWidth()));
-	return visible.filter(({ declaration }) => declarationScope(declaration).getWidth() === smallestScopeSize);
+	const visible: IConstantDeclaration[] = declarations.filter(({ declaration }: IConstantDeclaration): boolean => isInside(identifier, declarationScope(declaration)));
+	if (visible.length < 2) {
+		return visible;
+	}
+	const smallestScopeSize: number = Math.min(...visible.map(({ declaration }: IConstantDeclaration): number => declarationScope(declaration).getWidth()));
+	return visible.filter(({ declaration }: IConstantDeclaration): boolean => declarationScope(declaration).getWidth() === smallestScopeSize);
 }
 
 /**
@@ -181,7 +189,7 @@ function visibleConstantDeclarations(identifier: ts.Identifier, declarations: IC
  */
 function hasVisibleShadow(identifier: ts.Identifier, context: IAnalysisContext): boolean {
 	const declarations: ts.Node[] = context.shadowDeclarations.get(identifier.text) ?? [];
-	return declarations.some((declaration) => declarationScope(declaration) !== context.sourceFile && isInside(identifier, declarationScope(declaration)));
+	return declarations.some((declaration: ts.Node): boolean => declarationScope(declaration) !== context.sourceFile && isInside(identifier, declarationScope(declaration)));
 }
 
 /**
@@ -193,14 +201,22 @@ function hasVisibleShadow(identifier: ts.Identifier, context: IAnalysisContext):
  * @param seen - Mutable set of followed identifier names used to stop cycles.
  * @returns A resolved AST expression or the node at which resolution became ambiguous.
  */
-export function resolveExpression(expression: ts.Expression, context: IAnalysisContext, seen = new Set<string>()): IResolvedExpression {
+export function resolveExpression(expression: ts.Expression, context: IAnalysisContext, seen: Set<string> = new Set<string>()): IResolvedExpression {
 	const unwrapped: ts.Expression = unwrapExpression(expression);
-	if (!ts.isIdentifier(unwrapped)) return { expression: unwrapped };
-	if (seen.has(unwrapped.text)) return { ambiguousNode: unwrapped };
+	if (!ts.isIdentifier(unwrapped)) {
+		return { expression: unwrapped };
+	}
+	if (seen.has(unwrapped.text)) {
+		return { ambiguousNode: unwrapped };
+	}
 	const declarations: IConstantDeclaration[] | undefined = context.constantInitializers.get(unwrapped.text);
-	if (!declarations) return { expression: unwrapped };
+	if (!declarations) {
+		return { expression: unwrapped };
+	}
 	const visible: IConstantDeclaration[] = visibleConstantDeclarations(unwrapped, declarations);
-	if (visible.length !== 1) return { ambiguousNode: unwrapped };
+	if (visible.length !== 1) {
+		return { ambiguousNode: unwrapped };
+	}
 	seen.add(unwrapped.text);
 	return resolveExpression(visible[0].initializer, context, seen);
 }
@@ -214,23 +230,31 @@ export function resolveExpression(expression: ts.Expression, context: IAnalysisC
  * @param seen - Mutable alias-name set used to stop recursive cycles.
  * @returns The imported module and symbol name, or `undefined` when resolution is unsupported or shadowed.
  */
-export function resolveImportedSymbol(expression: ts.Expression, context: IAnalysisContext, seen = new Set<string>()): IImportedSymbol | undefined {
+export function resolveImportedSymbol(expression: ts.Expression, context: IAnalysisContext, seen: Set<string> = new Set<string>()): IImportedSymbol | undefined {
 	const unwrapped: ts.Expression = unwrapExpression(expression);
 	if (ts.isIdentifier(unwrapped)) {
-		if (seen.has(unwrapped.text)) return undefined;
+		if (seen.has(unwrapped.text)) {
+			return undefined;
+		}
 		const declarations: IConstantDeclaration[] | undefined = context.constantInitializers.get(unwrapped.text);
 		const visible: IConstantDeclaration[] = declarations ? visibleConstantDeclarations(unwrapped, declarations) : [];
 		if (visible.length === 1) {
 			seen.add(unwrapped.text);
 			return resolveImportedSymbol(visible[0].initializer, context, seen);
 		}
-		if (hasVisibleShadow(unwrapped, context)) return undefined;
+		if (hasVisibleShadow(unwrapped, context)) {
+			return undefined;
+		}
 		return context.imports.get(unwrapped.text);
 	}
 	if (ts.isPropertyAccessExpression(unwrapped) && ts.isIdentifier(unwrapped.expression)) {
-		if (hasVisibleShadow(unwrapped.expression, context)) return undefined;
+		if (hasVisibleShadow(unwrapped.expression, context)) {
+			return undefined;
+		}
 		const moduleName: string | undefined = context.namespaces.get(unwrapped.expression.text);
-		if (moduleName) return { moduleName, importedName: unwrapped.name.text };
+		if (moduleName) {
+			return { moduleName, importedName: unwrapped.name.text };
+		}
 	}
 	return undefined;
 }
@@ -283,18 +307,34 @@ export function classifyStaticExpression(node: ts.Node, context: IAnalysisContex
 	 *
 	 * @param child - AST node inspected for environment, conditional, merge, or transformation markers.
 	 */
-	const inspect = (child: ts.Node): void => {
-		if (ts.isConditionalExpression(child) || ts.isIfStatement(child) || ts.isSwitchStatement(child)) hasConditional = true;
-		if (ts.isSpreadAssignment(child) || ts.isSpreadElement(child)) hasSpread = true;
-		if (ts.isCallExpression(child) || ts.isTaggedTemplateExpression(child)) hasTransformation = true;
-		if ((ts.isIdentifier(child) && /^(environment|env)$/i.test(child.text)) || child.getText(context.sourceFile).includes('process.env')) hasEnvironment = true;
+	const inspect: (child: ts.Node) => void = (child: ts.Node): void => {
+		if (ts.isConditionalExpression(child) || ts.isIfStatement(child) || ts.isSwitchStatement(child)) {
+			hasConditional = true;
+		}
+		if (ts.isSpreadAssignment(child) || ts.isSpreadElement(child)) {
+			hasSpread = true;
+		}
+		if (ts.isCallExpression(child) || ts.isTaggedTemplateExpression(child)) {
+			hasTransformation = true;
+		}
+		if ((ts.isIdentifier(child) && /^(environment|env)$/i.test(child.text)) || child.getText(context.sourceFile).includes('process.env')) {
+			hasEnvironment = true;
+		}
 		ts.forEachChild(child, inspect);
 	};
 	inspect(node);
-	if (hasEnvironment) return { kind: 'environment', node };
-	if (hasConditional) return { kind: 'conditional', node };
-	if (hasSpread) return { kind: 'merge', node };
-	if (hasTransformation) return { kind: 'transformation', node };
+	if (hasEnvironment) {
+		return { kind: 'environment', node };
+	}
+	if (hasConditional) {
+		return { kind: 'conditional', node };
+	}
+	if (hasSpread) {
+		return { kind: 'merge', node };
+	}
+	if (hasTransformation) {
+		return { kind: 'transformation', node };
+	}
 	return { kind: 'unsupported', node };
 }
 
@@ -308,9 +348,13 @@ export function classifyStaticExpression(node: ts.Node, context: IAnalysisContex
  */
 export function resolveStaticString(expression: ts.Expression, context: IAnalysisContext): { value?: string; failure?: IStaticExpressionFailure } {
 	const resolved: IResolvedExpression = resolveExpression(expression, context);
-	if (resolved.ambiguousNode) return { failure: { kind: 'ambiguous', node: resolved.ambiguousNode } };
-	const value: ts.Expression = resolved.expression as ts.Expression;
-	if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) return { value: value.text };
+	if (resolved.ambiguousNode) {
+		return { failure: { kind: 'ambiguous', node: resolved.ambiguousNode } };
+	}
+	const value: ts.Expression = resolved.expression!;
+	if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) {
+		return { value: value.text };
+	}
 	return { failure: classifyStaticExpression(value, context) };
 }
 
@@ -321,8 +365,12 @@ export function resolveStaticString(expression: ts.Expression, context: IAnalysi
  * @returns Supported property-name text, or `undefined` for unnamed or computed elements.
  */
 export function propertyName(property: ts.ObjectLiteralElementLike): string | undefined {
-	if (!property.name) return undefined;
-	if (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) || ts.isNumericLiteral(property.name)) return property.name.text;
+	if (!property.name) {
+		return undefined;
+	}
+	if (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) || ts.isNumericLiteral(property.name)) {
+		return property.name.text;
+	}
 	return undefined;
 }
 
@@ -334,7 +382,7 @@ export function propertyName(property: ts.ObjectLiteralElementLike): string | un
  * @returns The final matching element, or `undefined` when absent.
  */
 export function findProperty(object: ts.ObjectLiteralExpression, name: string): ts.ObjectLiteralElementLike | undefined {
-	return [...object.properties].reverse().find((property) => propertyName(property) === name);
+	return [...object.properties].reverse().find((property: ts.ObjectLiteralElementLike): boolean => propertyName(property) === name);
 }
 
 /**
@@ -344,7 +392,7 @@ export function findProperty(object: ts.ObjectLiteralExpression, name: string): 
  * @returns The first unsafe element, or `undefined` when every name is statically recognizable.
  */
 export function unsafeObjectElement(object: ts.ObjectLiteralExpression): ts.ObjectLiteralElementLike | undefined {
-	return object.properties.find((property) => ts.isSpreadAssignment(property) || propertyName(property) === undefined);
+	return object.properties.find((property: ts.ObjectLiteralElementLike): boolean => ts.isSpreadAssignment(property) || propertyName(property) === undefined);
 }
 
 /**
@@ -356,8 +404,12 @@ export function unsafeObjectElement(object: ts.ObjectLiteralExpression): ts.Obje
  * @returns Resolved property expression or ambiguity metadata.
  */
 export function propertyExpression(property: ts.ObjectLiteralElementLike, context: IAnalysisContext): IResolvedExpression {
-	if (ts.isPropertyAssignment(property)) return resolveExpression(property.initializer, context);
-	if (ts.isShorthandPropertyAssignment(property)) return resolveExpression(property.name, context);
+	if (ts.isPropertyAssignment(property)) {
+		return resolveExpression(property.initializer, context);
+	}
+	if (ts.isShorthandPropertyAssignment(property)) {
+		return resolveExpression(property.name, context);
+	}
 	return { expression: property as unknown as ts.Expression };
 }
 
@@ -371,7 +423,9 @@ export function propertyExpression(property: ts.ObjectLiteralElementLike, contex
 export function conditionalAncestor(node: ts.Node): ts.ConditionalExpression | undefined {
 	let current: ts.Node = node.parent;
 	while (current && !ts.isSourceFile(current)) {
-		if (ts.isConditionalExpression(current)) return current;
+		if (ts.isConditionalExpression(current)) {
+			return current;
+		}
 		current = current.parent;
 	}
 	return undefined;
@@ -387,10 +441,12 @@ export function conditionalAncestor(node: ts.Node): ts.ConditionalExpression | u
  */
 export function resolveFactoryDeclarations(identifier: ts.Identifier, context: IAnalysisContext): ts.Node[] {
 	const declarations: (ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression)[] = context.functionDeclarations.get(identifier.text) ?? [];
-	const visible: (ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression)[] = declarations.filter((declaration) => isInside(identifier, declarationScope(declaration)));
-	if (visible.length < 2) return visible;
-	const smallestScopeSize: number = Math.min(...visible.map((declaration) => declarationScope(declaration).getWidth()));
-	return visible.filter((declaration) => declarationScope(declaration).getWidth() === smallestScopeSize);
+	const visible: typeof declarations = declarations.filter((declaration: (typeof declarations)[number]): boolean => isInside(identifier, declarationScope(declaration)));
+	if (visible.length < 2) {
+		return visible;
+	}
+	const smallestScopeSize: number = Math.min(...visible.map((declaration: (typeof visible)[number]): number => declarationScope(declaration).getWidth()));
+	return visible.filter((declaration: ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression): boolean => declarationScope(declaration).getWidth() === smallestScopeSize);
 }
 
 /**
@@ -409,9 +465,13 @@ export function collectNamedLiteralStringArrays(
 	const failures: { context: IAnalysisContext; failure: IStaticExpressionFailure }[] = [];
 	for (const context of contexts) {
 		for (const [name, declarations] of context.constantInitializers) {
-			if (!namePattern.test(name.replaceAll('_', '').toLowerCase())) continue;
-			const topLevel: IConstantDeclaration[] = declarations.filter(({ declaration }) => declarationScope(declaration) === context.sourceFile);
-			if (topLevel.length !== 1) continue;
+			if (!namePattern.test(name.replaceAll('_', '').toLowerCase())) {
+				continue;
+			}
+			const topLevel: IConstantDeclaration[] = declarations.filter(({ declaration }: IConstantDeclaration): boolean => declarationScope(declaration) === context.sourceFile);
+			if (topLevel.length !== 1) {
+				continue;
+			}
 			const resolved: IResolvedExpression = resolveExpression(topLevel[0].initializer, context);
 			if (resolved.ambiguousNode) {
 				failures.push({ context, failure: { kind: 'ambiguous', node: resolved.ambiguousNode } });
@@ -430,7 +490,7 @@ export function collectNamedLiteralStringArrays(
 					supported = false;
 					continue;
 				}
-				const entry = resolveStaticString(element, context);
+				const entry: { value?: string; failure?: IStaticExpressionFailure; } = resolveStaticString(element, context);
 				if (entry.failure) {
 					failures.push({ context, failure: entry.failure });
 					supported = false;
@@ -439,7 +499,11 @@ export function collectNamedLiteralStringArrays(
 				}
 			}
 			if (supported) {
-				for (const entry of entries) if (!values.includes(entry)) values.push(entry);
+				for (const entry of entries) {
+					if (!values.includes(entry)) {
+						values.push(entry);
+					}
+				}
 			}
 		}
 	}
@@ -456,9 +520,14 @@ export function collectNamedLiteralStringArrays(
 function resolvePathSegments(value: string): string {
 	const parts: string[] = [];
 	for (const part of value.replaceAll('\\', '/').split('/')) {
-		if (!part || part === '.') continue;
-		if (part === '..') parts.pop();
-		else parts.push(part);
+		if (!part || part === '.') {
+			continue;
+		}
+		if (part === '..') {
+			parts.pop();
+		} else {
+			parts.push(part);
+		}
 	}
 	return parts.join('/');
 }
@@ -473,11 +542,13 @@ function resolvePathSegments(value: string): string {
  * @returns The first matching context, or `undefined` when no supplied file matches.
  */
 function resolveLocalModulePath(fromFile: string, moduleName: string, contexts: readonly IAnalysisContext[]): IAnalysisContext | undefined {
-	if (!moduleName.startsWith('.')) return undefined;
+	if (!moduleName.startsWith('.')) {
+		return undefined;
+	}
 	const directory: string = resolvePathSegments(fromFile).split('/').slice(0, -1).join('/');
 	const base: string = resolvePathSegments(`${directory}/${moduleName}`);
 	const candidates: string[] = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
-	return contexts.find((context) => candidates.includes(resolvePathSegments(context.input.filePath)));
+	return contexts.find((context: IAnalysisContext): boolean => candidates.includes(resolvePathSegments(context.input.filePath)));
 }
 
 /**
@@ -488,7 +559,7 @@ function resolveLocalModulePath(fromFile: string, moduleName: string, contexts: 
  * @returns Whether the modifier is present.
  */
 function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
-	return ts.canHaveModifiers(node) && Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === kind));
+	return ts.canHaveModifiers(node) && Boolean(ts.getModifiers(node)?.some((modifier: ts.Modifier): boolean => modifier.kind === kind));
 }
 
 /**
@@ -506,30 +577,50 @@ export function resolveClassDeclaration(
 	contexts: readonly IAnalysisContext[]
 ): { declaration?: ts.ClassDeclaration; context?: IAnalysisContext; ambiguousNode?: ts.Node } {
 	const resolved: IResolvedExpression = resolveExpression(expression, context);
-	if (resolved.ambiguousNode) return { ambiguousNode: resolved.ambiguousNode };
-	const value: ts.Expression = resolved.expression as ts.Expression;
+	if (resolved.ambiguousNode) {
+		return { ambiguousNode: resolved.ambiguousNode };
+	}
+	const value: ts.Expression = resolved.expression!;
 	if (ts.isIdentifier(value)) {
 		const localClasses: ts.ClassDeclaration[] = context.classDeclarations.get(value.text) ?? [];
-		if (localClasses.length === 1) return { declaration: localClasses[0], context };
-		if (localClasses.length > 1) return { ambiguousNode: value };
+		if (localClasses.length === 1) {
+			return { declaration: localClasses[0], context };
+		}
+		if (localClasses.length > 1) {
+			return { ambiguousNode: value };
+		}
 		const imported: IImportedSymbol | undefined = context.imports.get(value.text);
-		if (!imported) return {};
+		if (!imported) {
+			return {};
+		}
 		const target: IAnalysisContext | undefined = resolveLocalModulePath(context.input.filePath, imported.moduleName, contexts);
-		if (!target) return {};
+		if (!target) {
+			return {};
+		}
 		const classes: ts.ClassDeclaration[] = imported.importedName === 'default'
-			? [...target.classDeclarations.values()].flat().filter((candidate) => hasModifier(candidate, ts.SyntaxKind.DefaultKeyword))
+			? [...target.classDeclarations.values()].flat().filter((candidate: ts.ClassDeclaration): boolean => hasModifier(candidate, ts.SyntaxKind.DefaultKeyword))
 			: target.classDeclarations.get(imported.importedName) ?? [];
-		if (classes.length === 1) return { declaration: classes[0], context: target };
-		if (classes.length > 1) return { ambiguousNode: value };
+		if (classes.length === 1) {
+			return { declaration: classes[0], context: target };
+		}
+		if (classes.length > 1) {
+			return { ambiguousNode: value };
+		}
 		return {};
 	}
 	if (ts.isPropertyAccessExpression(value) && ts.isIdentifier(value.expression)) {
 		const moduleName: string | undefined = context.namespaces.get(value.expression.text);
-		if (!moduleName) return {};
+		if (!moduleName) {
+			return {};
+		}
 		const target: IAnalysisContext | undefined = resolveLocalModulePath(context.input.filePath, moduleName, contexts);
 		const classes: ts.ClassDeclaration[] = target?.classDeclarations.get(value.name.text) ?? [];
-		if (classes.length === 1 && target) return { declaration: classes[0], context: target };
-		if (classes.length > 1) return { ambiguousNode: value };
+		if (classes.length === 1 && target) {
+			return { declaration: classes[0], context: target };
+		}
+		if (classes.length > 1) {
+			return { ambiguousNode: value };
+		}
 	}
 	return {};
 }
@@ -543,10 +634,12 @@ export function resolveClassDeclaration(
  */
 export function uniqueDiagnostics<T extends { code: string; location: ILoaderSourceLocation }>(diagnostics: readonly T[]): T[] {
 	const seen: Set<string> = new Set<string>();
-	return diagnostics.filter((diagnostic) => {
+	return diagnostics.filter((diagnostic: T): boolean => {
 		const location: ILoaderSourceLocation = diagnostic.location;
 		const key: string = `${diagnostic.code}:${location.filePath}:${location.line}:${location.column}:${location.endLine}:${location.endColumn}`;
-		if (seen.has(key)) return false;
+		if (seen.has(key)) {
+			return false;
+		}
 		seen.add(key);
 		return true;
 	});

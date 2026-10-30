@@ -6,7 +6,7 @@ import { mergeTranslationObjects, mergeTranslationResources } from './translatio
 function resource(
 	position: number,
 	content: Record<string, unknown>,
-	locale = 'en'
+	locale: string = 'en'
 ): ITranslationResource {
 	return {
 		locale,
@@ -21,23 +21,23 @@ function resource(
 	};
 }
 
-describe('translation resource merging', () => {
-	it('recursively overrides nested values without deleting siblings', () => {
+describe('translation resource merging', (): void => {
+	it('recursively overrides nested values without deleting siblings', (): void => {
 		expect(mergeTranslationObjects(
 			{ user: { name: 'Name', email: 'Email' } },
 			{ user: { name: 'Display name' } }
 		)).toEqual({ user: { name: 'Display name', email: 'Email' } });
 	});
 
-	it('replaces arrays, primitives, null, and conflicting types', () => {
+	it('replaces arrays, primitives, null, and conflicting types', (): void => {
 		expect(mergeTranslationObjects(
 			{ array: ['old'], primitive: 'old', nullable: 'old', conflict: { nested: true } },
 			{ array: ['new'], primitive: 2, nullable: null, conflict: 'new' }
 		)).toEqual({ array: ['new'], primitive: 2, nullable: null, conflict: 'new' });
 	});
 
-	it('uses stable resource positions rather than caller order', () => {
-		const merged = mergeTranslationResources([
+	it('uses stable resource positions rather than caller order', (): void => {
+		const merged: Map<string, Record<string, unknown>> = mergeTranslationResources([
 			resource(2, { title: 'third' }),
 			resource(0, { title: 'first', retained: true }),
 			resource(1, { title: 'second' }),

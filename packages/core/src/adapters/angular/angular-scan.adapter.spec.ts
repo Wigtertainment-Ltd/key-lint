@@ -1,36 +1,36 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DEFAULT_SCANNER_CONFIG } from '../../config/scanner-defaults.js';
-import {
-	IFileSystemAdapter,
-	IKeyUsage,
-	IProjectContext
-} from '../scan-adapter.interface.js';
+import { IFileSystemAdapter, IKeyUsage, IProjectContext, IAdapterDetectionResult } from '../scan-adapter.interface.js';
 import { angularScanAdapter } from './angular-scan.adapter.js';
+import { IFinding } from '../../models/finding.model.js';
+import { ITranslationMatrix, ITranslationMatrixRow } from '../../models/scan-result.model.js';
+import { ITranslationResource, ITranslationResourceOrigin } from '../../models/translation-resource.model.js';
+import { IRemoteTranslationFetchRequest } from '../../remote/remote-translation.interfaces.js';
 
 class InMemoryFsAdapter implements IFileSystemAdapter {
 	constructor(private readonly files: Record<string, string>) { }
 
-	async fileExists(filePath: string): Promise<boolean> {
-		return this.files[filePath] !== undefined;
+	fileExists(filePath: string): Promise<boolean> {
+		return Promise.resolve(this.files[filePath] !== undefined);
 	}
 
 	async readFile(filePath: string): Promise<string> {
-		const value = this.files[filePath];
+		const value: string = this.files[filePath];
 		if (value === undefined) {
 			throw new Error(`File not found: ${filePath}`);
 		}
 
-		return value;
+		return Promise.resolve(value);
 	}
 
-	async listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
+	listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
 		// Convert every Windows path separator to the forward-slash form used by fixture paths.
-		const normalizedRoot = projectRoot.replace(/\\/g, '/');
-		const all = Object.keys(this.files).filter((file) => file.startsWith(normalizedRoot));
+		const normalizedRoot: string = projectRoot.replace(/\\/g, '/');
+		const all: string[] = Object.keys(this.files).filter((file: string): boolean => file.startsWith(normalizedRoot));
 
-		const matchesPattern = (filePath: string, pattern: string): boolean => {
-			const escaped = pattern
+		const matchesPattern: (filePath: string, pattern: string) => boolean = (filePath: string, pattern: string): boolean => {
+			const escaped: string = pattern
 				// Convert every Windows path separator before translating the glob.
 				.replace(/\\/g, '/')
 				// Escape regex metacharacters that are literal in a glob.
@@ -49,16 +49,16 @@ class InMemoryFsAdapter implements IFileSystemAdapter {
 			return new RegExp(`^${escaped}$`).test(filePath);
 		};
 
-		return all.filter((filePath) => {
-			const relative = filePath.replace(`${normalizedRoot}/`, '');
-			const included =
-				includeGlobs.some((glob) => matchesPattern(filePath, glob)) ||
-				includeGlobs.some((glob) => matchesPattern(relative, glob));
-			const excluded =
-				excludeGlobs.some((glob) => matchesPattern(filePath, glob)) ||
-				excludeGlobs.some((glob) => matchesPattern(relative, glob));
+		return Promise.resolve(all.filter((filePath: string): boolean => {
+			const relative: string = filePath.replace(`${normalizedRoot}/`, '');
+			const included: boolean =
+				includeGlobs.some((glob: string): boolean => matchesPattern(filePath, glob)) ||
+				includeGlobs.some((glob: string): boolean => matchesPattern(relative, glob));
+			const excluded: boolean =
+				excludeGlobs.some((glob: string): boolean => matchesPattern(filePath, glob)) ||
+				excludeGlobs.some((glob: string): boolean => matchesPattern(relative, glob));
 			return included && !excluded;
-		});
+		}));
 	}
 }
 
@@ -72,122 +72,122 @@ function runRules(definedKeys: string[], usedKeys: IKeyUsage[], context: IProjec
 	});
 }
 
-describe('angularScanAdapter', () => {
-	const projectRoot = 'workspace/project';
+describe('angularScanAdapter', (): void => {
+	const projectRoot: string = 'workspace/project';
 	let context: IProjectContext;
 
-	beforeEach(() => {
+	beforeEach((): void => {
 		context = {
 			projectRoot,
 			config: DEFAULT_SCANNER_CONFIG
 		};
 	});
 
-	it('detects angular projects via angular.json marker', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects angular projects via angular.json marker', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/package.json': '{"dependencies":{"@angular/core":"18.1.0"}}'
 		});
 
-		const result = await angularScanAdapter.detect(projectRoot, fs);
+		const result: IAdapterDetectionResult = await angularScanAdapter.detect(projectRoot, fs);
 
 		expect(result.supported).toBeTrue();
 		expect(result.confidence).toBe(1);
 		expect(result.resolvedProjectRoot).toBe(projectRoot);
 	});
 
-	it('detects angular monorepo when a nested project path is selected', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects angular monorepo when a nested project path is selected', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/mono/nx.json': '{"npmScope":"demo"}',
 			'workspace/mono/package.json': '{"dependencies":{"@angular/core":"18.1.0"},"devDependencies":{"@nx/angular":"19.0.0"}}',
 			'workspace/mono/apps/admin/project.json': '{"name":"admin"}'
 		});
 
-		const nestedSelection = 'workspace/mono/apps/admin';
-		const result = await angularScanAdapter.detect(nestedSelection, fs);
+		const nestedSelection: string = 'workspace/mono/apps/admin';
+		const result: IAdapterDetectionResult = await angularScanAdapter.detect(nestedSelection, fs);
 
 		expect(result.supported).toBeTrue();
 		expect(result.confidence).toBe(0.9);
 		expect(result.resolvedProjectRoot).toBe('workspace/mono');
 	});
 
-	it('discovers keys, usages, and rules for static and missing keys', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('discovers keys, usages, and rules for static and missing keys', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"GENERIC":{"HELLO":"Hello","BYE":"Bye"}}',
 			'workspace/project/src/app/sample.component.html': "{{ 'GENERIC.HELLO' | translate }}",
 			'workspace/project/src/app/sample.component.ts': "this.translateService.instant('GENERIC.MISSING');"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
 		expect(translationFiles).toHaveLength(1);
 		expect(definedKeys).toContain('GENERIC.HELLO');
 		expect(definedKeys).toContain('GENERIC.BYE');
-		expect(usedKeys.some((item) => item.key === 'GENERIC.HELLO')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'GENERIC.HELLO')).toBeTrue();
 
-		expect(findings.some((item) => item.status === 'used' && item.key === 'GENERIC.HELLO')).toBeTrue();
-		expect(findings.some((item) => item.status === 'unused' && item.key === 'GENERIC.BYE')).toBeTrue();
-		expect(findings.some((item) => item.status === 'missing-in-language' && item.key === 'GENERIC.MISSING')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'used' && item.key === 'GENERIC.HELLO')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'unused' && item.key === 'GENERIC.BYE')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'missing-in-language' && item.key === 'GENERIC.MISSING')).toBeTrue();
 	});
 
-	it('detects keys used via translate method call in TypeScript', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects keys used via translate method call in TypeScript', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"deactivate":{"success":"Done"}}}}',
 			'workspace/project/src/app/sample.component.ts':
 				"this.snackbarService.success(this.languageService.translate('administration.groups.deactivate.success'));"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.key === 'administration.groups.deactivate.success')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'administration.groups.deactivate.success')).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'used' && item.key === 'administration.groups.deactivate.success'
+				(item: IFinding): boolean => item.status === 'used' && item.key === 'administration.groups.deactivate.success'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'unused' && item.key === 'administration.groups.deactivate.success'
+				(item: IFinding): boolean => item.status === 'unused' && item.key === 'administration.groups.deactivate.success'
 			)
 		).toBeFalse();
 	});
 
-	it('detects keys used via translate call on a generic service accessor', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects keys used via translate call on a generic service accessor', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"deactivate":{"error":"Failed"}}}}',
 			'workspace/project/src/app/sample.component.ts':
 				"DecoratorService.getService<SnackbarService>(AppDecoratorServiceKeys.snackbarService).error(DecoratorService.getService<LanguageService>(AppDecoratorServiceKeys.languageService).translate('administration.groups.deactivate.error'));"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.key === 'administration.groups.deactivate.error')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'administration.groups.deactivate.error')).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'used' && item.key === 'administration.groups.deactivate.error'
+				(item: IFinding): boolean => item.status === 'used' && item.key === 'administration.groups.deactivate.error'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'unused' && item.key === 'administration.groups.deactivate.error'
+				(item: IFinding): boolean => item.status === 'unused' && item.key === 'administration.groups.deactivate.error'
 			)
 		).toBeFalse();
 	});
 
-	it('detects both keys used inside a ternary translate argument', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects both keys used inside a ternary translate argument', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json':
 				'{"administration":{"groups":{"membership":{"active":"Active","inactive":"Inactive"}}}}',
@@ -195,73 +195,73 @@ describe('angularScanAdapter', () => {
 				"this.isActiveText = languageService.translate(this.isActive ? 'administration.groups.membership.active' : 'administration.groups.membership.inactive');"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.key === 'administration.groups.membership.active')).toBeTrue();
-		expect(usedKeys.some((item) => item.key === 'administration.groups.membership.inactive')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'administration.groups.membership.active')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'administration.groups.membership.inactive')).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'used' && item.key === 'administration.groups.membership.active'
+				(item: IFinding): boolean => item.status === 'used' && item.key === 'administration.groups.membership.active'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'used' && item.key === 'administration.groups.membership.inactive'
+				(item: IFinding): boolean => item.status === 'used' && item.key === 'administration.groups.membership.inactive'
 			)
 		).toBeTrue();
 	});
 
-	it('detects translate pipe keys inside an inline component template in a TS file', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects translate pipe keys inside an inline component template in a TS file', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"administration":{"groups":{"archived":"Archived"}}}',
 			'workspace/project/src/app/sample.component.ts':
 				"@Component({ template: `<wig-tab heading=\"{{ 'administration.groups.archived' | translate }}\" (onSelected)=\"tabActiveSelected(true)\" #tabArchived></wig-tab>` }) export class SampleComponent {}"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.key === 'administration.groups.archived')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'administration.groups.archived')).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'used' && item.key === 'administration.groups.archived'
+				(item: IFinding): boolean => item.status === 'used' && item.key === 'administration.groups.archived'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'unused' && item.key === 'administration.groups.archived'
+				(item: IFinding): boolean => item.status === 'unused' && item.key === 'administration.groups.archived'
 			)
 		).toBeFalse();
 	});
 
-	it('detects transloco pipe keys in HTML templates', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects transloco pipe keys in HTML templates', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title","SUBTITLE":"Subtitle"}}',
 			'workspace/project/src/app/sample.component.html':
 				"<h1>{{ 'APP.TITLE' | transloco }}</h1><p [title]=\"'APP.SUBTITLE' | transloco\"></p>"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.key === 'APP.TITLE')).toBeTrue();
-		expect(usedKeys.some((item) => item.key === 'APP.SUBTITLE')).toBeTrue();
-		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
-		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.SUBTITLE')).toBeTrue();
-		expect(findings.some((item) => item.status === 'unused')).toBeFalse();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'APP.TITLE')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'APP.SUBTITLE')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'used' && item.key === 'APP.SUBTITLE')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'unused')).toBeFalse();
 	});
 
-	it('detects transloco structural directive calls in HTML templates', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('detects transloco structural directive calls in HTML templates', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json':
 				'{"APP":{"TITLE":"Title","SUBTITLE":"Subtitle","UNUSED":"Unused"}}',
@@ -269,19 +269,19 @@ describe('angularScanAdapter', () => {
 				"<ng-container *transloco=\"let t\"><h1>{{ t('APP.TITLE') }}</h1><p>{{ t('APP.SUBTITLE') }}</p></ng-container>"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.matchType === 'html-transloco-structural-call')).toBeTrue();
-		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
-		expect(findings.some((item) => item.status === 'used' && item.key === 'APP.SUBTITLE')).toBeTrue();
-		expect(findings.some((item) => item.status === 'unused' && item.key === 'APP.UNUSED')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.matchType === 'html-transloco-structural-call')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'used' && item.key === 'APP.TITLE')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'used' && item.key === 'APP.SUBTITLE')).toBeTrue();
+		expect(findings.some((item: IFinding): boolean => item.status === 'unused' && item.key === 'APP.UNUSED')).toBeTrue();
 	});
 
-	it('classifies keys built via translate concatenation as dynamic, not unused', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('classifies keys built via translate concatenation as dynamic, not unused', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json':
 				'{"dynamicFilter":{"DynamicFilterOperator":{"EQUALS":"=","EQUALS_NOT":"!="}}}',
@@ -289,38 +289,38 @@ describe('angularScanAdapter', () => {
 				"label: this.languageService.translate('dynamicFilter.DynamicFilterOperator.' + val)"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.isDynamic && item.matchType === 'ts-dynamic-translate-call')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean | undefined => item.isDynamic && item.matchType === 'ts-dynamic-translate-call')).toBeTrue();
 		expect(
-			usedKeys.some((item) => !item.isDynamic && item.key === 'dynamicFilter.DynamicFilterOperator.')
+			usedKeys.some((item: IKeyUsage): boolean => !item.isDynamic && item.key === 'dynamicFilter.DynamicFilterOperator.')
 		).toBeFalse();
 		expect(
 			findings.some(
-				(item) => item.status === 'dynamic-uncertain' && item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS_NOT'
+				(item: IFinding): boolean => item.status === 'dynamic-uncertain' && item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS_NOT'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'dynamic-uncertain' && item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS'
+				(item: IFinding): boolean => item.status === 'dynamic-uncertain' && item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) =>
+				(item: IFinding): boolean =>
 					item.status === 'unused' &&
 					(item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS' ||
 						item.key === 'dynamicFilter.DynamicFilterOperator.EQUALS_NOT')
 			)
 		).toBeFalse();
-		expect(findings.some((item) => item.status === 'missing-in-language')).toBeFalse();
+		expect(findings.some((item: IFinding): boolean => item.status === 'missing-in-language')).toBeFalse();
 	});
 
-	it('classifies indirect key literals in TypeScript object configs as indirect-uncertain', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('classifies indirect key literals in TypeScript object configs as indirect-uncertain', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json':
 				'{"editor":{"traits":{"subTemplateSelector":{"buttonLink":{"optionLabel":"Option","buttonLabel":"Button","multiLinkLabel":"Multi Link"}}}}}',
@@ -328,70 +328,70 @@ describe('angularScanAdapter', () => {
 				"const config = { optionLabel: 'editor.traits.subTemplateSelector.buttonLink.optionLabel', options: [{ label: 'editor.traits.subTemplateSelector.buttonLink.buttonLabel' }, { label: 'editor.traits.subTemplateSelector.buttonLink.multiLinkLabel' }] };"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.matchType === 'ts-indirect-key-literal')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.matchType === 'ts-indirect-key-literal')).toBeTrue();
 		expect(
 			findings.some(
-				(item) =>
+				(item: IFinding): boolean =>
 					item.status === 'indirect-uncertain' &&
 					item.key === 'editor.traits.subTemplateSelector.buttonLink.buttonLabel'
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'unused' && item.key === 'editor.traits.subTemplateSelector.buttonLink.buttonLabel'
+				(item: IFinding): boolean => item.status === 'unused' && item.key === 'editor.traits.subTemplateSelector.buttonLink.buttonLabel'
 			)
 		).toBeFalse();
 	});
 
-	it('classifies dynamic key expressions in pipe bindings as uncertain', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('classifies dynamic key expressions in pipe bindings as uncertain', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"main":{"recipients":{"recipient":{"import":{"recipientType":{"company":{"title":"Company"}}}}}}}',
 			'workspace/project/src/app/sample.component.html':
 				"<h3 [title]=\"'main.recipients.recipient.import.recipientType.' + recipientType() + '.title' | translate\"></h3>"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
-		expect(usedKeys.some((item) => item.isDynamic && item.matchType === 'html-dynamic-pipe-concat-binding')).toBeTrue();
+		expect(usedKeys.some((item: IKeyUsage): boolean | undefined => item.isDynamic && item.matchType === 'html-dynamic-pipe-concat-binding')).toBeTrue();
 		expect(
 			findings.some(
-				(item) =>
+				(item: IFinding): boolean =>
 					item.status === 'dynamic-uncertain' &&
 					item.key.includes("recipientType()")
 			)
 		).toBeTrue();
 		expect(
 			findings.some(
-				(item) => item.status === 'missing-in-language' && item.key === '.title'
+				(item: IFinding): boolean => item.status === 'missing-in-language' && item.key === '.title'
 			)
 		).toBeFalse();
 	});
 
-	it('keeps full dynamic translate expressions with nested method calls', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('keeps full dynamic translate expressions with nested method calls', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"metadata":{"selectCategory":{"news":{"local":{"label":"Local News"}}}}}',
 			'workspace/project/src/app/sample.component.ts':
 				"this.languageService.translate('metadata.selectCategory.' + category.fullPath.replace(/\\//g, '.') + '.label');"
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const definedKeys = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
-		const findings = await runRules(definedKeys, usedKeys, context);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
 
 		expect(
 			usedKeys.some(
-				(item) =>
+				(item: IKeyUsage): boolean | undefined =>
 					item.isDynamic &&
 					item.matchType === 'ts-dynamic-translate-call' &&
 					item.key.includes("category.fullPath.replace(/\\//g, '.')") &&
@@ -401,15 +401,15 @@ describe('angularScanAdapter', () => {
 
 		expect(
 			findings.some(
-				(item) =>
+				(item: IFinding): boolean =>
 					item.status === 'dynamic-uncertain' &&
 					item.key === 'metadata.selectCategory.news.local.label'
 			)
 		).toBeTrue();
 	});
 
-	it('does not treat Cypress get calls as translation usage', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('does not treat Cypress get calls as translation usage', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json': '{"GENERIC":{"HELLO":"Hello"}}',
 			'workspace/project/cypress/e2e/setup-sender.cy.ts':
@@ -418,12 +418,12 @@ describe('angularScanAdapter', () => {
 
 		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
 
-		expect(usedKeys.some((item) => item.key === 'wig-button')).toBeFalse();
-		expect(usedKeys.some((item) => item.key === 'div')).toBeFalse();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'wig-button')).toBeFalse();
+		expect(usedKeys.some((item: IKeyUsage): boolean => item.key === 'div')).toBeFalse();
 	});
 
-	it('builds translation matrix with all locales and empty values for missing keys', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('builds translation matrix with all locales and empty values for missing keys', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/en.json':
 				'{"COMMON":{"HELLO":"Hello","BYE":"Bye"},"PROFILE":{"TITLE":"Profile"}}',
@@ -431,42 +431,42 @@ describe('angularScanAdapter', () => {
 				'{"COMMON":{"HELLO":"Hallo"},"PROFILE":{"TITLE":"Profil"}}'
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const matrix = await angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const matrix: ITranslationMatrix | undefined = await angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs);
 
 		expect(matrix).toBeDefined();
 		expect(matrix?.locales).toEqual(['de', 'en']);
 		expect(matrix?.totalKeys).toBe(3);
 
-		const byeRow = matrix?.rows.find((row) => row.key === 'COMMON.BYE');
+		const byeRow: ITranslationMatrixRow | undefined = matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'COMMON.BYE');
 		expect(byeRow).toBeDefined();
-		expect(byeRow?.values['en']).toBe('Bye');
-		expect(byeRow?.values['de']).toBe('');
+		expect(byeRow?.values.en).toBe('Bye');
+		expect(byeRow?.values.de).toBe('');
 	});
 
-	it('merges multiple files per locale when building matrix', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('merges multiple files per locale when building matrix', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/assets/i18n/common.en.json': '{"COMMON":{"OK":"OK"}}',
 			'workspace/project/src/assets/i18n/feature.en.json': '{"FEATURE":{"NAME":"Feature"}}',
 			'workspace/project/src/assets/i18n/common.fr.json': '{"COMMON":{"OK":"D\'accord"}}'
 		});
 
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
-		const matrix = await angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const matrix: ITranslationMatrix | undefined = await angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs);
 
 		expect(matrix?.locales).toEqual(['en', 'fr']);
-		const commonRow = matrix?.rows.find((row) => row.key === 'COMMON.OK');
-		const featureRow = matrix?.rows.find((row) => row.key === 'FEATURE.NAME');
+		const commonRow: ITranslationMatrixRow | undefined = matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'COMMON.OK');
+		const featureRow: ITranslationMatrixRow | undefined = matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'FEATURE.NAME');
 
-		expect(commonRow?.values['en']).toBe('OK');
-		expect(commonRow?.values['fr']).toBe('D\'accord');
-		expect(featureRow?.values['en']).toBe('Feature');
-		expect(featureRow?.values['fr']).toBe('');
+		expect(commonRow?.values.en).toBe('OK');
+		expect(commonRow?.values.fr).toBe('D\'accord');
+		expect(featureRow?.values.en).toBe('Feature');
+		expect(featureRow?.values.fr).toBe('');
 	});
 
-	it('collects stable writable resources for ordered filesystem sources', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('collects stable writable resources for ordered filesystem sources', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/base/i18n/en.json': '{"APP":{"TITLE":"Title","BODY":"Body"}}',
 			'workspace/project/src/override/i18n/en.json': '{"APP":{"TITLE":"Display title"}}'
@@ -482,26 +482,26 @@ describe('angularScanAdapter', () => {
 			}
 		};
 
-		const resources = await angularScanAdapter.collectTranslationResources?.(context, fs);
+		const resources: ITranslationResource[] | undefined = await angularScanAdapter.collectTranslationResources?.(context, fs);
 
 		expect(resources).toHaveLength(2);
-		expect(resources?.map((entry) => entry.position)).toEqual([0, 1]);
-		expect(resources?.map((entry) => entry.sourceId)).toEqual(['base', 'override']);
-		expect(resources?.every((entry) => entry.writable)).toBeTrue();
-		expect(resources?.map((entry) => entry.origin.path)).toEqual([
-			'workspace/project/src/base/i18n/en.json',
-			'workspace/project/src/override/i18n/en.json'
+		expect(resources?.map((entry: ITranslationResource): number => entry.position)).toEqual([0, 1]);
+		expect(resources?.map((entry: ITranslationResource): string => entry.sourceId)).toEqual(['base', 'override']);
+		expect(resources?.every((entry: ITranslationResource): boolean => entry.writable)).toBeTrue();
+		expect(resources?.map((entry: ITranslationResource): ITranslationResourceOrigin => entry.origin)).toEqual([
+			{ type: 'file', path: 'workspace/project/src/base/i18n/en.json' },
+			{ type: 'file', path: 'workspace/project/src/override/i18n/en.json' }
 		]);
 
-		const matrix = resources
+		const matrix: ITranslationMatrix | undefined = resources
 			? await angularScanAdapter.buildTranslationMatrixFromResources?.(resources)
 			: undefined;
-		expect(matrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Display title');
-		expect(matrix?.rows.find((row) => row.key === 'APP.BODY')?.values['en']).toBe('Body');
+		expect(matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'APP.TITLE')?.values.en).toBe('Display title');
+		expect(matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'APP.BODY')?.values.en).toBe('Body');
 	});
 
-	it('preserves mixed filesystem and HTTP source order', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('preserves mixed filesystem and HTTP source order', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
 			'workspace/project/src/base/en.json': '{"APP":{"TITLE":"Base","BASE":"Base only"}}',
 			'workspace/project/src/final/en.json': '{"APP":{"TITLE":"Final"}}'
@@ -519,7 +519,7 @@ describe('angularScanAdapter', () => {
 			remoteTranslations: {
 				allowNetwork: true,
 				fetcher: {
-					fetch: async (request) => ({
+					fetch: (request: IRemoteTranslationFetchRequest): Promise<{ body: string; finalUrl: string; }> => Promise.resolve({
 						body: '{"APP":{"TITLE":"Remote","REMOTE":"Remote only"}}',
 						finalUrl: request.url
 					})
@@ -527,24 +527,24 @@ describe('angularScanAdapter', () => {
 			}
 		};
 
-		const resources = await angularScanAdapter.collectTranslationResources?.(context, fs);
+		const resources: ITranslationResource[] | undefined = await angularScanAdapter.collectTranslationResources?.(context, fs);
 
-		expect(resources?.map((entry) => entry.position)).toEqual([0, 1, 2]);
-		expect(resources?.map((entry) => entry.sourceId)).toEqual(['base', 'remote', 'final']);
-		expect(resources?.map((entry) => entry.writable)).toEqual([true, false, true]);
-		const matrix = resources
+		expect(resources?.map((entry: ITranslationResource): number => entry.position)).toEqual([0, 1, 2]);
+		expect(resources?.map((entry: ITranslationResource): string => entry.sourceId)).toEqual(['base', 'remote', 'final']);
+		expect(resources?.map((entry: ITranslationResource): boolean => entry.writable)).toEqual([true, false, true]);
+		const matrix: ITranslationMatrix | undefined = resources
 			? await angularScanAdapter.buildTranslationMatrixFromResources?.(resources)
 			: undefined;
-		expect(matrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Final');
-		expect(matrix?.rows.find((row) => row.key === 'APP.REMOTE')?.values['en']).toBe('Remote only');
+		expect(matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'APP.TITLE')?.values.en).toBe('Final');
+		expect(matrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'APP.REMOTE')?.values.en).toBe('Remote only');
 	});
 
-	it('fails key extraction when a translation file contains invalid JSON', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('fails key extraction when a translation file contains invalid JSON', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/src/assets/i18n/en.json': '{"APP":{"TITLE":"Title"}}',
 			'workspace/project/src/assets/i18n/de.json': '{"APP":'
 		});
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
 
 		// Match the complete normalized fixture path while escaping regex-significant slashes and dots.
 		await expect(angularScanAdapter.extractDefinedKeys(translationFiles, fs)).rejects.toThrowError(
@@ -552,11 +552,11 @@ describe('angularScanAdapter', () => {
 		);
 	});
 
-	it('fails matrix creation when a translation file has an array root', async () => {
-		const fs = new InMemoryFsAdapter({
+	it('fails matrix creation when a translation file has an array root', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/src/assets/i18n/en.json': '[]'
 		});
-		const translationFiles = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
 
 		await expect(angularScanAdapter.buildTranslationMatrix?.(translationFiles, fs)).rejects.toThrowError(
 			'Translation file "workspace/project/src/assets/i18n/en.json" must contain a JSON object at the root.'
