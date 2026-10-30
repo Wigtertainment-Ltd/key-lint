@@ -10,6 +10,11 @@
 			<strong>{{ usedKeys | number }}</strong>
 			<div class="underline"></div>
 		</article>
+		<article class="kpi-card dynamic">
+			<p>Dynamic</p>
+			<strong>{{ dynamicKeys | number }}</strong>
+			<div class="underline"></div>
+		</article>
 		<article class="kpi-card unused">
 			<p>Unused</p>
 			<strong>{{ unusedKeys | number }}</strong>
@@ -18,11 +23,6 @@
 		<article class="kpi-card missing">
 			<p>Missing Translations</p>
 			<strong>{{ missingKeys | number }}</strong>
-			<div class="underline"></div>
-		</article>
-		<article class="kpi-card dynamic">
-			<p>Dynamic</p>
-			<strong>{{ dynamicKeys | number }}</strong>
 			<div class="underline"></div>
 		</article>
 	</section>
