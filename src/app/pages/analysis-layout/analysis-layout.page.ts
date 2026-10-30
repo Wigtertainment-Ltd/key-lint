@@ -6,6 +6,8 @@ import { Subscription } from 'rxjs';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
 import { ThemeService } from '../../services/theme.service';
+import { ElectronService } from '../../shared/services/electron.service';
+import { LoggerService } from '../../shared/services/logging/logger.service';
 
 @Component({
 	selector: 'app-analysis-layout-page',
@@ -18,6 +20,8 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	private readonly router: Router = inject(Router);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly document: Document = inject(DOCUMENT);
+	private readonly electronService: ElectronService = inject(ElectronService);
+	private readonly loggerService: LoggerService = inject(LoggerService);
 	projectPath: string = '';
 	lastScanText: string = 'Running now';
 	isSidebarCollapsed: boolean = false;
@@ -109,6 +113,16 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	startNewAnalysis(): void {
 		this.scanOrchestrationService.reset();
 		void this.router.navigate(['/']);
+	}
+
+	async openSupport(event: MouseEvent): Promise<void> {
+		if (!this.electronService.isElectron) return;
+		event.preventDefault();
+		try {
+			await this.electronService.openSupportPage();
+		} catch (error) {
+			this.loggerService.error('AnalysisLayoutPage', 'Could not open the GitHub support page.', error);
+		}
 	}
 
 	toggleSidebar(): void {

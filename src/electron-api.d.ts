@@ -16,6 +16,7 @@ declare global {
 		selectProjectDirectory(): Promise<string | undefined>;
 		getPathForFile(file: File): string;
 		getAppVersion(): Promise<string>;
+		openSupportPage(): Promise<void>;
 		pathExists(filePath: string): Promise<boolean>;
 		readFile(filePath: string): Promise<string>;
 		writeFile(filePath: string, content: string): Promise<void>;
