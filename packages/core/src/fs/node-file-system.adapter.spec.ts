@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { normalizePath } from '../util/path.util.js';
 import { NodeFileSystemAdapter } from './node-file-system.adapter.js';
+import { DEFAULT_SCANNER_CONFIG } from '../config/scanner-defaults.js';
 
 const temporaryRoots: string[] = [];
 
@@ -13,6 +14,18 @@ afterEach(async () => {
 });
 
 describe('NodeFileSystemAdapter', () => {
+	it('prunes Angular build caches before considering generated JavaScript files', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'keylint-cache-'));
+		temporaryRoots.push(root);
+		await mkdir(join(root, 'src'), { recursive: true });
+		await mkdir(join(root, '.angular', 'cache'), { recursive: true });
+		await writeFile(join(root, 'src', 'app.ts'), "translate.instant('title');", 'utf8');
+		await writeFile(join(root, '.angular', 'cache', 'generated.js'), 'generated bundle', 'utf8');
+		const fs = new NodeFileSystemAdapter({ maxFiles: 1, maxFileSizeBytes: 1024 });
+		expect(await fs.listFiles(root, DEFAULT_SCANNER_CONFIG.includeSourceGlobs, DEFAULT_SCANNER_CONFIG.excludeGlobs)).toEqual([normalizePath(join(root, 'src', 'app.ts'))]);
+		expect(fs.warnings).toEqual([]);
+	});
+
 	it('applies relative exclude globs only within the selected project root', async () => {
 		const temporaryRoot = await mkdtemp(join(tmpdir(), 'keylint-fs-'));
 		temporaryRoots.push(temporaryRoot);

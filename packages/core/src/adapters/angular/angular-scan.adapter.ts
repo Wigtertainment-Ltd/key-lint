@@ -464,8 +464,8 @@ export const angularScanAdapter: IScanAdapter = {
 
 	/**
 	 * Inspects the selected directory and reducible parents for Angular workspace and dependency markers.
-	 * Checks markers concurrently within each directory and keeps the highest-confidence supported root.
-	 * Confidence ties retain the candidate nearest to the selected directory.
+	 * Checks markers concurrently within each directory and keeps the nearest supported root.
+	 * An enclosing workspace must not widen the scan beyond an already recognized project.
 	 *
 	 * @param projectRoot - Selected directory from which upward detection begins.
 	 * @param fs - Filesystem adapter used for marker and package checks.
@@ -502,9 +502,8 @@ export const angularScanAdapter: IScanAdapter = {
 				continue;
 			}
 
-			if (!best || confidence > best.confidence) {
-				best = { markers, confidence };
-			}
+			best = { markers, confidence };
+			break;
 		}
 
 		if (!best) {

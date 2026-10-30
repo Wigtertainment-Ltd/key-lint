@@ -1,5 +1,6 @@
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
+import { DEFAULT_SCANNER_CONFIG } from '@key-lint/core';
 
 interface IFakeEntry {
 	name: string;
@@ -34,6 +35,20 @@ function electronWithTree(
 }
 
 describe('ElectronFileSystemAdapter', () => {
+	it('prunes Angular cache contents during source discovery', async () => {
+		const electron = electronWithTree({
+			'C:/project': [{ name: 'src', type: 'directory' }, { name: '.angular', type: 'directory' }],
+			'C:/project/src': [{ name: 'app.ts', type: 'file' }],
+			'C:/project/.angular': [{ name: 'cache', type: 'directory' }],
+			'C:/project/.angular/cache': [{ name: 'generated.js', type: 'file', sizeBytes: 3000000 }]
+		});
+		const readDirectory = spyOn(electron, 'readDirectory').and.callThrough();
+		const adapter = new ElectronFileSystemAdapter(electron);
+		expect(await adapter.listFiles('C:/project', DEFAULT_SCANNER_CONFIG.includeSourceGlobs, DEFAULT_SCANNER_CONFIG.excludeGlobs)).toEqual(['C:/project/src/app.ts']);
+		expect(readDirectory).not.toHaveBeenCalledWith('C:/project/.angular/cache');
+		expect(adapter.warnings).toEqual([]);
+	});
+
 	const tree: Record<string, IFakeEntry[]> = {
 		'C:/project': [
 			{ name: 'src', type: 'directory' },

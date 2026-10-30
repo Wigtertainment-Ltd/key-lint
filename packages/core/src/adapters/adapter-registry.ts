@@ -39,8 +39,8 @@ export class AdapterRegistry {
 	}
 
 	/**
-	 * Runs every registered detector sequentially and selects the supported result with highest confidence.
-	 * Equal confidence prefers a nested project root, then the earlier registration; unsupported results are ignored.
+	 * Runs every registered detector sequentially and prefers the nearest supported project root.
+	 * Confidence resolves matches at the same or unrelated roots; ties retain the earlier registration.
 	 *
 	 * @param projectRoot - Project directory passed unchanged to each detector.
 	 * @param fs - Filesystem implementation available to the detectors.
@@ -56,10 +56,11 @@ export class AdapterRegistry {
 				continue;
 			}
 
-			const candidateRoot = normalizePath(result.resolvedProjectRoot ?? projectRoot);
+			const candidateRoot = normalizePath(result.resolvedProjectRoot ?? projectRoot).replace(/\/$/, '');
 			const bestRoot = bestMatch ? normalizePath(bestMatch.detection.resolvedProjectRoot ?? projectRoot).replace(/\/$/, '') : '';
-			const closerRoot = bestMatch && result.confidence === bestMatch.detection.confidence && candidateRoot.startsWith(`${bestRoot}/`);
-			if (!bestMatch || result.confidence > bestMatch.detection.confidence || closerRoot) {
+			const closerRoot = bestMatch && candidateRoot.startsWith(`${bestRoot}/`);
+			const parentRoot = bestRoot.startsWith(`${candidateRoot}/`);
+			if (!bestMatch || closerRoot || (!parentRoot && result.confidence > bestMatch.detection.confidence)) {
 				bestMatch = { adapter, detection: result };
 			}
 		}

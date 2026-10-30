@@ -80,6 +80,21 @@ describe('reactScanAdapter', () => {
 		expect(match?.detection.resolvedProjectRoot).toBe(projectRoot);
 	});
 
+	it('prefers a selected Angular project over a higher-confidence React parent', async () => {
+		const fs = createFs({
+			'workspace/package.json': packageJson,
+			[`${projectRoot}/project.json`]: '{"name":"angular-app"}',
+			[`${projectRoot}/src/assets/i18n/en.json`]: '{"title":"Title"}',
+			[`${projectRoot}/src/app.component.ts`]: "this.translate.instant('title');",
+			'workspace/src/assets/i18n/en.json': '{"outside":"Outside"}'
+		});
+		const result = await runScan({ projectRoot, fs });
+		expect(result.adapterId).toBe('angular');
+		expect(result.projectRoot).toBe(projectRoot);
+		expect(result.translationMatrix?.rows.map((row) => row.key)).toEqual(['title']);
+		expect(result.findings.every((finding) => !finding.filePath || finding.filePath.startsWith(`${projectRoot}/`))).toBe(true);
+	});
+
 	it.each(['{}', '{"dependencies":{"react":"^19"}}', '{"dependencies":{"react":"^19","i18next":"^26"}}', '{"dependencies":{"react-intl":"^10"}}', 'null', '{invalid json'])(
 		'rejects missing or unrelated React translation dependencies: %s',
 		async (manifest) => {

@@ -19,6 +19,7 @@ export const DEFAULT_SCANNER_CONFIG: IScannerConfig = {
 		'**/dist/**',
 		'**/coverage/**',
 		'**/.git/**',
+		'**/.angular/**',
 		'**/.nx/**',
 		'**/tmp/**',
 		'**/out/**'
