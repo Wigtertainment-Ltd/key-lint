@@ -1,0 +1,4 @@
+{
+	"items_zero": "No items", "items_one": "{{count}} item", "items_other": "{{count}} items",
+	"title": "Cart", "status": { "ok": "OK", "error": "Error" }, "unused": "Unused"
+}

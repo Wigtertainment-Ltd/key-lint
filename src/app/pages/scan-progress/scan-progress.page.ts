@@ -1,5 +1,5 @@
-import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { IProjectScanResult } from '@key-lint/core';
@@ -11,7 +11,7 @@ import { IStepItem } from './scan-progress.interfaces';
 	templateUrl: './scan-progress.page.html',
 	styleUrl: './scan-progress.page.scss'
 })
-export class ScanProgressPage implements OnInit, OnDestroy {
+export class ScanProgressPage implements OnInit {
 	projectPath = '';
 	readonly scanState = computed<ScanExecutionSnapshot['state']>(() => this.scanSnapshot().state);
 	readonly scanStage = computed(() => this.scanSnapshot().stage);
@@ -23,7 +23,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
-	private readonly injector: Injector = inject(Injector);
+	private readonly destroyRef: DestroyRef = inject(DestroyRef);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
@@ -37,28 +37,12 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		{ id: 6, title: 'Running rule evaluation', trigger: 'Evaluating scan rules' }
 	];
 
-	readonly logLines = signal<string[]>([
-		'Initializing analyzer engine...',
-		'Loading project configuration...'
-	]);
-
-	private fakeLogTimer?: ReturnType<typeof setTimeout>;
+	readonly logLines = signal<string[]>([]);
 	private lastProgressPercent = 0;
 	private lastLoggedStage?: string;
 	private hasLoggedCompletionMessage = false;
 	private hasLoggedFailureMessage = false;
 	private readonly loggedStepIds = new Set<number>();
-	private readonly fillerLogs: string[] = [
-		'Scanning /src/app/core/interceptors/error.interceptor.ts...',
-		'Checking /src/app/shared/pipes/translation.pipe.ts...',
-		'Deep-scanning /src/app/features/reports/reports.module.ts...',
-		'Found dynamic translation call in analytics service.',
-		'Processing /src/assets/i18n/de.json...',
-		'Verifying /src/assets/i18n/it.json...',
-		'Scanning /src/app/components/charts/pie-chart.component.ts...',
-		'Found potentially unused key: "ADMIN_DASHBOARD_V2_UNREAD_MESSAGES"',
-		'Analyzing language selector component template...'
-	];
 
 	ngOnInit(): void {
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
@@ -73,9 +57,7 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		this.hasLoggedFailureMessage = false;
 		this.loggedStepIds.clear();
 
-		effect(() => {
-			const snapshot = this.scanSnapshot();
-
+		this.scanOrchestrationService.state$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((snapshot) => {
 			if (snapshot.stage && snapshot.stage !== this.lastLoggedStage) {
 				this.lastLoggedStage = snapshot.stage;
 				this.logStepFromStage(snapshot.stage);
@@ -87,7 +69,6 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 			this.progressPercent.set(nextProgress);
 
 			if (snapshot.state === 'completed' && !this.hasLoggedCompletionMessage) {
-				this.logRemainingStepsAsCompleted();
 				this.hasLoggedCompletionMessage = true;
 				this.appendLog(`Scan completed in ${snapshot.result?.durationMs ?? 0} ms.`);
 			}
@@ -96,18 +77,10 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 				this.hasLoggedFailureMessage = true;
 				this.appendLog(`ERROR: ${snapshot.error}`);
 			}
-		}, { injector: this.injector });
+		});
 
-		this.startFillerLogs();
 		void this.runScan();
 	}
-
-	ngOnDestroy(): void {
-		if (this.fakeLogTimer) {
-			clearTimeout(this.fakeLogTimer);
-		}
-	}
-
 	get selectedProjectShort(): string {
 		const normalized = this.projectPath.replaceAll('\\', '/');
 		const parts = normalized.split('/').filter(Boolean);
@@ -196,22 +169,6 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 		this.logLines.update((lines) => [...lines, `[${timestamp}] ${message}`].slice(-80));
 	}
 
-	private startFillerLogs(): void {
-		let index = 0;
-		const tick = (): void => {
-			if (this.scanState() !== 'running') {
-				return;
-			}
-
-			this.appendLog(this.fillerLogs[index % this.fillerLogs.length]);
-			index += 1;
-			const delayMs = 700 + (index % 5) * 140;
-			this.fakeLogTimer = setTimeout(tick, delayMs);
-		};
-
-		this.fakeLogTimer = setTimeout(tick, 250);
-	}
-
 	private logStepFromStage(stage: string): void {
 		const step = this.steps.find((item) => stage.includes(item.trigger));
 		if (!step || this.loggedStepIds.has(step.id)) {
@@ -220,17 +177,6 @@ export class ScanProgressPage implements OnInit, OnDestroy {
 
 		this.loggedStepIds.add(step.id);
 		this.appendLog(`Step ${step.id}/${this.steps.length}: ${step.title}`);
-	}
-
-	private logRemainingStepsAsCompleted(): void {
-		for (const step of this.steps) {
-			if (this.loggedStepIds.has(step.id)) {
-				continue;
-			}
-
-			this.loggedStepIds.add(step.id);
-			this.appendLog(`Step ${step.id}/${this.steps.length}: ${step.title} (completed)`);
-		}
 	}
 
 	private calculateProgress(snapshot: ScanExecutionSnapshot, currentProgress: number): number {

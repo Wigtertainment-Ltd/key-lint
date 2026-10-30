@@ -55,6 +55,11 @@ export interface IProjectContext {
 	remoteTranslations?: IRemoteTranslationRuntime;
 }
 
+export interface ITranslationWriteTarget {
+	filePath: string;
+	key: string;
+}
+
 export interface IKeyUsage {
 	key: string;
 	filePath: string;
@@ -63,6 +68,11 @@ export interface IKeyUsage {
 	snippet?: string;
 	matchType?: string;
 	isDynamic?: boolean;
+	/** Anchored regular expressions matched against namespace-qualified keys. */
+	dynamicKeyPatterns?: string[];
+	plural?: { count: number | 'dynamic'; ordinal?: boolean | 'dynamic' };
+	/** Locale selected when resolving a language-dependent usage. */
+	locale?: string;
 	sourceIndex?: number;
 	placeholderParameters?: {
 		kind: 'absent' | 'static' | 'dynamic';
@@ -75,6 +85,10 @@ export interface IScanAdapter {
 	id: string;
 	framework: string;
 	capabilities: IAdapterCapabilities;
+	/** Resolves an existing writable resource and its namespace-relative key. */
+	resolveTranslationWriteTarget?(context: IProjectContext, fs: IFileSystemAdapter, locale: string, key: string): Promise<ITranslationWriteTarget>;
+	/** Extracts placeholder names using the adapter's translation syntax. */
+	extractPlaceholders?(value: string): string[];
 	/**
 	 * Determines whether this adapter supports a project and reports detection confidence.
 	 *

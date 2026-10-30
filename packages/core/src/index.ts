@@ -1,5 +1,6 @@
 export * from './adapters/adapter-registry.js';
 export * from './adapters/angular/angular-scan.adapter.js';
+export * from './adapters/react/react-scan.adapter.js';
 export * from './adapters/default-adapter-registry.js';
 export * from './adapters/scan-adapter.interface.js';
 export * from './config/scanner-config.js';

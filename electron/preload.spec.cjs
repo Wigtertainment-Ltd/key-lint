@@ -41,6 +41,7 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 		'getAppVersion',
 		'getPathForFile',
 		'loadProjectSettings',
+		'openSupportPage',
 		'pathExists',
 		'readDirectory',
 		'readFile',
@@ -53,6 +54,7 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 	await api.selectProjectDirectory();
 	assert.equal(api.getPathForFile({}), 'C:\\project\\dropped');
 	await api.getAppVersion();
+	await api.openSupportPage('file:///untrusted');
 	await api.pathExists('C:\\project');
 	await api.readFile('C:\\project\\en.json');
 	await api.writeFile('C:\\project\\de.json', '{}');
@@ -69,6 +71,7 @@ test('sandboxed preload exposes only the approved operations and fixed IPC chann
 	assert.deepEqual(calls, [
 		[IPC_CHANNELS.selectProjectDirectory],
 		[IPC_CHANNELS.getAppVersion],
+		[IPC_CHANNELS.openSupportPage],
 		[IPC_CHANNELS.pathExists, 'C:\\project'],
 		[IPC_CHANNELS.readFile, 'C:\\project\\en.json'],
 		[IPC_CHANNELS.writeFile, 'C:\\project\\de.json', '{}'],

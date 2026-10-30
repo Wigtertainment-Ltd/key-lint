@@ -10,6 +10,7 @@ import {
 	ScanOrchestrationService
 } from '../../shared/services/scan-orchestration.service';
 import { AnalysisLayoutPage } from './analysis-layout.page';
+import { ElectronService } from '../../shared/services/electron.service';
 
 function scanResult(fileSystemWarnings: unknown[]): IProjectScanResult {
 	return {
@@ -37,8 +38,10 @@ function scanResult(fileSystemWarnings: unknown[]): IProjectScanResult {
 describe('AnalysisLayoutPage app status bar', () => {
 	let fixture: ComponentFixture<AnalysisLayoutPage>;
 	let scanState: BehaviorSubject<ScanExecutionSnapshot>;
+	let openSupportPage: jasmine.Spy;
 
 	beforeEach(async () => {
+		openSupportPage = jasmine.createSpy('openSupportPage').and.resolveTo(undefined);
 		scanState = new BehaviorSubject<ScanExecutionSnapshot>({
 			state: 'completed',
 			result: scanResult([{
@@ -52,6 +55,7 @@ describe('AnalysisLayoutPage app status bar', () => {
 			imports: [AnalysisLayoutPage],
 			providers: [
 				provideRouter([]),
+				{ provide: ElectronService, useValue: { isElectron: true, openSupportPage } },
 				{
 					provide: ScanOrchestrationService,
 					useValue: {
@@ -69,6 +73,17 @@ describe('AnalysisLayoutPage app status bar', () => {
 
 		fixture = TestBed.createComponent(AnalysisLayoutPage);
 		fixture.detectChanges();
+	});
+
+	it('opens GitHub support through Electron instead of navigating the app', () => {
+		const support = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.side-bottom a[href*="/issues"]');
+		expect(support).not.toBeNull();
+		if (!support) throw new Error('Support link was not rendered.');
+		expect(support.href).toBe('https://github.com/Wigtertainment-Ltd/key-lint/issues');
+		expect(support.title).toBe('Report a bug or request a feature on GitHub');
+		expect(support.textContent).toContain('Support');
+		expect(support.dispatchEvent(new MouseEvent('click', { cancelable: true }))).toBeFalse();
+		expect(openSupportPage).toHaveBeenCalledOnceWith();
 	});
 
 	it('shows scan warnings above the routed page content', () => {

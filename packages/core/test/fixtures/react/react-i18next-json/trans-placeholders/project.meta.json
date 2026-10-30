@@ -1,0 +1,6 @@
+{
+	"framework": "react",
+	"translationFormat": "react-i18next-json",
+	"scenario": "trans-placeholders",
+	"covers": ["Trans", "interpolation", "placeholder-missing", "placeholder-uncertain", "placeholder-mismatch", "missing-in-language", "unused"]
+}

@@ -27,7 +27,7 @@ function assertAbsolutePath(value, label = 'Path') {
 	return path.normalize(value);
 }
 
-function registerIpcHandlers({ ipcMain, dialog, app, fs, safeStorage, remoteTransport = createRemoteTranslationTransport(), loaderAnalyzer = defaultLoaderAnalyzer }) {
+function registerIpcHandlers({ ipcMain, dialog, app, fs, safeStorage, shell, remoteTransport = createRemoteTranslationTransport(), loaderAnalyzer = defaultLoaderAnalyzer }) {
 	const sourceStore = createTranslationSourceStore({ app, fs, safeStorage });
 	ipcMain.handle(IPC_CHANNELS.loadProjectSettings, (_event, projectRoot) => sourceStore.load(projectRoot));
 	ipcMain.handle(IPC_CHANNELS.saveProjectSettings, (_event, projectRoot, sources, guardrails) => sourceStore.save(projectRoot, sources, guardrails));
@@ -38,6 +38,7 @@ function registerIpcHandlers({ ipcMain, dialog, app, fs, safeStorage, remoteTran
 	});
 
 	ipcMain.handle(IPC_CHANNELS.getAppVersion, () => app.getVersion());
+	ipcMain.handle(IPC_CHANNELS.openSupportPage, () => shell.openExternal('https://github.com/Wigtertainment-Ltd/key-lint/issues'));
 
 	ipcMain.handle(IPC_CHANNELS.pathExists, async (_event, filePath) => {
 		const resolvedPath = assertAbsolutePath(filePath);

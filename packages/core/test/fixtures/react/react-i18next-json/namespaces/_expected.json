@@ -1,0 +1,30 @@
+{
+	"adapterId": "react",
+	"summary": {
+		"totalKeys": 9,
+		"used": 8,
+		"unused": 1,
+		"dynamicOrUncertain": 0,
+		"indirectUncertain": 0,
+		"missingInLanguage": 3,
+		"extraInLanguage": 0,
+		"placeholderMissing": 0,
+		"placeholderUncertain": 0,
+		"placeholderMismatch": 0,
+		"totalFindings": 12
+	},
+	"findings": [
+		{ "key": "app.title", "status": "used", "severity": "info" },
+		{ "key": "common:save", "status": "used", "severity": "info" },
+		{ "key": "common:shared", "status": "used", "severity": "info" },
+		{ "key": "common:section.title", "status": "used", "severity": "info" },
+		{ "key": "common:unused", "status": "unused", "severity": "warning" },
+		{ "key": "common:missing", "status": "missing-in-language", "severity": "error" },
+		{ "key": "common:missing", "status": "missing-in-language", "severity": "error" },
+		{ "key": "admin:save", "status": "used", "severity": "info" },
+		{ "key": "admin:shared", "status": "used", "severity": "info" },
+		{ "key": "admin:title", "status": "used", "severity": "info" },
+		{ "key": "admin:buttons.save", "status": "used", "severity": "info" },
+		{ "key": "admin:buttons.save", "status": "missing-in-language", "severity": "error" }
+	]
+}

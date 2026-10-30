@@ -1,0 +1,10 @@
+{
+	"good": "Hello {{name}}",
+	"missing": "Hello {{name}}",
+	"nested": "Hello {{user.name}}",
+	"uncertain": "Hello {{name}}",
+	"mismatch": "Welcome {{name}}",
+	"formatted": "Total {{price, number}} {{- html}}",
+	"child": "Hello <strong>{{name}}</strong>",
+	"unused": "Never referenced"
+}
