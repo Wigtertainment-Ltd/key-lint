@@ -7,6 +7,7 @@ import type { IFileSystemWarning } from '../models/file-system-warning.model.js'
 import { matchesAny } from '../util/glob.util.js';
 import { normalizePath } from '../util/path.util.js';
 import { IScannerGuardrails } from '../config/config.interfaces.js';
+import { Stats, Dirent } from 'node:fs';
 
 export type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-system-warning.model.js';
 
@@ -17,7 +18,7 @@ export type { FileSystemWarningCode, IFileSystemWarning } from '../models/file-s
  * @returns Whether the pattern is matched against absolute rather than project-relative paths.
  */
 function isAbsoluteGlob(pattern: string): boolean {
-	const normalized = normalizePath(pattern);
+	const normalized: string = normalizePath(pattern);
 	return normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized);
 }
 
@@ -55,7 +56,7 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 	 */
 	async fileExists(filePath: string): Promise<boolean> {
 		try {
-			const stats = await stat(filePath);
+			const stats: Stats = await stat(filePath);
 			return stats.isFile() || stats.isDirectory();
 		} catch {
 			return false;
@@ -86,25 +87,25 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 	 * @throws {Error} When an included file cannot be statted; unreadable directories are warnings instead.
 	 */
 	async listFiles(projectRoot: string, includeGlobs: string[], excludeGlobs: string[]): Promise<string[]> {
-		const rootAbsolute = resolve(projectRoot);
-		const normalizedRoot = normalizePath(rootAbsolute);
-		const absoluteIncludeGlobs = includeGlobs.filter(isAbsoluteGlob);
-		const relativeIncludeGlobs = includeGlobs.filter((pattern) => !isAbsoluteGlob(pattern));
-		const absoluteExcludeGlobs = excludeGlobs.filter(isAbsoluteGlob);
-		const relativeExcludeGlobs = excludeGlobs.filter((pattern) => !isAbsoluteGlob(pattern));
+		const rootAbsolute: string = resolve(projectRoot);
+		const normalizedRoot: string = normalizePath(rootAbsolute);
+		const absoluteIncludeGlobs: string[] = includeGlobs.filter(isAbsoluteGlob);
+		const relativeIncludeGlobs: string[] = includeGlobs.filter((pattern: string): boolean => !isAbsoluteGlob(pattern));
+		const absoluteExcludeGlobs: string[] = excludeGlobs.filter(isAbsoluteGlob);
+		const relativeExcludeGlobs: string[] = excludeGlobs.filter((pattern: string): boolean => !isAbsoluteGlob(pattern));
 		const results: string[] = [];
 		const stack: string[] = [rootAbsolute];
 
 		while (stack.length > 0) {
-			const current = stack.pop();
+			const current: string | undefined = stack.pop();
 			if (!current) {
 				continue;
 			}
 
-			let entries;
+			let entries: Dirent<string>[];
 			try {
 				entries = await readdir(current, { withFileTypes: true });
-			} catch (error) {
+			} catch (error: unknown) {
 				this.collectedWarnings.push({
 					code: 'unreadable-directory',
 					filePath: normalizePath(current),
@@ -114,9 +115,9 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 			}
 
 			for (const entry of entries) {
-				const fullPath = resolve(current, entry.name);
-				const normalizedFullPath = normalizePath(fullPath);
-				const relativePath = normalizedFullPath.startsWith(`${normalizedRoot}/`)
+				const fullPath: string = resolve(current, entry.name);
+				const normalizedFullPath: string = normalizePath(fullPath);
+				const relativePath: string = normalizedFullPath.startsWith(`${normalizedRoot}/`)
 					? normalizedFullPath.slice(normalizedRoot.length + 1)
 					: normalizedFullPath;
 
@@ -142,9 +143,9 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 					continue;
 				}
 
-				const included =
+				const included: boolean =
 					matchesAny(normalizedFullPath, absoluteIncludeGlobs) || matchesAny(relativePath, relativeIncludeGlobs);
-				const excluded =
+				const excluded: boolean =
 					matchesAny(normalizedFullPath, absoluteExcludeGlobs) || matchesAny(relativePath, relativeExcludeGlobs);
 
 				if (!included || excluded) {
@@ -160,7 +161,7 @@ export class NodeFileSystemAdapter implements IFileSystemAdapter {
 					return results;
 				}
 
-				const stats = await stat(fullPath);
+				const stats: Stats = await stat(fullPath);
 				if (stats.size > this.guardrails.maxFileSizeBytes) {
 					this.collectedWarnings.push({
 						code: 'file-too-large',

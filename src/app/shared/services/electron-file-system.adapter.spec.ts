@@ -1,5 +1,6 @@
 import { ElectronService } from './electron.service';
 import { ElectronFileSystemAdapter } from './electron-file-system.adapter';
+import type { IFileSystemWarning, FileSystemWarningCode } from '@key-lint/core';
 import { DEFAULT_SCANNER_CONFIG } from '@key-lint/core';
 
 interface IFakeEntry {
@@ -16,39 +17,40 @@ function electronWithTree(
 ): ElectronService {
 	return {
 		isElectron: true,
-		pathExists: async (path: string) => path in tree || path in files,
-		readFile: async (path: string) => files[path],
-		readDirectory: async (path: string) => {
+		pathExists: async (path: string): Promise<boolean> => Promise.resolve(path in tree || path in files),
+		readFile: async (path: string): Promise<string> => Promise.resolve(files[path]),
+		readDirectory: async (path: string): Promise<IKeyLintDirectoryEntry[]> => {
 			if (unreadablePaths.includes(path)) {
 				throw new Error('Access denied');
 			}
 
-			return (tree[path] ?? []).map((entry) => ({
-				name: entry.name,
-				isDirectory: entry.type === 'directory',
-				isFile: entry.type === 'file',
-				isSymbolicLink: entry.symbolicLink ?? false,
-				sizeBytes: entry.sizeBytes
-			}));
+			return Promise.resolve(
+				(tree[path] ?? []).map((entry: IFakeEntry): { name: string; isDirectory: boolean; isFile: boolean; isSymbolicLink: boolean; sizeBytes: number | undefined } => ({
+					name: entry.name,
+					isDirectory: entry.type === 'directory',
+					isFile: entry.type === 'file',
+					isSymbolicLink: entry.symbolicLink ?? false,
+					sizeBytes: entry.sizeBytes
+				}))
+			);
 		}
 	} as unknown as ElectronService;
 }
 
-describe('ElectronFileSystemAdapter', () => {
-	it('prunes Angular cache contents during source discovery', async () => {
-		const electron = electronWithTree({
+describe('ElectronFileSystemAdapter', (): void => {
+	it('prunes Angular cache contents during source discovery', async (): Promise<void> => {
+		const electron: ElectronService = electronWithTree({
 			'C:/project': [{ name: 'src', type: 'directory' }, { name: '.angular', type: 'directory' }],
 			'C:/project/src': [{ name: 'app.ts', type: 'file' }],
 			'C:/project/.angular': [{ name: 'cache', type: 'directory' }],
 			'C:/project/.angular/cache': [{ name: 'generated.js', type: 'file', sizeBytes: 3000000 }]
 		});
-		const readDirectory = spyOn(electron, 'readDirectory').and.callThrough();
-		const adapter = new ElectronFileSystemAdapter(electron);
+		const readDirectory: jasmine.Spy<(directoryPath: string) => Promise<IKeyLintDirectoryEntry[]>> = spyOn(electron, 'readDirectory').and.callThrough();
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter(electron);
 		expect(await adapter.listFiles('C:/project', DEFAULT_SCANNER_CONFIG.includeSourceGlobs, DEFAULT_SCANNER_CONFIG.excludeGlobs)).toEqual(['C:/project/src/app.ts']);
 		expect(readDirectory).not.toHaveBeenCalledWith('C:/project/.angular/cache');
 		expect(adapter.warnings).toEqual([]);
 	});
-
 	const tree: Record<string, IFakeEntry[]> = {
 		'C:/project': [
 			{ name: 'src', type: 'directory' },
@@ -68,15 +70,15 @@ describe('ElectronFileSystemAdapter', () => {
 		'C:/project/node_modules': [{ name: 'ignored.ts', type: 'file' }]
 	};
 
-	it('lists only included files and prunes excluded directories', async () => {
-		const adapter = new ElectronFileSystemAdapter(electronWithTree(tree));
+	it('lists only included files and prunes excluded directories', async (): Promise<void> => {
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter(electronWithTree(tree));
 
-		const translationFiles = await adapter.listFiles(
+		const translationFiles: string[] = await adapter.listFiles(
 			'C:/project',
 			['src/assets/i18n/**/*.json'],
 			['**/node_modules/**']
 		);
-		const sourceFiles = await adapter.listFiles(
+		const sourceFiles: string[] = await adapter.listFiles(
 			'C:/project',
 			['**/*.ts'],
 			['**/node_modules/**']
@@ -86,8 +88,8 @@ describe('ElectronFileSystemAdapter', () => {
 		expect(sourceFiles).toEqual(['C:/project/src/app/app.component.ts']);
 	});
 
-	it('reads files and checks paths through the Electron fs bridge', async () => {
-		const adapter = new ElectronFileSystemAdapter(
+	it('reads files and checks paths through the Electron fs bridge', async (): Promise<void> => {
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter(
 			electronWithTree(tree, { 'C:/project/src/assets/i18n/en.json': '{"APP":"App"}' })
 		);
 
@@ -95,8 +97,8 @@ describe('ElectronFileSystemAdapter', () => {
 		expect(await adapter.readFile('C:/project/src/assets/i18n/en.json')).toBe('{"APP":"App"}');
 	});
 
-	it('returns no files and rejects reads outside Electron', async () => {
-		const adapter = new ElectronFileSystemAdapter({ isElectron: false } as ElectronService);
+	it('returns no files and rejects reads outside Electron', async (): Promise<void> => {
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter({ isElectron: false } as ElectronService);
 
 		expect(await adapter.fileExists('/project/file.ts')).toBeFalse();
 		expect(await adapter.listFiles('/project', ['**/*.ts'], [])).toEqual([]);
@@ -105,7 +107,7 @@ describe('ElectronFileSystemAdapter', () => {
 		);
 	});
 
-	it('enforces file count, file size, and symlink guardrails', async () => {
+	it('enforces file count, file size, and symlink guardrails', async (): Promise<void> => {
 		const guardedTree: Record<string, IFakeEntry[]> = {
 			'C:/project': [
 				{ name: 'large.json', type: 'file', sizeBytes: 20 },
@@ -114,7 +116,7 @@ describe('ElectronFileSystemAdapter', () => {
 				{ name: 'second.json', type: 'file', sizeBytes: 2 }
 			]
 		};
-		const adapter = new ElectronFileSystemAdapter(
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter(
 			electronWithTree(guardedTree),
 			{ maxFiles: 1, maxFileSizeBytes: 10 }
 		);
@@ -122,18 +124,18 @@ describe('ElectronFileSystemAdapter', () => {
 		expect(await adapter.listFiles('C:/project', ['**/*.json'], [])).toEqual([
 			'C:/project/first.json'
 		]);
-		expect(adapter.warnings.map((warning) => warning.code)).toEqual([
+		expect(adapter.warnings.map((warning: IFileSystemWarning): FileSystemWarningCode => warning.code)).toEqual([
 			'file-too-large',
 			'symlink-skipped',
 			'max-files-reached'
 		]);
 	});
 
-	it('continues the scan with a structured warning for unreadable directories', async () => {
+	it('continues the scan with a structured warning for unreadable directories', async (): Promise<void> => {
 		const guardedTree: Record<string, IFakeEntry[]> = {
 			'C:/project': [{ name: 'restricted', type: 'directory' }]
 		};
-		const adapter = new ElectronFileSystemAdapter(
+		const adapter: ElectronFileSystemAdapter = new ElectronFileSystemAdapter(
 			electronWithTree(guardedTree, {}, ['C:/project/restricted'])
 		);
 

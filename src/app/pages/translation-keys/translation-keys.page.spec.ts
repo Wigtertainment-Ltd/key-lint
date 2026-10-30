@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { IProjectScanResult } from '@key-lint/core';
+import { IProjectScanResult, ITranslationMatrixRow } from '@key-lint/core';
 import { BehaviorSubject } from 'rxjs';
 
 import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
@@ -26,12 +26,12 @@ const result: IProjectScanResult = {
 	}
 };
 
-describe('TranslationKeysPage placeholders', () => {
+describe('TranslationKeysPage placeholders', (): void => {
 	let fixture: ComponentFixture<TranslationKeysPage>;
 	let component: TranslationKeysPage;
 	let state: BehaviorSubject<ScanExecutionSnapshot>;
 
-	beforeEach(async () => {
+	beforeEach(async (): Promise<void> => {
 		state = new BehaviorSubject<ScanExecutionSnapshot>({ state: 'completed', result });
 		await TestBed.configureTestingModule({
 			imports: [TranslationKeysPage],
@@ -46,20 +46,20 @@ describe('TranslationKeysPage placeholders', () => {
 		fixture.detectChanges();
 	});
 
-	it('filters placeholder keys and exposes locale-specific names in details', () => {
-		const row = result.translationMatrix!.rows[0];
+	it('filters placeholder keys and exposes locale-specific names in details', (): void => {
+		const row: ITranslationMatrixRow = result.translationMatrix!.rows[0];
 		expect(component.hasPlaceholders(row)).toBeTrue();
 		expect(component.placeholderFilterCount).toBe(1);
 		component.onFilterChange('placeholders');
-		expect(component.filteredRows.map((entry) => entry.key)).toEqual(['APP.GREETING']);
+		expect(component.filteredRows.map((entry: ITranslationMatrixRow): string => entry.key)).toEqual(['APP.GREETING']);
 		component.onSelectRow(row);
 		fixture.detectChanges();
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Placeholders by Locale');
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('name');
 	});
 
-	it('disables missing-locale actions for remote read-only results', async () => {
-		const row = {
+	it('disables missing-locale actions for remote read-only results', async (): Promise<void> => {
+		const row: { keyPresence: { de: boolean; en: boolean; }; key: string; values: Record<string, string>; placeholders?: Record<string, string[]>; } = {
 			...result.translationMatrix!.rows[0],
 			keyPresence: { de: true, en: false }
 		};
@@ -76,10 +76,10 @@ describe('TranslationKeysPage placeholders', () => {
 		});
 		fixture.detectChanges();
 		await fixture.whenStable();
-		component.onSelectRow(component.matrix.rows.find((entry) => entry.key === row.key)!);
+		component.onSelectRow(component.matrix.rows.find((entry: ITranslationMatrixRow): boolean => entry.key === row.key)!);
 		fixture.detectChanges();
 
-		const addButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.add-missing-button');
+		const addButton: HTMLButtonElement | null = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.add-missing-button');
 		expect(component.isRemoteReadOnly).toBeTrue();
 		expect(addButton?.disabled).toBeTrue();
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Remote translations are read-only.');

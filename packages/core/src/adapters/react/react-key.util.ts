@@ -7,10 +7,12 @@ export function canonicalReactKey(key: string): string {
 }
 
 export function matchesReactDynamicKey(usage: IKeyUsage, key: string): boolean {
-	if (!usage.dynamicKeyPatterns) return usage.isDynamic === true;
-	const base = usage.plural ? reactPluralKey(key)?.base : undefined;
-	return usage.dynamicKeyPatterns.some((pattern) => {
-		const regex = new RegExp(pattern, 's');
+	if (!usage.dynamicKeyPatterns) {
+		return usage.isDynamic === true;
+	}
+	const base: string | undefined = usage.plural ? reactPluralKey(key)?.base : undefined;
+	return usage.dynamicKeyPatterns.some((pattern: string): boolean => {
+		const regex: RegExp = new RegExp(pattern, 's');
 		return regex.test(canonicalReactKey(key)) || (base !== undefined && regex.test(canonicalReactKey(base)));
 	});
 }
@@ -24,15 +26,15 @@ export function qualifyReactKey(namespace: string, key: string): string {
 }
 
 export function reactPluralKey(key: string): { base: string; ordinal: boolean; category: Intl.LDMLPluralRule } | undefined {
-	const match = /^(.*?)(_ordinal)?_(zero|one|two|few|many|other)$/.exec(key);
+	const match: RegExpExecArray | null = /^(.*?)(_ordinal)?_(zero|one|two|few|many|other)$/.exec(key);
 	return match ? { base: match[1], ordinal: Boolean(match[2]), category: match[3] as Intl.LDMLPluralRule } : undefined;
 }
 
 /** Recognizes locale/namespace.json directories and legacy locale.json files. */
-export function reactResourceIdentity(filePath: string, defaultNamespace = 'translation'): { locale: string; namespace: string } {
-	const parts = normalizePath(filePath).split('/');
-	const parent = parts.at(-2) ?? '';
-	const filename = parts.at(-1) ?? '';
+export function reactResourceIdentity(filePath: string, defaultNamespace: string = 'translation'): { locale: string; namespace: string } {
+	const parts: string[] = normalizePath(filePath).split('/');
+	const parent: string = parts.at(-2) ?? '';
+	const filename: string = parts.at(-1) ?? '';
 	if (/^[a-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$/.test(parent)) {
 		return { locale: parent, namespace: filename.replace(/\.json$/i, '') };
 	}

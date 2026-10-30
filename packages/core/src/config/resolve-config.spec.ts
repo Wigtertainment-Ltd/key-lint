@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveScannerConfigSources } from './resolve-config.js';
+import { IResolvedScannerConfig } from './config.interfaces.js';
 
-describe('resolveScannerConfigSources', () => {
-	it('applies defaults, package config, config file, and overrides in order', () => {
-		const resolved = resolveScannerConfigSources({
+describe('resolveScannerConfigSources', (): void => {
+	it('applies defaults, package config, config file, and overrides in order', (): void => {
+		const resolved: IResolvedScannerConfig = resolveScannerConfigSources({
 			packageJson: {
 				keylint: {
 					baseLocale: 'de',
@@ -28,27 +29,27 @@ describe('resolveScannerConfigSources', () => {
 		expect(resolved.configFileApplied).toBe(true);
 	});
 
-	it('ignores package.json without a keylint section', () => {
-		const resolved = resolveScannerConfigSources({ packageJson: { private: true } });
+	it('ignores package.json without a keylint section', (): void => {
+		const resolved: IResolvedScannerConfig = resolveScannerConfigSources({ packageJson: { private: true } });
 
 		expect(resolved.packageJsonConfigApplied).toBe(false);
 		expect(resolved.configFileApplied).toBe(false);
 		expect(resolved.config.includeSourceGlobs).toContain('**/*.ts');
 	});
 
-	it('validates embedded and file configuration through the shared parser', () => {
+	it('validates embedded and file configuration through the shared parser', (): void => {
 		// Match the stable error prefix for unsupported configuration properties.
-		expect(() => resolveScannerConfigSources({
+		expect((): IResolvedScannerConfig => resolveScannerConfigSources({
 			packageJson: { keylint: { unknownOption: true } }
 		})).toThrowError(/Unknown configuration key/);
 		// Match the stable validation phrase for an empty base-locale value.
-		expect(() => resolveScannerConfigSources({ configFile: { baseLocale: '' } })).toThrowError(
+		expect((): IResolvedScannerConfig => resolveScannerConfigSources({ configFile: { baseLocale: '' } })).toThrowError(
 			/non-empty string/
 		);
 	});
 
-	it('tracks the winning source for each guardrail value', () => {
-		const resolved = resolveScannerConfigSources({
+	it('tracks the winning source for each guardrail value', (): void => {
+		const resolved: IResolvedScannerConfig = resolveScannerConfigSources({
 			packageJson: { keylint: { guardrails: { maxFiles: 500 } } },
 			configFile: { guardrails: { maxFileSizeBytes: 4096 } },
 			overrides: { guardrails: { maxFiles: 25 } }

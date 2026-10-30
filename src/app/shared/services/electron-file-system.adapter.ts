@@ -60,7 +60,7 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 			let entries: IKeyLintDirectoryEntry[];
 			try {
 				entries = await this.electronService.readDirectory(current);
-			} catch (error) {
+			} catch (error: unknown) {
 				this.collectedWarnings.push({
 					code: 'unreadable-directory',
 					filePath: normalizePath(current),
@@ -99,9 +99,9 @@ export class ElectronFileSystemAdapter implements IFileSystemAdapter {
 					continue;
 				}
 
-				const included =
+				const included: boolean =
 					matchesAny(normalizedFullPath, includeGlobs) || matchesAny(relativePath, includeGlobs);
-				const excluded =
+				const excluded: boolean =
 					matchesAny(normalizedFullPath, excludeGlobs) || matchesAny(relativePath, excludeGlobs);
 
 				if (!included || excluded) {

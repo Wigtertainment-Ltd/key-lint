@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { analyzeNgxTranslateHttpLoaders } from './ngx-translate-http-loader.analyzer.js';
+import { ITranslationLoaderAnalysisResult, ITranslationLoaderCandidate, ILoaderResourceTemplate, ILoaderDetectionDiagnostic, ILoaderSourceLocation } from '../detection.js';
 
-const fixtureRoot = new URL('../../test/fixtures/detection/ngx-translate-http-loader/', import.meta.url);
+const fixtureRoot: URL = new URL('../../test/fixtures/detection/ngx-translate-http-loader/', import.meta.url);
 
 function fixture(name: string): { filePath: string; content: string } {
 	return {
@@ -13,26 +14,26 @@ function fixture(name: string): { filePath: string; content: string } {
 	};
 }
 
-describe('analyzeNgxTranslateHttpLoaders', () => {
-	it('detects modern default and explicit literal loader configuration', () => {
-		const result = analyzeNgxTranslateHttpLoaders([
+describe('analyzeNgxTranslateHttpLoaders', (): void => {
+	it('detects modern default and explicit literal loader configuration', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([
 			fixture('modern-default.ts'),
 			fixture('modern-explicit.ts')
 		]);
 
 		expect(result.diagnostics).toEqual([]);
-		expect(result.candidates.map((candidate) => candidate.resources[0])).toEqual([
+		expect(result.candidates.map((candidate: ITranslationLoaderCandidate): ILoaderResourceTemplate => candidate.resources[0])).toEqual([
 			{ urlTemplate: '/assets/i18n/{locale}.json', urlKind: 'relative', requiresOrigin: true },
 			{ urlTemplate: 'https://cdn.example.com/i18n/{locale}.translations.json', urlKind: 'absolute', requiresOrigin: false }
 		]);
-		expect(result.candidates.map((candidate) => candidate.api)).toEqual([
+		expect(result.candidates.map((candidate: ITranslationLoaderCandidate): 'TranslocoLoader' | 'provideTranslateHttpLoader' | 'TranslateHttpLoader' => candidate.api)).toEqual([
 			'provideTranslateHttpLoader',
 			'provideTranslateHttpLoader'
 		]);
 	});
 
-	it('preserves ordered string and object resource templates', () => {
-		const result = analyzeNgxTranslateHttpLoaders([fixture('multi-resources.ts')]);
+	it('preserves ordered string and object resource templates', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([fixture('multi-resources.ts')]);
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.candidates).toHaveLength(1);
@@ -43,8 +44,8 @@ describe('analyzeNgxTranslateHttpLoaders', () => {
 		]);
 	});
 
-	it('detects aliased legacy factories with literal constructor arguments', () => {
-		const result = analyzeNgxTranslateHttpLoaders([
+	it('detects aliased legacy factories with literal constructor arguments', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([
 			fixture('legacy-factory.ts'),
 			fixture('legacy-default.ts')
 		]);
@@ -63,32 +64,32 @@ describe('analyzeNgxTranslateHttpLoaders', () => {
 		]);
 	});
 
-	it('resolves the nearest unambiguous lexical alias', () => {
-		const result = analyzeNgxTranslateHttpLoaders([fixture('scoped-aliases.ts')]);
+	it('resolves the nearest unambiguous lexical alias', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([fixture('scoped-aliases.ts')]);
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.candidates[0].resources[0].urlTemplate).toBe('/inside/{locale}.json');
 	});
 
-	it('resolves supported aliases and direct literal locale arrays', () => {
-		const result = analyzeNgxTranslateHttpLoaders([fixture('aliases-locales.ts')]);
+	it('resolves supported aliases and direct literal locale arrays', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([fixture('aliases-locales.ts')]);
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.candidates[0].locales).toEqual(['en', 'de', 'fr', 'it']);
 		expect(result.candidates[0].resources[0].urlTemplate).toBe('/locale/{locale}.json');
 	});
 
-	it('requires imports from ngx-translate instead of matching symbol names', () => {
-		const result = analyzeNgxTranslateHttpLoaders([fixture('unrelated-symbols.ts')]);
+	it('requires imports from ngx-translate instead of matching symbol names', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([fixture('unrelated-symbols.ts')]);
 
 		expect(result).toEqual({ candidates: [], diagnostics: [] });
 	});
 
-	it('returns actionable diagnostics and no guessed endpoint for dynamic constructs', () => {
-		const result = analyzeNgxTranslateHttpLoaders([fixture('dynamic-patterns.ts')]);
+	it('returns actionable diagnostics and no guessed endpoint for dynamic constructs', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([fixture('dynamic-patterns.ts')]);
 
 		expect(result.candidates).toEqual([]);
-		expect(new Set(result.diagnostics.map((diagnostic) => diagnostic.code))).toEqual(new Set([
+		expect(new Set(result.diagnostics.map((diagnostic: ILoaderDetectionDiagnostic): ILoaderDetectionDiagnostic['code'] => diagnostic.code))).toEqual(new Set([
 			'ngx-http-dynamic-environment',
 			'ngx-http-conditional-url',
 			'ngx-http-ambiguous-merge',
@@ -96,26 +97,26 @@ describe('analyzeNgxTranslateHttpLoaders', () => {
 			'ngx-http-unsupported-factory'
 		]));
 		expect(result.diagnostics).toHaveLength(6);
-		expect(result.diagnostics.every((diagnostic) => diagnostic.location.filePath === 'src/app/dynamic-patterns.ts')).toBe(true);
+		expect(result.diagnostics.every((diagnostic: ILoaderDetectionDiagnostic): boolean => diagnostic.location.filePath === 'src/app/dynamic-patterns.ts')).toBe(true);
 		expect(JSON.stringify(result)).not.toContain('/prod/');
 		expect(JSON.stringify(result)).not.toContain('/first/');
 	});
 
-	it('keeps candidate source locations and input ordering stable', () => {
-		const result = analyzeNgxTranslateHttpLoaders([
+	it('keeps candidate source locations and input ordering stable', (): void => {
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([
 			fixture('modern-explicit.ts'),
 			fixture('modern-default.ts')
 		]);
 
-		expect(result.candidates.map((candidate) => candidate.location)).toEqual([
+		expect(result.candidates.map((candidate: ITranslationLoaderCandidate): ILoaderSourceLocation => candidate.location)).toEqual([
 			{ filePath: 'src/app/modern-explicit.ts', line: 6, column: 23, endLine: 6, endColumn: 69 },
 			{ filePath: 'src/app/modern-default.ts', line: 3, column: 23, endLine: 3, endColumn: 51 }
 		]);
 	});
 
-	it('parses source text without importing or executing the project module', () => {
-		expect(() => analyzeNgxTranslateHttpLoaders([fixture('no-execution.ts')])).not.toThrow();
-		const result = analyzeNgxTranslateHttpLoaders([fixture('no-execution.ts')]);
+	it('parses source text without importing or executing the project module', (): void => {
+		expect((): ITranslationLoaderAnalysisResult => analyzeNgxTranslateHttpLoaders([fixture('no-execution.ts')])).not.toThrow();
+		const result: ITranslationLoaderAnalysisResult = analyzeNgxTranslateHttpLoaders([fixture('no-execution.ts')]);
 		expect(result.candidates[0].resources[0].urlTemplate).toBe('/safe-static-analysis/{locale}.json');
 	});
 });

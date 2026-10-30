@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 import { isReporterName, REPORTER_NAMES, ReporterName } from './reporters/index.js';
 import { CliUsageError, ICliOptions } from './cli.interfaces.js';
 
-export const USAGE = `keylint - i18n key audit for CI/CD pipelines
+export const USAGE: string = `keylint - i18n key audit for CI/CD pipelines
 
 Usage:
   keylint scan [path] [options]
@@ -44,10 +44,24 @@ function parseCount(raw: string | undefined, flag: string, fallback: number): nu
 }
 
 export function parseCliArgs(argv: string[]): ICliOptions {
-	const color: boolean = !argv.includes('--no-color') && process.env['NO_COLOR'] === undefined;
-	const args: string[] = argv.filter((arg) => arg !== '--no-color');
+	const color: boolean = !argv.includes('--no-color') && process.env.NO_COLOR === undefined;
+	const args: string[] = argv.filter((arg: string): boolean => arg !== '--no-color');
 
-	let parsed;
+	let parsed: {
+		values: {
+			config?: string;
+			reporter?: string[];
+			output?: string[];
+			'max-errors'?: string;
+			'max-warnings'?: string;
+			ignore?: string[];
+			'allow-network'?: boolean;
+			quiet?: boolean;
+			help?: boolean;
+			version?: boolean;
+		};
+		positionals: string[];
+	};
 	try {
 		parsed = parseArgs({
 			args,
@@ -65,11 +79,11 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 				version: { type: 'boolean', short: 'v' }
 			}
 		});
-	} catch (error) {
+	} catch (error: unknown) {
 		throw new CliUsageError(error instanceof Error ? error.message : 'Invalid arguments.');
 	}
 
-	const values = parsed.values;
+	const values: typeof parsed.values = parsed.values;
 	const positionals: string[] = parsed.positionals;
 
 	const base: ICliOptions = {
@@ -93,7 +107,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 		return { ...base, command: 'version' };
 	}
 
-	const [first, second, ...rest] = positionals;
+	const [first, second, ...rest]: string[] = positionals;
 	if (rest.length > 0) {
 		throw new CliUsageError(`Unexpected argument "${rest[0]}".`);
 	}

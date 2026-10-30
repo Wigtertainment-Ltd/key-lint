@@ -3,10 +3,12 @@ import {
 } from './config.interfaces.js';
 import { DEFAULT_SCANNER_CONFIG } from './scanner-defaults.js';
 
-const STRING_ARRAY_KEYS = ['includeTranslationGlobs', 'includeSourceGlobs', 'excludeGlobs', 'supportedTranslationExtensions', 'ignoreKeys'] as const;
-const GUARDRAIL_KEYS = ['maxFiles', 'maxFileSizeBytes'] as const;
-const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-const LOCALE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const STRING_ARRAY_KEYS: readonly ['includeTranslationGlobs', 'includeSourceGlobs', 'excludeGlobs', 'supportedTranslationExtensions', 'ignoreKeys'] = [
+	'includeTranslationGlobs', 'includeSourceGlobs', 'excludeGlobs', 'supportedTranslationExtensions', 'ignoreKeys'
+] as const;
+const GUARDRAIL_KEYS: readonly ['maxFiles', 'maxFileSizeBytes'] = ['maxFiles', 'maxFileSizeBytes'] as const;
+const HTTP_HEADER_NAME_PATTERN: RegExp = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const LOCALE_PATTERN: RegExp = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /**
  * Validates and trims a required string configuration value.
@@ -33,8 +35,8 @@ function assertNonEmptyString(value: unknown, key: string): string {
  * @throws {ScannerConfigError} When the list is empty, contains invalid identifiers, or has duplicates.
  */
 function parseLocales(value: unknown, key: string): string[] {
-	const locales: string[] = assertStringArray(value, key).map((locale) => locale.trim());
-	if (locales.length === 0 || locales.some((locale) => !LOCALE_PATTERN.test(locale))) {
+	const locales: string[] = assertStringArray(value, key).map((locale: string): string => locale.trim());
+	if (locales.length === 0 || locales.some((locale: string): boolean => !LOCALE_PATTERN.test(locale))) {
 		throw new ScannerConfigError(`"${key}" must contain at least one valid non-empty locale.`);
 	}
 	if (new Set(locales).size !== locales.length) {
@@ -82,7 +84,7 @@ function parseHeadersFromEnv(value: unknown, key: string): Record<string, string
  * @throws {ScannerConfigError} When any source field is missing, unknown, or invalid.
  */
 function parseHttpTranslationSource(source: Record<string, unknown>, index: number): IHttpTranslationSourceConfig {
-	const allowedKeys = new Set<string>(['type', 'id', 'urlTemplate', 'locales', 'headersFromEnv']);
+	const allowedKeys: Set<string> = new Set<string>(['type', 'id', 'urlTemplate', 'locales', 'headersFromEnv']);
 	for (const key of Object.keys(source)) {
 		if (!allowedKeys.has(key)) {
 			throw new ScannerConfigError(
@@ -91,8 +93,8 @@ function parseHttpTranslationSource(source: Record<string, unknown>, index: numb
 		}
 	}
 
-	const id: string = assertNonEmptyString(source['id'], `translationSources[${index}].id`);
-	const urlTemplate: string = assertNonEmptyString(source['urlTemplate'], `translationSources[${index}].urlTemplate`);
+	const id: string = assertNonEmptyString(source.id, `translationSources[${index}].id`);
+	const urlTemplate: string = assertNonEmptyString(source.urlTemplate, `translationSources[${index}].urlTemplate`);
 	if ((urlTemplate.match(/\{locale\}/g) ?? []).length !== 1) {
 		throw new ScannerConfigError(
 			`"translationSources[${index}].urlTemplate" must contain exactly one "{locale}" placeholder.`
@@ -111,11 +113,11 @@ function parseHttpTranslationSource(source: Record<string, unknown>, index: numb
 		throw new ScannerConfigError(`"translationSources[${index}].urlTemplate" must not contain URL credentials.`);
 	}
 
-	const locales: string[] = parseLocales(source['locales'], `translationSources[${index}].locales`);
+	const locales: string[] = parseLocales(source.locales, `translationSources[${index}].locales`);
 
 	let headersFromEnv: Record<string, string> | undefined;
-	if (source['headersFromEnv'] !== undefined) {
-		headersFromEnv = parseHeadersFromEnv(source['headersFromEnv'], `translationSources[${index}].headersFromEnv`);
+	if (source.headersFromEnv !== undefined) {
+		headersFromEnv = parseHeadersFromEnv(source.headersFromEnv, `translationSources[${index}].headersFromEnv`);
 	}
 
 	return { type: 'http', id, urlTemplate, locales, ...(headersFromEnv ? { headersFromEnv } : {}) };
@@ -131,7 +133,7 @@ function parseHttpTranslationSource(source: Record<string, unknown>, index: numb
  * @throws {ScannerConfigError} When fields are unknown or an identifier, origin, locale list, or header mapping is invalid.
  */
 function parseAutoHttpTranslationSource(source: Record<string, unknown>, index: number): IAutoHttpTranslationSourceConfig {
-	const allowedKeys = new Set(['type', 'id', 'origin', 'locales', 'headersFromEnv']);
+	const allowedKeys: Set<string> = new Set<string>(['type', 'id', 'origin', 'locales', 'headersFromEnv']);
 	for (const key of Object.keys(source)) {
 		if (!allowedKeys.has(key)) {
 			throw new ScannerConfigError(
@@ -140,9 +142,11 @@ function parseAutoHttpTranslationSource(source: Record<string, unknown>, index: 
 		}
 	}
 	const parsed: IAutoHttpTranslationSourceConfig = { type: 'auto-http' };
-	if (source['id'] !== undefined) parsed.id = assertNonEmptyString(source['id'], `translationSources[${index}].id`);
-	if (source['origin'] !== undefined) {
-		const origin = assertNonEmptyString(source['origin'], `translationSources[${index}].origin`);
+	if (source.id !== undefined) {
+		parsed.id = assertNonEmptyString(source.id, `translationSources[${index}].id`);
+	}
+	if (source.origin !== undefined) {
+		const origin: string = assertNonEmptyString(source.origin, `translationSources[${index}].origin`);
 		let parsedOrigin: URL;
 		try {
 			parsedOrigin = new URL(origin);
@@ -155,9 +159,11 @@ function parseAutoHttpTranslationSource(source: Record<string, unknown>, index: 
 		}
 		parsed.origin = parsedOrigin.origin;
 	}
-	if (source['locales'] !== undefined) parsed.locales = parseLocales(source['locales'], `translationSources[${index}].locales`);
-	if (source['headersFromEnv'] !== undefined) {
-		parsed.headersFromEnv = parseHeadersFromEnv(source['headersFromEnv'], `translationSources[${index}].headersFromEnv`);
+	if (source.locales !== undefined) {
+		parsed.locales = parseLocales(source.locales, `translationSources[${index}].locales`);
+	}
+	if (source.headersFromEnv !== undefined) {
+		parsed.headersFromEnv = parseHeadersFromEnv(source.headersFromEnv, `translationSources[${index}].headersFromEnv`);
 	}
 	return parsed;
 }
@@ -175,30 +181,32 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 		throw new ScannerConfigError('"translationSources" must be a non-empty array.');
 	}
 
-	const identifiers = new Set<string>();
-	return value.map((entry, index) => {
+	const identifiers: Set<string> = new Set<string>();
+	return value.map((entry: unknown, index: number): ITranslationSourceConfig => {
 		if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
 			throw new ScannerConfigError(`"translationSources[${index}]" must be an object.`);
 		}
 
-		const source = entry as Record<string, unknown>;
-		if (source['type'] === 'http') {
-			const parsed = parseHttpTranslationSource(source, index);
+		const source: Record<string, unknown> = entry as Record<string, unknown>;
+		if (source.type === 'http') {
+			const parsed: IHttpTranslationSourceConfig = parseHttpTranslationSource(source, index);
 			if (identifiers.has(parsed.id)) {
 				throw new ScannerConfigError(`Duplicate translation source id "${parsed.id}".`);
 			}
 			identifiers.add(parsed.id);
 			return parsed;
 		}
-		if (source['type'] === 'auto-http') {
-			const parsed = parseAutoHttpTranslationSource(source, index);
-			const resolvedId = parsed.id ?? `auto-http-${index + 1}`;
-			if (identifiers.has(resolvedId)) throw new ScannerConfigError(`Duplicate translation source id "${resolvedId}".`);
+		if (source.type === 'auto-http') {
+			const parsed: IAutoHttpTranslationSourceConfig = parseAutoHttpTranslationSource(source, index);
+			const resolvedId: string = parsed.id ?? `auto-http-${index + 1}`;
+			if (identifiers.has(resolvedId)) {
+				throw new ScannerConfigError(`Duplicate translation source id "${resolvedId}".`);
+			}
 			identifiers.add(resolvedId);
 			return parsed;
 		}
 
-		const allowedKeys = new Set(['type', 'id', 'includeGlobs']);
+		const allowedKeys: Set<string> = new Set<string>(['type', 'id', 'includeGlobs']);
 		for (const key of Object.keys(source)) {
 			if (!allowedKeys.has(key)) {
 				throw new ScannerConfigError(
@@ -207,35 +215,35 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
 			}
 		}
 
-		if (source['type'] !== 'filesystem') {
+		if (source.type !== 'filesystem') {
 			throw new ScannerConfigError(
 				`"translationSources[${index}].type" must be "filesystem", "http", or "auto-http".`
 			);
 		}
 
 		const parsed: IFilesystemTranslationSourceConfig = { type: 'filesystem' };
-		if (source['id'] !== undefined) {
-			if (typeof source['id'] !== 'string' || source['id'].trim().length === 0) {
+		if (source.id !== undefined) {
+			if (typeof source.id !== 'string' || source.id.trim().length === 0) {
 				throw new ScannerConfigError(
 					`"translationSources[${index}].id" must be a non-empty string.`
 				);
 			}
-			parsed.id = source['id'].trim();
+			parsed.id = source.id.trim();
 		}
-		if (source['includeGlobs'] !== undefined) {
-			const includeGlobs = assertStringArray(
-				source['includeGlobs'],
+		if (source.includeGlobs !== undefined) {
+			const includeGlobs: string[] = assertStringArray(
+				source.includeGlobs,
 				`translationSources[${index}].includeGlobs`
 			);
-			if (includeGlobs.length === 0 || includeGlobs.some((glob) => glob.trim().length === 0)) {
+			if (includeGlobs.length === 0 || includeGlobs.some((glob: string): boolean => glob.trim().length === 0)) {
 				throw new ScannerConfigError(
 					`"translationSources[${index}].includeGlobs" must contain at least one non-empty glob.`
 				);
 			}
-			parsed.includeGlobs = includeGlobs.map((glob) => glob.trim());
+			parsed.includeGlobs = includeGlobs.map((glob: string): string => glob.trim());
 		}
 
-		const resolvedId = parsed.id ?? `filesystem-${index + 1}`;
+		const resolvedId: string = parsed.id ?? `filesystem-${index + 1}`;
 		if (identifiers.has(resolvedId)) {
 			throw new ScannerConfigError(`Duplicate translation source id "${resolvedId}".`);
 		}
@@ -254,7 +262,7 @@ function assertTranslationSources(value: unknown): ITranslationSourceConfig[] {
  * @throws {ScannerConfigError} When the value is not an array of strings.
  */
 function assertStringArray(value: unknown, key: string): string[] {
-	if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+	if (!Array.isArray(value) || value.some((entry: unknown): boolean => typeof entry !== 'string')) {
 		throw new ScannerConfigError(`"${key}" must be an array of strings.`);
 	}
 
@@ -291,8 +299,8 @@ export function parseScannerConfigOverrides(raw: unknown): IScannerConfigOverrid
 		throw new ScannerConfigError('Configuration must be a JSON object.');
 	}
 
-	const source = raw as Record<string, unknown>;
-	const allowedKeys = new Set<string>([
+	const source: Record<string, unknown> = raw as Record<string, unknown>;
+	const allowedKeys: Set<string> = new Set<string>([
 		...STRING_ARRAY_KEYS,
 		'baseLocale',
 		'guardrails',

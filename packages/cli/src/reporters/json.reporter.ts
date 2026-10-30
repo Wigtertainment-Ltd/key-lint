@@ -1,7 +1,31 @@
-import { IProjectScanResult } from '@key-lint/core';
-import type { IReporter, IReporterContext } from './reporter.interfaces.js';
+import { IProjectScanResult, IPlaceholderFindingDetails, IFinding, IFileEvidence } from '@key-lint/core';
+import type { IReporter, IReporterContext, ISeverityCounts } from './reporter.interfaces.js';
 
-export const JSON_REPORT_SCHEMA_VERSION = 2;
+interface IJsonReportEvidence {
+	filePath: string;
+	line: number | null;
+	column: number | null;
+	matchType: string | null;
+	snippet: string | null;
+}
+
+interface IJsonReportFinding extends Omit<IFinding, 'adapterId' | 'language' | 'placeholderDetails' | 'evidence'> {
+	language: string | null;
+	placeholderDetails: IPlaceholderFindingDetails | null;
+	evidence: IJsonReportEvidence[];
+}
+
+interface IJsonReport extends Pick<IProjectScanResult, 'projectRoot' | 'adapterId' | 'startedAt' | 'finishedAt' | 'durationMs' | 'summary'> {
+	schemaVersion: number;
+	severityCounts: ISeverityCounts;
+	thresholds: IReporterContext['thresholds'];
+	configFilePath: string | null;
+	warnings: string[];
+	metadata: Record<string, unknown>;
+	findings: IJsonReportFinding[];
+}
+
+export const JSON_REPORT_SCHEMA_VERSION: number = 2;
 
 /**
  * Machine readable report. The translation matrix is intentionally omitted:
@@ -10,7 +34,7 @@ export const JSON_REPORT_SCHEMA_VERSION = 2;
 export const jsonReporter: IReporter = {
 	name: 'json',
 	format(result: IProjectScanResult, context: IReporterContext): string {
-		const payload = {
+		const payload: IJsonReport = {
 			schemaVersion: JSON_REPORT_SCHEMA_VERSION,
 			projectRoot: result.projectRoot,
 			adapterId: result.adapterId,
@@ -24,8 +48,8 @@ export const jsonReporter: IReporter = {
 			warnings: context.warnings,
 			metadata: result.metadata ?? {},
 			findings: [...result.findings]
-				.sort((a, b) => a.id.localeCompare(b.id))
-				.map((finding) => ({
+				.sort((a: IFinding, b: IFinding): number => a.id.localeCompare(b.id))
+				.map((finding: IFinding): IJsonReportFinding => ({
 					id: finding.id,
 					key: finding.key,
 					status: finding.status,
@@ -33,7 +57,7 @@ export const jsonReporter: IReporter = {
 					message: finding.message,
 					language: finding.language ?? null,
 					placeholderDetails: finding.placeholderDetails ?? null,
-					evidence: finding.evidence.map((entry) => ({
+					evidence: finding.evidence.map((entry: IFileEvidence): IJsonReportEvidence => ({
 						filePath: entry.filePath,
 						line: entry.line ?? null,
 						column: entry.column ?? null,

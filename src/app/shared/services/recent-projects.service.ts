@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { normalizePath, pathDedupeKey } from '@key-lint/core';
 import { ElectronService } from './electron.service';
 
@@ -7,18 +7,18 @@ export interface IRecentProjectItem {
 	exists: boolean;
 }
 
-const RECENT_PROJECTS_STORAGE_KEY = 'key-lint.recent-projects';
-const MAX_RECENT_PROJECTS = 5;
+const RECENT_PROJECTS_STORAGE_KEY: string = 'key-lint.recent-projects';
+const MAX_RECENT_PROJECTS: number = 5;
 
 @Injectable({
 	providedIn: 'root'
 })
 export class RecentProjectsService {
-	constructor(private readonly electronService: ElectronService) {}
+	private readonly electronService: ElectronService = inject(ElectronService);
 
 	async getRecentProjects(): Promise<IRecentProjectItem[]> {
 		const recentPaths: string[] = this.readStoredPaths();
-		return Promise.all(recentPaths.map(async (path) => ({
+		return Promise.all(recentPaths.map(async (path: string): Promise<{ path: string; exists: boolean; }> => ({
 			path,
 			exists: await this.pathExists(path)
 		})));
@@ -31,19 +31,19 @@ export class RecentProjectsService {
 		}
 
 		const existing: string[] = this.readStoredPaths();
-		const withoutDuplicate: string[] = existing.filter((item) => pathDedupeKey(item) !== pathDedupeKey(normalizedPath));
+		const withoutDuplicate: string[] = existing.filter((item: string): boolean => pathDedupeKey(item) !== pathDedupeKey(normalizedPath));
 		const updated: string[] = [normalizedPath, ...withoutDuplicate].slice(0, MAX_RECENT_PROJECTS);
 		this.writeStoredPaths(updated);
 	}
 
 	removeRecentProject(path: string): void {
-		const normalizedPath = normalizePath(path);
+		const normalizedPath: string = normalizePath(path);
 		if (!normalizedPath) {
 			return;
 		}
 
 		const existing: string[] = this.readStoredPaths();
-		const updated: string[] = existing.filter((item) => pathDedupeKey(item) !== pathDedupeKey(normalizedPath));
+		const updated: string[] = existing.filter((item: string): boolean => pathDedupeKey(item) !== pathDedupeKey(normalizedPath));
 		this.writeStoredPaths(updated);
 	}
 
@@ -60,8 +60,8 @@ export class RecentProjectsService {
 			}
 
 			return parsed
-				.filter((value): value is string => typeof value === 'string')
-				.map((value) => normalizePath(value))
+				.filter((value: unknown): value is string => typeof value === 'string')
+				.map((value: string): string => normalizePath(value))
 				.filter(Boolean)
 				.slice(0, MAX_RECENT_PROJECTS);
 		} catch {

@@ -6,7 +6,7 @@ export type Theme = 'light' | 'dark';
 	providedIn: 'root'
 })
 export class ThemeService {
-	private readonly STORAGE_KEY = 'app-theme';
+	private readonly STORAGE_KEY: string = 'app-theme';
 	private currentTheme: Theme = this.resolveInitialTheme();
 
 	initialize(): void {
@@ -14,7 +14,7 @@ export class ThemeService {
 	}
 
 	toggle(): void {
-		const next = this.currentTheme === 'light' ? 'dark' : 'light';
+		const next: 'light' | 'dark' = this.currentTheme === 'light' ? 'dark' : 'light';
 		this.currentTheme = next;
 		this.apply(next);
 		try {
@@ -37,7 +37,7 @@ export class ThemeService {
 	}
 
 	private resolveInitialTheme(): Theme {
-		const stored = this.readStoredTheme();
+		const stored: Theme | undefined = this.readStoredTheme();
 		if (stored) {
 			return stored;
 		}
@@ -55,7 +55,7 @@ export class ThemeService {
 				return undefined;
 			}
 
-			const stored = localStorage.getItem(this.STORAGE_KEY);
+			const stored: string | null = localStorage.getItem(this.STORAGE_KEY);
 			if (stored === 'light' || stored === 'dark') {
 				return stored;
 			}

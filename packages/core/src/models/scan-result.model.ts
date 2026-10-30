@@ -77,7 +77,7 @@ export function createEmptyScanSummary(): IScanSummary {
  * @returns A new summary with status counters, the supplied key count, and the total number of findings.
  */
 export function buildSummary(findings: IFinding[], totalKeys: number): IScanSummary {
-	const summary = createEmptyScanSummary();
+	const summary: IScanSummary = createEmptyScanSummary();
 	summary.totalKeys = totalKeys;
 	summary.totalFindings = findings.length;
 

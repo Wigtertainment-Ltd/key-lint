@@ -187,5 +187,5 @@ import { Component } from '@angular/core';
 	]
 })
 export class DocumentationPage {
-	readonly placeholderExample = '{{name}}';
+	readonly placeholderExample: string = '{{name}}';
 }

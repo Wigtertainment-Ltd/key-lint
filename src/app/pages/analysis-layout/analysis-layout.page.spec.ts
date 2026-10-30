@@ -35,12 +35,12 @@ function scanResult(fileSystemWarnings: unknown[]): IProjectScanResult {
 	};
 }
 
-describe('AnalysisLayoutPage app status bar', () => {
+describe('AnalysisLayoutPage app status bar', (): void => {
 	let fixture: ComponentFixture<AnalysisLayoutPage>;
 	let scanState: BehaviorSubject<ScanExecutionSnapshot>;
 	let openSupportPage: jasmine.Spy;
 
-	beforeEach(async () => {
+	beforeEach(async (): Promise<void> => {
 		openSupportPage = jasmine.createSpy('openSupportPage').and.resolveTo(undefined);
 		scanState = new BehaviorSubject<ScanExecutionSnapshot>({
 			state: 'completed',
@@ -66,7 +66,7 @@ describe('AnalysisLayoutPage app status bar', () => {
 				{ provide: AppVersionService, useValue: { version: '1.2.0' } },
 				{
 					provide: ThemeService,
-					useValue: { getCurrent: () => 'light', toggle: jasmine.createSpy('toggle') }
+					useValue: { getCurrent: (): string => 'light', toggle: jasmine.createSpy('toggle') }
 				}
 			]
 		}).compileComponents();
@@ -75,10 +75,12 @@ describe('AnalysisLayoutPage app status bar', () => {
 		fixture.detectChanges();
 	});
 
-	it('opens GitHub support through Electron instead of navigating the app', () => {
-		const support = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.side-bottom a[href*="/issues"]');
+	it('opens GitHub support through Electron instead of navigating the app', (): void => {
+		const support: HTMLAnchorElement | null = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.side-bottom a[href*="/issues"]');
 		expect(support).not.toBeNull();
-		if (!support) throw new Error('Support link was not rendered.');
+		if (!support) {
+			throw new Error('Support link was not rendered.');
+		}
 		expect(support.href).toBe('https://github.com/Wigtertainment-Ltd/key-lint/issues');
 		expect(support.title).toBe('Report a bug or request a feature on GitHub');
 		expect(support.textContent).toContain('Support');
@@ -86,10 +88,10 @@ describe('AnalysisLayoutPage app status bar', () => {
 		expect(openSupportPage).toHaveBeenCalledOnceWith();
 	});
 
-	it('shows scan warnings above the routed page content', () => {
-		const element = fixture.nativeElement as HTMLElement;
-		const statusBar = element.querySelector('.app-status-bar');
-		const content = element.querySelector('.content-shell');
+	it('shows scan warnings above the routed page content', (): void => {
+		const element: HTMLElement = fixture.nativeElement as HTMLElement;
+		const statusBar: Element | null = element.querySelector('.app-status-bar');
+		const content: Element | null = element.querySelector('.content-shell');
 
 		expect(statusBar).not.toBeNull();
 		expect(statusBar?.textContent).toContain('Scan completed with 1 filesystem warning');
@@ -101,7 +103,7 @@ describe('AnalysisLayoutPage app status bar', () => {
 			.toBeTruthy();
 	});
 
-	it('removes the global status bar when a result has no warnings', async () => {
+	it('removes the global status bar when a result has no warnings', async (): Promise<void> => {
 		scanState.next({
 			state: 'completed',
 			result: scanResult([])

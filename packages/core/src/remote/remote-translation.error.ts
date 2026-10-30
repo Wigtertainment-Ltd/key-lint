@@ -36,7 +36,7 @@ export class RemoteTranslationError extends Error {
  */
 export function redactRemoteUrl(value: string): string {
 	try {
-		const url = new URL(value);
+		const url: URL = new URL(value);
 		if (url.search) {
 			url.search = '?[redacted]';
 		}

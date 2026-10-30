@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path';
 
-import { IProjectScanResult, normalizePath } from '@key-lint/core';
+import { IProjectScanResult, normalizePath, IFinding } from '@key-lint/core';
 import { describe, expect, it } from 'vitest';
 
 import { htmlReporter } from './html.reporter.js';
@@ -94,10 +94,10 @@ function createContext(projectRoot: string): IReporterContext {
 	};
 }
 
-describe('htmlReporter', () => {
-	it('renders a standalone stakeholder dashboard with every finding and summary metric', () => {
-		const projectRoot = resolve('fixtures', 'private-project');
-		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+describe('htmlReporter', (): void => {
+	it('renders a standalone stakeholder dashboard with every finding and summary metric', (): void => {
+		const projectRoot: string = resolve('fixtures', 'private-project');
+		const output: string = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
 
 		expect(output).toContain('<!doctype html>');
 		expect(output).toContain('Content-Security-Policy');
@@ -118,9 +118,9 @@ describe('htmlReporter', () => {
 		expect(output).toContain('warnings unlimited');
 	});
 
-	it('introduces the report and explains every finding status', () => {
-		const projectRoot = resolve('fixtures', 'guide-project');
-		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+	it('introduces the report and explains every finding status', (): void => {
+		const projectRoot: string = resolve('fixtures', 'guide-project');
+		const output: string = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
 
 		expect(output).toContain('<h2 id="introduction-heading">About this report</h2>');
 		expect(output).toContain('Start with errors that require action');
@@ -142,9 +142,9 @@ describe('htmlReporter', () => {
 		expect(output).toContain('Check dynamic usage before removing it.');
 	});
 
-	it('adds local filtering, full-text search, sorting, result counts, and reset controls', () => {
-		const projectRoot = resolve('fixtures', 'dashboard-project');
-		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+	it('adds local filtering, full-text search, sorting, result counts, and reset controls', (): void => {
+		const projectRoot: string = resolve('fixtures', 'dashboard-project');
+		const output: string = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
 
 		expect(output).toContain('id="finding-search"');
 		expect(output).toContain('id="severity-filter"');
@@ -162,9 +162,9 @@ describe('htmlReporter', () => {
 		expect(output).toContain('<noscript>');
 	});
 
-	it('renders every evidence location and structured placeholder detail safely', () => {
-		const projectRoot = resolve('fixtures', 'details-project');
-		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+	it('renders every evidence location and structured placeholder detail safely', (): void => {
+		const projectRoot: string = resolve('fixtures', 'details-project');
+		const output: string = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
 
 		expect(output).toContain('<details><summary>View details</summary>');
 		expect(output).toContain('src/app/app.component.html:7:4');
@@ -176,9 +176,9 @@ describe('htmlReporter', () => {
 		expect(output).toContain('&lt;unsafe-placeholder&gt;');
 	});
 
-	it('does not expose absolute roots, snippets, translation values, or executable markup', () => {
-		const projectRoot = resolve('fixtures', 'private-project');
-		const output = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
+	it('does not expose absolute roots, snippets, translation values, or executable markup', (): void => {
+		const projectRoot: string = resolve('fixtures', 'private-project');
+		const output: string = htmlReporter.format(createResult(projectRoot), createContext(projectRoot));
 
 		expect(output).not.toContain(projectRoot);
 		expect(output).not.toContain(normalizePath(projectRoot));
@@ -189,15 +189,15 @@ describe('htmlReporter', () => {
 		expect(output).toContain('&lt;unsafe warning&gt;');
 	});
 
-	it('renders passed status and an empty findings state', () => {
-		const projectRoot = resolve('fixtures', 'clean-project');
-		const result = createResult(projectRoot);
+	it('renders passed status and an empty findings state', (): void => {
+		const projectRoot: string = resolve('fixtures', 'clean-project');
+		const result: IProjectScanResult = createResult(projectRoot);
 		result.findings = [];
 		result.summary = { ...result.summary, totalFindings: 0 };
-		const context = createContext(projectRoot);
+		const context: IReporterContext = createContext(projectRoot);
 		context.counts = { error: 0, warning: 0, info: 0 };
 
-		const output = htmlReporter.format(result, context);
+		const output: string = htmlReporter.format(result, context);
 
 		expect(output).toContain('<span class="status">passed</span>');
 		expect(output).toContain('The scan stayed within the configured error and warning thresholds.');
@@ -205,38 +205,38 @@ describe('htmlReporter', () => {
 		expect(output).toContain('data-default-severity="all"');
 	});
 
-	it('defaults to warnings when a report contains no errors', () => {
-		const projectRoot = resolve('fixtures', 'warning-only-project');
-		const result = createResult(projectRoot);
-		result.findings = result.findings.filter((finding) => finding.severity !== 'error');
-		const context = createContext(projectRoot);
+	it('defaults to warnings when a report contains no errors', (): void => {
+		const projectRoot: string = resolve('fixtures', 'warning-only-project');
+		const result: IProjectScanResult = createResult(projectRoot);
+		result.findings = result.findings.filter((finding: IFinding): boolean => finding.severity !== 'error');
+		const context: IReporterContext = createContext(projectRoot);
 		context.counts = { error: 0, warning: 1, info: 1 };
 
-		const output = htmlReporter.format(result, context);
+		const output: string = htmlReporter.format(result, context);
 
 		expect(output).toContain('data-default-severity="warning"');
 	});
 
-	it('fails when the warning threshold is exceeded even if errors are allowed', () => {
-		const projectRoot = resolve('fixtures', 'warning-project');
-		const context = createContext(projectRoot);
+	it('fails when the warning threshold is exceeded even if errors are allowed', (): void => {
+		const projectRoot: string = resolve('fixtures', 'warning-project');
+		const context: IReporterContext = createContext(projectRoot);
 		context.thresholds = { maxErrors: 10, maxWarnings: 0 };
 
-		const output = htmlReporter.format(createResult(projectRoot), context);
+		const output: string = htmlReporter.format(createResult(projectRoot), context);
 
 		expect(output).toContain('<span class="status">failed</span>');
 		expect(output).toContain('warnings 0');
 	});
 
-	it('redacts credential values before HTML escaping changes them', () => {
-		const projectRoot = resolve('fixtures', 'remote-project');
-		const secret = 'Bearer <private>&"value"';
-		const result = createResult(projectRoot);
+	it('redacts credential values before HTML escaping changes them', (): void => {
+		const projectRoot: string = resolve('fixtures', 'remote-project');
+		const secret: string = 'Bearer <private>&"value"';
+		const result: IProjectScanResult = createResult(projectRoot);
 		result.findings[0] = { ...result.findings[0], message: `Request used ${secret}` };
-		const context = createContext(projectRoot);
+		const context: IReporterContext = createContext(projectRoot);
 		context.sensitiveValues = [secret];
 
-		const output = htmlReporter.format(result, context);
+		const output: string = htmlReporter.format(result, context);
 
 		expect(output).toContain('[redacted]');
 		expect(output).not.toContain(secret);

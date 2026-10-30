@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { ToastService } from '../../services/toast.service';
+import { Component, inject, Signal } from '@angular/core';
+import { ToastService, IToastMessage } from '../../services/toast.service';
 
 @Component({
 	selector: 'app-toast',
@@ -7,8 +7,8 @@ import { ToastService } from '../../services/toast.service';
 	styleUrl: './toast.component.scss'
 })
 export class ToastComponent {
-	private readonly toastService = inject(ToastService);
-	readonly message = this.toastService.message;
+	private readonly toastService: ToastService = inject(ToastService);
+	readonly message: Signal<IToastMessage | undefined> = this.toastService.message;
 
 	dismiss(): void {
 		this.toastService.hide();

@@ -20,9 +20,9 @@ interface IPreparedHttpSource {
  */
 function headersSignature(headers: Readonly<Record<string, string>>): string {
 	return Object.entries(headers)
-		.map(([name, value]) => [name.toLowerCase(), value] as const)
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([name, value]) => `${name}\u0000${value}`)
+		.map(([name, value]: [string, string]): readonly [string, string] => [name.toLowerCase(), value] as const)
+		.sort(([left]: readonly [string, string], [right]: readonly [string, string]): number => left.localeCompare(right))
+		.map(([name, value]: readonly [string, string]): string => `${name}\u0000${value}`)
 		.join('\u0001');
 }
 
@@ -46,7 +46,7 @@ function prepareSources(sources: ITranslationSourceConfig[], runtime: IRemoteTra
 
 		const headers: Record<string, string> = {};
 		for (const [headerName, environmentName] of Object.entries(source.headersFromEnv ?? {})) {
-			const value = environment[environmentName];
+			const value: string | undefined = environment[environmentName];
 			if (value === undefined || value.length === 0) {
 				throw new RemoteTranslationError(
 					'remote-environment-missing',
@@ -60,7 +60,7 @@ function prepareSources(sources: ITranslationSourceConfig[], runtime: IRemoteTra
 			source,
 			sourceIndex,
 			headers,
-			urls: source.locales.map((locale) =>
+			urls: source.locales.map((locale: string): string =>
 				source.urlTemplate.replace('{locale}', encodeURIComponent(locale))
 			)
 		});
@@ -136,7 +136,7 @@ export async function collectRemoteTranslationResources(
 			let response: IRemoteTranslationFetchResponse;
 			try {
 				response = await responsePromise;
-			} catch (error) {
+			} catch (error: unknown) {
 				if (error instanceof RemoteTranslationError) {
 					throw error;
 				}

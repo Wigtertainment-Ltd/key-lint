@@ -1,7 +1,23 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { Stats } from 'node:fs';
 
-import { normalizePath, IProjectScanResult, redactAutoHttpUrlTemplate, runScan, ScannerConfigError, ILoadedScannerConfig, IScannerConfig, IExpandedAutoHttpSources, IAutoHttpProjectAnalysis } from '@key-lint/core';
+import {
+	normalizePath,
+	IProjectScanResult,
+	redactAutoHttpUrlTemplate,
+	runScan,
+	ScannerConfigError,
+	ILoadedScannerConfig,
+	IScannerConfig,
+	IExpandedAutoHttpSources,
+	IAutoHttpProjectAnalysis,
+	ITranslationSourceConfig,
+	IResolvedAutoHttpSource,
+	IHttpTranslationSourceConfig,
+	IScanProgress,
+	IFileSystemWarning
+} from '@key-lint/core';
 import { analyzeProjectTranslationLoaders, expandAutoHttpTranslationSources, formatAutoHttpCandidate } from '@key-lint/core/detection';
 import { loadScannerConfig, NodeFileSystemAdapter, NodeRemoteTranslationFetcher } from '@key-lint/core/node';
 
@@ -11,9 +27,9 @@ import { countSeverities, redactReporterText, REPORTERS, IReporterContext, ISeve
 import { ICliIo, ICliOptions, CliUsageError } from './cli.interfaces.js';
 
 const defaultIo: ICliIo = {
-	stdout: (text) => process.stdout.write(text),
-	stderr: (text) => process.stderr.write(text),
-	writeFile: async (filePath, content) => {
+	stdout: (text: string): boolean => process.stdout.write(text),
+	stderr: (text: string): boolean => process.stderr.write(text),
+	writeFile: async (filePath: string, content: string): Promise<void> => {
 		await mkdir(dirname(filePath), { recursive: true });
 		await writeFile(filePath, content, 'utf8');
 	}
@@ -29,7 +45,7 @@ async function readVersion(): Promise<string> {
 }
 
 async function assertDirectory(projectRoot: string): Promise<void> {
-	let stats;
+	let stats: Stats;
 	try {
 		stats = await stat(projectRoot);
 	} catch {
@@ -76,7 +92,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 
 	try {
 		options = parseCliArgs(argv);
-	} catch (error) {
+	} catch (error: unknown) {
 		io.stderr(`${error instanceof Error ? error.message : 'Invalid arguments.'}\n\n${USAGE}\n`);
 		return EXIT_USAGE_OR_RUNTIME_ERROR;
 	}
@@ -104,25 +120,26 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		const configFilePath: string | undefined = loaded.configFilePath;
 		const fs: NodeFileSystemAdapter = new NodeFileSystemAdapter(config.guardrails);
 		let detectedLoaderTypes: ('ngx-translate' | 'transloco')[] = [];
-		if (config.translationSources?.some((source) => source.type === 'auto-http')) {
+		if (config.translationSources?.some((source: ITranslationSourceConfig): boolean => source.type === 'auto-http')) {
 			if (!options.allowNetwork) {
 				throw new CliUsageError('auto-http translation sources require --allow-network. No request was made.');
 			}
 			const analysis: IAutoHttpProjectAnalysis = await analyzeProjectTranslationLoaders(projectRoot, fs, config);
 			const expanded: IExpandedAutoHttpSources = expandAutoHttpTranslationSources(config.translationSources, analysis);
 			config = { ...config, translationSources: expanded.translationSources };
-			detectedLoaderTypes = [...new Set(expanded.resolved.map((item) => item.candidate.framework))];
+			detectedLoaderTypes = [...new Set(expanded.resolved.map((item: IResolvedAutoHttpSource): 'ngx-translate' | 'transloco' => item.candidate.framework))];
 			for (const resolved of expanded.resolved) {
 				io.stderr(`Resolved auto-http source ${resolved.sourceIndex + 1}: ${formatAutoHttpCandidate(resolved.candidate, resolved.candidateIndex)}\n`);
-				io.stderr(`Locales: ${resolved.sources[0]?.locales.join(', ')}; endpoints: ${resolved.sources.map((source) => redactAutoHttpUrlTemplate(source.urlTemplate)).join(', ')}\n`);
+				io.stderr(`Locales: ${resolved.sources[0]?.locales.join(', ')}; endpoints: ${resolved.sources
+					.map((source: IHttpTranslationSourceConfig): string => redactAutoHttpUrlTemplate(source.urlTemplate)).join(', ')}\n`);
 			}
 		}
 		sensitiveValues = (config.translationSources ?? [])
-			.filter((source) => source.type === 'http')
-			.flatMap((source) => Object.values(source.headersFromEnv ?? {}))
-			.map((environmentName) => process.env[environmentName])
-			.filter((value): value is string => typeof value === 'string' && value.length > 0);
-		const remoteTranslations = {
+			.filter((source: ITranslationSourceConfig): source is IHttpTranslationSourceConfig => source.type === 'http')
+			.flatMap((source: IHttpTranslationSourceConfig): string[] => Object.values(source.headersFromEnv ?? {}))
+			.map((environmentName: string): string | undefined => process.env[environmentName])
+			.filter((value: string | undefined): value is string => typeof value === 'string' && value.length > 0);
+		const remoteTranslations: { allowNetwork: boolean; fetcher: NodeRemoteTranslationFetcher | undefined; environment: NodeJS.ProcessEnv; } = {
 			allowNetwork: options.allowNetwork,
 			fetcher: options.allowNetwork ? new NodeRemoteTranslationFetcher() : undefined,
 			environment: process.env
@@ -133,7 +150,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 			config,
 			remoteTranslations,
 			detectedLoaderTypes,
-			onProgress: (progress) => {
+			onProgress: (progress: IScanProgress): void => {
 				if (!options.quiet) {
 					io.stderr(`${progress.message}\n`);
 				}
@@ -143,7 +160,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		const counts: ISeverityCounts = countSeverities(result.findings);
 		const context: IReporterContext = {
 			configFilePath,
-			warnings: fs.warnings.map((warning) =>
+			warnings: fs.warnings.map((warning: IFileSystemWarning): string =>
 				warning.filePath ? `${warning.filePath}: ${warning.message}` : warning.message
 			),
 			color: options.color,
@@ -155,7 +172,7 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 		await emitReports(options, result, context, io);
 
 		return determineExitCode(options, counts.error, counts.warning);
-	} catch (error) {
+	} catch (error: unknown) {
 		if (error instanceof CliUsageError || error instanceof ScannerConfigError) {
 			io.stderr(`${redactReporterText(error.message, sensitiveValues)}\n`);
 			return EXIT_USAGE_OR_RUNTIME_ERROR;

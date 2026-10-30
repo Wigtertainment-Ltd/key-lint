@@ -26,9 +26,9 @@ function getService(): LoggerService | null {
  * Lightweight logger that works everywhere — in Angular DI context and outside.
  * Falls back to direct console calls when no LoggerService is available.
  */
-export const logger = {
+export const logger: Pick<LoggerService, 'debug' | 'info' | 'log' | 'warn' | 'error'> = {
 	debug(prefix: string, message: string, ...args: unknown[]): void {
-		const svc = getService();
+		const svc: LoggerService | null = getService();
 		if (svc) {
 			svc.debug(prefix, message, ...args);
 		} else {
@@ -37,7 +37,7 @@ export const logger = {
 	},
 
 	info(prefix: string, message: string, ...args: unknown[]): void {
-		const svc = getService();
+		const svc: LoggerService | null = getService();
 		if (svc) {
 			svc.info(prefix, message, ...args);
 		} else {
@@ -46,7 +46,7 @@ export const logger = {
 	},
 
 	log(prefix: string, message: string, ...args: unknown[]): void {
-		const svc = getService();
+		const svc: LoggerService | null = getService();
 		if (svc) {
 			svc.log(prefix, message, ...args);
 		} else {
@@ -55,7 +55,7 @@ export const logger = {
 	},
 
 	warn(prefix: string, message: string, ...args: unknown[]): void {
-		const svc = getService();
+		const svc: LoggerService | null = getService();
 		if (svc) {
 			svc.warn(prefix, message, ...args);
 		} else {
@@ -64,7 +64,7 @@ export const logger = {
 	},
 
 	error(prefix: string, message: string, ...args: unknown[]): void {
-		const svc = getService();
+		const svc: LoggerService | null = getService();
 		if (svc) {
 			svc.error(prefix, message, ...args);
 		} else {

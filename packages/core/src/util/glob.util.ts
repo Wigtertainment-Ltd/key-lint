@@ -20,8 +20,8 @@ export function escapeRegex(text: string): string {
  * @returns An anchored regular expression for the supported glob syntax.
  */
 export function globToRegex(glob: string): RegExp {
-	const normalized = normalizePath(glob);
-	const escaped = escapeRegex(normalized)
+	const normalized: string = normalizePath(glob);
+	const escaped: string = escapeRegex(normalized)
 		// Preserve "**/" before processing single stars because it may match zero directory segments.
 		.replace(/\*\*\//g, '__DOUBLE_STAR_SLASH__')
 		// Preserve remaining globstars before converting single stars.
@@ -50,5 +50,5 @@ export function matchesAny(path: string, patterns: string[]): boolean {
 		return false;
 	}
 
-	return patterns.some((pattern) => globToRegex(pattern).test(path));
+	return patterns.some((pattern: string): boolean => globToRegex(pattern).test(path));
 }

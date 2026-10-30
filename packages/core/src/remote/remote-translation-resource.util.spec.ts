@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, Mock } from 'vitest';
 
-import { ITranslationSourceConfig } from '../config/config.interfaces.js';
+import { ITranslationSourceConfig, IHttpTranslationSourceConfig } from '../config/config.interfaces.js';
 import { RemoteTranslationError } from './remote-translation.error.js';
 import { collectRemoteTranslationResources } from './remote-translation-resource.util.js';
+import { IRemoteTranslationFetcher, IRemoteTranslationFetchRequest, IRemoteTranslationFetchResponse } from './remote-translation.interfaces.js';
+import { ITranslationResource } from '../models/translation-resource.model.js';
 
-const guardrails = { maxFiles: 1_000, maxFileSizeBytes: 4_096 };
+const guardrails: { maxFiles: number; maxFileSizeBytes: number; } = { maxFiles: 1_000, maxFileSizeBytes: 4_096 };
 
 function httpSource(
 	overrides: Partial<Extract<ITranslationSourceConfig, { type: 'http' }>> = {}
@@ -18,13 +20,15 @@ function httpSource(
 	};
 }
 
-describe('collectRemoteTranslationResources', () => {
-	it('resolves environment headers and returns read-only resources', async () => {
-		const fetch = vi.fn(async (request: { url: string; headers: Readonly<Record<string, string>> }) => ({
-			body: JSON.stringify({ APP: { TITLE: request.url.includes('/de.') ? 'Titel' : 'Title' } }),
-			finalUrl: request.url
-		}));
-		const resources = await collectRemoteTranslationResources(
+describe('collectRemoteTranslationResources', (): void => {
+	it('resolves environment headers and returns read-only resources', async (): Promise<void> => {
+		const fetch: Mock<IRemoteTranslationFetcher['fetch']> = vi.fn(
+			(request: IRemoteTranslationFetchRequest): Promise<IRemoteTranslationFetchResponse> => Promise.resolve({
+				body: JSON.stringify({ APP: { TITLE: request.url.includes('/de.') ? 'Titel' : 'Title' } }),
+				finalUrl: request.url
+			})
+		);
+		const resources: Map<number, ITranslationResource[]> = await collectRemoteTranslationResources(
 			[httpSource({ headersFromEnv: { Authorization: 'KEYLINT_AUTH' } })],
 			{ allowNetwork: true, fetcher: { fetch }, environment: { KEYLINT_AUTH: 'Bearer secret' } },
 			guardrails
@@ -37,14 +41,14 @@ describe('collectRemoteTranslationResources', () => {
 			maxRedirects: 3,
 			maxResponseBytes: 4_096
 		});
-		expect(resources.get(0)?.map((resource) => resource.locale)).toEqual(['de', 'en']);
-		expect(resources.get(0)?.every((resource) => !resource.writable)).toBe(true);
-		expect(resources.get(0)?.every((resource) => resource.origin.type === 'http')).toBe(true);
+		expect(resources.get(0)?.map((resource: ITranslationResource): string => resource.locale)).toEqual(['de', 'en']);
+		expect(resources.get(0)?.every((resource: ITranslationResource): boolean => !resource.writable)).toBe(true);
+		expect(resources.get(0)?.every((resource: ITranslationResource): boolean => resource.origin.type === 'http')).toBe(true);
 	});
 
-	it('preflights opt-in and environment variables before any request', async () => {
-		const fetch = vi.fn();
-		const source = httpSource({ headersFromEnv: { Authorization: 'MISSING_AUTH' } });
+	it('preflights opt-in and environment variables before any request', async (): Promise<void> => {
+		const fetch: Mock<IRemoteTranslationFetcher['fetch']> = vi.fn<IRemoteTranslationFetcher['fetch']>();
+		const source: IHttpTranslationSourceConfig = httpSource({ headersFromEnv: { Authorization: 'MISSING_AUTH' } });
 
 		await expect(collectRemoteTranslationResources(
 			[source], { allowNetwork: false, fetcher: { fetch }, environment: {} }, guardrails
@@ -55,8 +59,10 @@ describe('collectRemoteTranslationResources', () => {
 		expect(fetch).not.toHaveBeenCalled();
 	});
 
-	it('deduplicates equal URLs and rejects conflicting headers', async () => {
-		const fetch = vi.fn(async (request: { url: string }) => ({ body: '{}', finalUrl: request.url }));
+	it('deduplicates equal URLs and rejects conflicting headers', async (): Promise<void> => {
+		const fetch: Mock<IRemoteTranslationFetcher['fetch']> = vi.fn(
+			(request: IRemoteTranslationFetchRequest): Promise<IRemoteTranslationFetchResponse> => Promise.resolve({ body: '{}', finalUrl: request.url })
+		);
 		const sources: ITranslationSourceConfig[] = [
 			httpSource({ id: 'one', locales: ['en'], headersFromEnv: { Authorization: 'AUTH' } }),
 			httpSource({ id: 'two', locales: ['en'], headersFromEnv: { Authorization: 'AUTH' } })
@@ -80,9 +86,9 @@ describe('collectRemoteTranslationResources', () => {
 		)).rejects.toMatchObject({ code: 'remote-request-conflict' });
 	});
 
-	it('enforces the per-scan request cap before fetching', async () => {
-		const fetch = vi.fn();
-		const locales = Array.from({ length: 101 }, (_, index) => `locale-${index}`);
+	it('enforces the per-scan request cap before fetching', async (): Promise<void> => {
+		const fetch: Mock<IRemoteTranslationFetcher['fetch']> = vi.fn<IRemoteTranslationFetcher['fetch']>();
+		const locales: string[] = Array.from({ length: 101 }, (_: unknown, index: number): string => `locale-${index}`);
 
 		await expect(collectRemoteTranslationResources(
 			[httpSource({ locales })], { allowNetwork: true, fetcher: { fetch } }, guardrails
@@ -90,17 +96,15 @@ describe('collectRemoteTranslationResources', () => {
 		expect(fetch).not.toHaveBeenCalled();
 	});
 
-	it('redacts query values and transport details from errors', async () => {
-		const fetch = vi.fn(async () => {
-			throw new Error('Bearer secret-from-transport');
-		});
+	it('redacts query values and transport details from errors', async (): Promise<void> => {
+		const fetch: Mock<IRemoteTranslationFetcher['fetch']> = vi.fn<IRemoteTranslationFetcher['fetch']>().mockRejectedValue(new Error('Bearer secret-from-transport'));
 
 		let error: unknown;
 		try {
 			await collectRemoteTranslationResources(
 				[httpSource({ locales: ['en'] })], { allowNetwork: true, fetcher: { fetch } }, guardrails
 			);
-		} catch (caught) {
+		} catch (caught: unknown) {
 			error = caught;
 		}
 		expect(error).toBeInstanceOf(RemoteTranslationError);

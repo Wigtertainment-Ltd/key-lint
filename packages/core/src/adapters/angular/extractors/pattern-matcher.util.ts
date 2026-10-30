@@ -1,6 +1,6 @@
 import { IKeyUsage } from '../../scan-adapter.interface.js';
 import { IPatternDescriptor } from '../../adapter.interfaces.js';
-import { parsePlaceholderParameters, splitTopLevel } from '../../../util/placeholder.util.js';
+import { parsePlaceholderParameters, splitTopLevel, IPlaceholderParameterUsage } from '../../../util/placeholder.util.js';
 
 /**
  * Converts a source character offset to a one-based line and column by counting newline characters.
@@ -11,10 +11,10 @@ import { parsePlaceholderParameters, splitTopLevel } from '../../../util/placeho
  * @returns One-based line and column coordinates.
  */
 export function getLineColumn(source: string, index: number): { line: number; column: number } {
-	let line = 1;
-	let column = 1;
+	let line: number = 1;
+	let column: number = 1;
 
-	for (let i = 0; i < index; i += 1) {
+	for (let i: number = 0; i < index; i += 1) {
 		if (source[i] === '\n') {
 			line += 1;
 			column = 1;
@@ -36,17 +36,17 @@ export function getLineColumn(source: string, index: number): { line: number; co
  * @returns A compact source snippet, which may be empty for whitespace-only input.
  */
 export function extractSnippet(source: string, index: number): string {
-	const lineStart = source.lastIndexOf('\n', index - 1) + 1;
-	const lineEndIndex = source.indexOf('\n', index);
-	const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
-	const currentLine = source.slice(lineStart, lineEnd).trim();
+	const lineStart: number = source.lastIndexOf('\n', index - 1) + 1;
+	const lineEndIndex: number = source.indexOf('\n', index);
+	const lineEnd: number = lineEndIndex === -1 ? source.length : lineEndIndex;
+	const currentLine: string = source.slice(lineStart, lineEnd).trim();
 
 	if (currentLine) {
 		return currentLine;
 	}
 
-	const from = Math.max(0, index - 80);
-	const to = Math.min(source.length, index + 120);
+	const from: number = Math.max(0, index - 80);
+	const to: number = Math.min(source.length, index + 120);
 	// Collapse each whitespace run so a multi-line fallback snippet remains compact.
 	return source.slice(from, to).replace(/\s+/g, ' ').trim();
 }
@@ -59,11 +59,11 @@ export function extractSnippet(source: string, index: number): string {
  * @returns Text before the first top-level comma, or the entire input when none occurs; whitespace is preserved.
  */
 export function firstCallArgument(argumentList: string): string {
-	let depth = 0;
+	let depth: number = 0;
 	let stringDelimiter: string | null = null;
 
-	for (let i = 0; i < argumentList.length; i += 1) {
-		const char = argumentList[i];
+	for (let i: number = 0; i < argumentList.length; i += 1) {
+		const char: string = argumentList[i];
 
 		if (stringDelimiter) {
 			if (char === stringDelimiter && argumentList[i - 1] !== '\\') {
@@ -104,11 +104,11 @@ export function firstCallArgument(argumentList: string): string {
  * @returns Argument text without outer parentheses, or `null` when no matching close is found.
  */
 export function extractCallArgumentList(source: string, openParenIndex: number): string | null {
-	let depth = 0;
+	let depth: number = 0;
 	let stringDelimiter: string | null = null;
 
-	for (let i = openParenIndex + 1; i < source.length; i += 1) {
-		const char = source[i];
+	for (let i: number = openParenIndex + 1; i < source.length; i += 1) {
+		const char: string = source[i];
 
 		if (stringDelimiter) {
 			if (char === stringDelimiter && source[i - 1] !== '\\') {
@@ -149,19 +149,19 @@ export function extractCallArgumentList(source: string, openParenIndex: number):
 function placeholderParametersForPipe(matchSource: string): IKeyUsage['placeholderParameters'] {
 	// Capture everything following a supported Angular translation pipe so its first
 	// top-level colon argument can be parsed without confusing object-property colons.
-	const pipeMatch = /\|\s*(?:translate|transloco)\b([\s\S]*)/i.exec(matchSource);
+	const pipeMatch: RegExpExecArray | null = /\|\s*(?:translate|transloco)\b([\s\S]*)/i.exec(matchSource);
 	if (!pipeMatch) {
 		return undefined;
 	}
 
-	const suffix = pipeMatch[1] ?? '';
-	const parts = splitTopLevel(suffix, ':');
-	let parameterSource = parts.length > 1 ? parts[1]?.trim() : undefined;
+	const suffix: string = pipeMatch[1] ?? '';
+	const parts: string[] = splitTopLevel(suffix, ':');
+	let parameterSource: string | undefined = parts.length > 1 ? parts[1]?.trim() : undefined;
 	if (parameterSource?.startsWith('{')) {
-		let depth = 0;
+		let depth: number = 0;
 		let stringDelimiter: string | null = null;
-		for (let index = 0; index < parameterSource.length; index += 1) {
-			const char = parameterSource[index];
+		for (let index: number = 0; index < parameterSource.length; index += 1) {
+			const char: string = parameterSource[index];
 			if (stringDelimiter) {
 				if (char === stringDelimiter && parameterSource[index - 1] !== '\\') {
 					stringDelimiter = null;
@@ -203,29 +203,29 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 
 	for (const descriptor of descriptors) {
 		// Clone the documented expression so each extraction run starts with lastIndex zero.
-		const regex = new RegExp(descriptor.regex.source, descriptor.regex.flags);
+		const regex: RegExp = new RegExp(descriptor.regex.source, descriptor.regex.flags);
 		let match: RegExpExecArray | null = regex.exec(source);
 
 		while (match) {
-			const keyIndex = descriptor.keyCaptureIndex ?? 1;
-			const rawKey = match[keyIndex]?.trim();
-			const snippet = extractSnippet(source, match.index);
-			const isTypeScriptCall = descriptor.matchType.startsWith('ts-') && descriptor.matchType !== 'ts-indirect-key-literal';
-			const openParenIndex = isTypeScriptCall ? source.indexOf('(', match.index) : -1;
-			const argumentList = openParenIndex === -1 ? null : extractCallArgumentList(source, openParenIndex);
-			const callArguments = argumentList === null ? [] : splitTopLevel(argumentList);
-			const callParameters = isTypeScriptCall ? parsePlaceholderParameters(callArguments[1]) : undefined;
-			const pipeParameters = descriptor.matchType.includes('pipe-') ? placeholderParametersForPipe(match[0]) : undefined;
+			const keyIndex: number = descriptor.keyCaptureIndex ?? 1;
+			const rawKey: string = match[keyIndex]?.trim();
+			const snippet: string = extractSnippet(source, match.index);
+			const isTypeScriptCall: boolean = descriptor.matchType.startsWith('ts-') && descriptor.matchType !== 'ts-indirect-key-literal';
+			const openParenIndex: number = isTypeScriptCall ? source.indexOf('(', match.index) : -1;
+			const argumentList: string | null = openParenIndex === -1 ? null : extractCallArgumentList(source, openParenIndex);
+			const callArguments: string[] = argumentList === null ? [] : splitTopLevel(argumentList);
+			const callParameters: IPlaceholderParameterUsage | undefined = isTypeScriptCall ? parsePlaceholderParameters(callArguments[1]) : undefined;
+			const pipeParameters: IPlaceholderParameterUsage | undefined = descriptor.matchType.includes('pipe-') ? placeholderParametersForPipe(match[0]) : undefined;
 
 			if (descriptor.literalKeyExtraction) {
-				const argumentSource = firstCallArgument(argumentList ?? '');
-				const lineCol = getLineColumn(source, match.index);
+				const argumentSource: string = firstCallArgument(argumentList ?? '');
+				const lineCol: { line: number; column: number; } = getLineColumn(source, match.index);
 				// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
-				const isDynamicArgument = /\+/.test(argumentSource) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
+				const isDynamicArgument: boolean = argumentSource.includes('+') || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
 
 				if (isDynamicArgument) {
 					// Remove an optional pair of surrounding backticks while retaining the dynamic expression.
-					const cleanedKey = argumentSource.replace(/^`|`$/g, '').trim();
+					const cleanedKey: string = argumentSource.replace(/^`|`$/g, '').trim();
 					matches.push({
 						key: cleanedKey,
 						filePath,
@@ -243,11 +243,11 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 				}
 
 				// Capture every quoted static translation key in the first call argument.
-				const literalRegex = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
+				const literalRegex: RegExp = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
 				let literalMatch: RegExpExecArray | null = literalRegex.exec(argumentSource);
 
 				while (literalMatch) {
-					const literalKey = literalMatch[1]?.trim();
+					const literalKey: string = literalMatch[1]?.trim();
 					if (literalKey) {
 						matches.push({
 							key: literalKey,
@@ -271,8 +271,8 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 
 			if (rawKey) {
 				// Remove an optional pair of surrounding backticks from a captured dynamic key.
-				const cleanedKey = rawKey.replace(/^`|`$/g, '').trim();
-				const lineCol = getLineColumn(source, match.index);
+				const cleanedKey: string = rawKey.replace(/^`|`$/g, '').trim();
+				const lineCol: { line: number; column: number; } = getLineColumn(source, match.index);
 				matches.push({
 					key: cleanedKey,
 					filePath,

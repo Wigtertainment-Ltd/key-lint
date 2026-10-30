@@ -1,6 +1,6 @@
 import { IKeyUsage } from '../../../scan-adapter.interface.js';
 import { extractCallArgumentList, extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
-import { parsePlaceholderParameters, splitTopLevel } from '../../../../util/placeholder.util.js';
+import { parsePlaceholderParameters, splitTopLevel, IPlaceholderParameterUsage } from '../../../../util/placeholder.util.js';
 
 /**
  * Escapes supported regular-expression metacharacters when interpolating an alias name.
@@ -26,7 +26,7 @@ function escapeRegex(text: string): string {
  */
 export function extractTranslocoStructuralMatches(source: string, filePath: string): IKeyUsage[] {
 	const matches: IKeyUsage[] = [];
-	const aliasNames = new Set<string>();
+	const aliasNames: Set<string> = new Set<string>();
 	// Capture the complete quoted expression of each *transloco structural directive in group 1.
 	const structuralDirectiveRegex: RegExp = /\*transloco\s*=\s*['"]([^'"]*)['"]/g;
 	let directiveMatch: RegExpExecArray | null = structuralDirectiveRegex.exec(source);
@@ -38,7 +38,7 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 		let aliasMatch: RegExpExecArray | null = letAliasRegex.exec(directiveExpression);
 
 		while (aliasMatch) {
-			const alias = aliasMatch[1]?.trim();
+			const alias: string = aliasMatch[1]?.trim();
 			if (alias) {
 				aliasNames.add(alias);
 			}
@@ -55,15 +55,15 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 		let aliasCallMatch: RegExpExecArray | null = aliasCallRegex.exec(source);
 
 		while (aliasCallMatch) {
-			const openParenIndex = source.indexOf('(', aliasCallMatch.index);
+			const openParenIndex: number = source.indexOf('(', aliasCallMatch.index);
 			const callArgs: string = extractCallArgumentList(source, openParenIndex) ?? '';
-			const args = splitTopLevel(callArgs);
+			const args: string[] = splitTopLevel(callArgs);
 			const firstArg: string = firstCallArgument(callArgs);
-			const placeholderParameters = parsePlaceholderParameters(args[1]);
-			const lineCol = getLineColumn(source, aliasCallMatch.index);
+			const placeholderParameters: IPlaceholderParameterUsage = parsePlaceholderParameters(args[1]);
+			const lineCol: { line: number; column: number; } = getLineColumn(source, aliasCallMatch.index);
 			const snippet: string = extractSnippet(source, aliasCallMatch.index);
 			// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
-			const isDynamicArgument: boolean = /\+/.test(firstArg) || /`[^`]*\$\{[^}]+\}[^`]*`/.test(firstArg);
+			const isDynamicArgument: boolean = firstArg.includes('+') || /`[^`]*\$\{[^}]+\}[^`]*`/.test(firstArg);
 
 			if (isDynamicArgument) {
 				matches.push({
@@ -87,7 +87,7 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 			let literalMatch: RegExpExecArray | null = literalRegex.exec(firstArg);
 
 			while (literalMatch) {
-				const literalKey = literalMatch[1]?.trim();
+				const literalKey: string = literalMatch[1]?.trim();
 				if (literalKey) {
 					matches.push({
 						key: literalKey,

@@ -1,7 +1,9 @@
 import { RemoteTranslationError, redactRemoteUrl } from './remote-translation.error.js';
 import { IRemoteTranslationFetcher, IRemoteTranslationFetchRequest, IRemoteTranslationFetchResponse } from './remote-translation.interfaces.js';
+import type { TextDecoder as NodeTextDecoder } from 'node:util';
+import { ReadableStreamReadResult } from 'node:stream/web';
 
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const REDIRECT_STATUSES: Set<number> = new Set<number>([301, 302, 303, 307, 308]);
 
 /**
  * Parses an absolute HTTP(S) URL and rejects embedded username or password credentials.
@@ -14,7 +16,7 @@ function parseHttpUrl(value: string): URL {
 	let url: URL;
 	try {
 		url = new URL(value);
-	} catch (error) {
+	} catch (error: unknown) {
 		throw new RemoteTranslationError('remote-fetch-failed', 'Remote translation URL is invalid.', { cause: error });
 	}
 	if (!['http:', 'https:'].includes(url.protocol)) {
@@ -50,7 +52,7 @@ function headersForRedirect(headers: Readonly<Record<string, string>>, from: URL
 	if (from.origin === to.origin) {
 		return { ...headers };
 	}
-	return Object.fromEntries(Object.entries(headers).filter(([name]) => !isSensitiveHeader(name)));
+	return Object.fromEntries(Object.entries(headers).filter(([name]: [string, string]): boolean => !isSensitiveHeader(name)));
 }
 
 /**
@@ -73,12 +75,12 @@ async function readLimitedBody(response: Response, maxResponseBytes: number, url
 		return '';
 	}
 
-	const reader = (response.body as ReadableStream<Uint8Array>).getReader();
-	const decoder: TextDecoder = new TextDecoder();
+	const reader: ReadableStreamDefaultReader<Uint8Array<ArrayBufferLike>> = (response.body as ReadableStream<Uint8Array>).getReader();
+	const decoder: NodeTextDecoder = new TextDecoder();
 	let receivedBytes: number = 0;
 	let body: string = '';
 	while (true) {
-		const chunk = await reader.read();
+		const chunk: ReadableStreamReadResult<Uint8Array<ArrayBufferLike>> = await reader.read();
 		if (chunk.done) {
 			break;
 		}
@@ -106,10 +108,10 @@ export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 	 */
 	async fetch(request: IRemoteTranslationFetchRequest): Promise<IRemoteTranslationFetchResponse> {
 		let currentUrl: URL = parseHttpUrl(request.url);
-		let headers = { ...request.headers };
+		let headers: Record<string, string> = { ...request.headers };
 		let redirects: number = 0;
 		const controller: AbortController = new AbortController();
-		const timeout: NodeJS.Timeout = setTimeout(() => controller.abort(), request.timeoutMs);
+		const timeout: NodeJS.Timeout = setTimeout((): void => controller.abort(), request.timeoutMs);
 
 		try {
 			while (true) {
@@ -121,7 +123,7 @@ export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 						redirect: 'manual',
 						signal: controller.signal
 					});
-				} catch (error) {
+				} catch (error: unknown) {
 					if (controller.signal.aborted) {
 						throw new RemoteTranslationError(
 							'remote-timeout',
@@ -143,7 +145,7 @@ export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 							`Remote translation request exceeded ${request.maxRedirects} redirects at ${redactRemoteUrl(currentUrl.toString())}.`
 						);
 					}
-					const location = response.headers.get('location');
+					const location: string | null = response.headers.get('location');
 					if (!location) {
 						throw new RemoteTranslationError(
 							'remote-redirect-error',
@@ -168,7 +170,7 @@ export class NodeRemoteTranslationFetcher implements IRemoteTranslationFetcher {
 						body: await readLimitedBody(response, request.maxResponseBytes, currentUrl.toString()),
 						finalUrl: currentUrl.toString()
 					};
-				} catch (error) {
+				} catch (error: unknown) {
 					if (controller.signal.aborted && !(error instanceof RemoteTranslationError)) {
 						throw new RemoteTranslationError(
 							'remote-timeout',

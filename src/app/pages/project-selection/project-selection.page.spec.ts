@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { DEFAULT_SCANNER_CONFIG } from '@key-lint/core';
+import { DEFAULT_SCANNER_CONFIG, IAutoHttpProjectAnalysis } from '@key-lint/core';
 
 import { ThemeService } from '../../services/theme.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
@@ -11,8 +11,9 @@ import { RecentProjectsService } from '../../shared/services/recent-projects.ser
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ProjectSelectionPage } from './project-selection.page';
 import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
+import type { IDesktopTranslationSourceDraft, IDesktopRemoteHeaderDraft } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.interfaces';
 
-describe('ProjectSelectionPage scan settings', () => {
+describe('ProjectSelectionPage scan settings', (): void => {
 	let fixture: ComponentFixture<ProjectSelectionPage>;
 	let component: ProjectSelectionPage;
 	let scanService: jasmine.SpyObj<ScanOrchestrationService>;
@@ -23,8 +24,12 @@ describe('ProjectSelectionPage scan settings', () => {
 		headers: [{ name: 'Authorization', value: 'Bearer saved-secret', environmentName: 'KEYLINT_SAVED_AUTH', configured: false }]
 	}];
 
-	beforeEach(async () => {
-		storage = jasmine.createSpyObj('sourceStorage', ['loadProjectSettings', 'saveProjectSettings', 'deleteProjectSettings']);
+	beforeEach(async (): Promise<void> => {
+		storage = jasmine.createSpyObj<Pick<ElectronService, 'loadProjectSettings' | 'saveProjectSettings' | 'deleteProjectSettings'>>('sourceStorage', [
+			'loadProjectSettings',
+			'saveProjectSettings',
+			'deleteProjectSettings'
+		]);
 		storage.loadProjectSettings.and.resolveTo(undefined);
 		storage.saveProjectSettings.and.resolveTo();
 		storage.deleteProjectSettings.and.resolveTo();
@@ -56,22 +61,23 @@ describe('ProjectSelectionPage scan settings', () => {
 					useValue: {
 						...storage,
 						isElectron: true,
-						selectProjectDirectory: async () => 'C:/project',
-						readDirectory: async () => [{ name: 'loader.ts', isDirectory: false, isFile: true, isSymbolicLink: false, sizeBytes: 100 }],
-						readFile: async () => 'source',
-						analyzeTranslationLoaders: async () => ({
+						selectProjectDirectory: async (): Promise<string> => Promise.resolve('C:/project'),
+						readDirectory: async (): Promise<IKeyLintDirectoryEntry[]> =>
+							Promise.resolve([{ name: 'loader.ts', isDirectory: false, isFile: true, isSymbolicLink: false, sizeBytes: 100 }]),
+						readFile: async (): Promise<string> => Promise.resolve('source'),
+						analyzeTranslationLoaders: async (): Promise<IAutoHttpProjectAnalysis> => Promise.resolve(({
 							sourceFiles: ['C:/project/loader.ts'], diagnostics: [], candidates: [{
 								framework: 'ngx-translate', loader: 'http', api: 'provideTranslateHttpLoader', confidence: 'deterministic',
 								resources: [{ urlTemplate: '/i18n/{locale}.json', urlKind: 'relative', requiresOrigin: true }],
 								locales: ['en'], location: { filePath: 'C:/project/loader.ts', line: 3, column: 1, endLine: 3, endColumn: 20 }
 							}]
-						})
+						}))
 					}
 				},
 				{
 					provide: RecentProjectsService,
 					useValue: {
-						getRecentProjects: async () => [],
+						getRecentProjects: async (): Promise<never[]> => Promise.resolve([]),
 						addRecentProject: jasmine.createSpy('addRecentProject'),
 						removeRecentProject: jasmine.createSpy('removeRecentProject')
 					}
@@ -81,8 +87,8 @@ describe('ProjectSelectionPage scan settings', () => {
 				{ provide: DesktopScannerConfigService, useValue: configService },
 				{ provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
 				{ provide: AppVersionService, useValue: { version: '1.2.0' } },
-				{ provide: ThemeService, useValue: { getCurrent: () => 'light', toggle: () => undefined } },
-				{ provide: LoggerService, useValue: jasmine.createSpyObj('LoggerService', ['info', 'debug']) }
+				{ provide: ThemeService, useValue: { getCurrent: (): string => 'light', toggle: (): undefined => undefined } },
+				{ provide: LoggerService, useValue: jasmine.createSpyObj<LoggerService>('LoggerService', ['info', 'debug']) }
 			]
 		}).compileComponents();
 
@@ -91,7 +97,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		fixture.detectChanges();
 	});
 
-	it('restores saved sources and masked headers automatically without granting remote scan permission', async () => {
+	it('restores saved sources and masked headers automatically without granting remote scan permission', async (): Promise<void> => {
 		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
 		await component.openFolderDialog();
 		await fixture.whenStable();
@@ -101,25 +107,26 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.translationSources[0].id).toBe('saved-api');
 		expect(component.translationSources[0].headers[0].value).toBe('Bearer saved-secret');
 		expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('.header-value-input input')?.type).toBe('password');
-		expect(scanService.authorizeNextRemoteScan).not.toHaveBeenCalled();
+		expect(scanService.authorizeNextRemoteScan.calls.count()).toBe(0);
 		expect(storage.saveProjectSettings).not.toHaveBeenCalled();
 	});
 
-	it('saves only by explicit request and sends current header values without transient identifiers', async () => {
+	it('saves only by explicit request and sends current header values without transient identifiers', async (): Promise<void> => {
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		component.addHttpSource();
-		const source = component.translationSources[1];
+		const source: IDesktopTranslationSourceDraft = component.translationSources[1];
 		component.onSourceIdInput(source.draftId, 'api');
 		component.onSourceUrlInput(source.draftId, 'https://example.com/{locale}.json');
 		component.onSourceLocalesInput(source.draftId, 'en');
 		component.addTemporaryHeader(source.draftId);
-		const header = component.translationSources[1].headers[0];
+		const header: IDesktopRemoteHeaderDraft = component.translationSources[1].headers[0];
 		component.onHeaderNameInput(source.draftId, header.id, 'Authorization');
 		component.onHeaderValueInput(source.draftId, header.id, 'Bearer new-secret');
 		expect(storage.saveProjectSettings).not.toHaveBeenCalled();
 		await component.saveProjectSettings();
-		const [projectPath, saved] = storage.saveProjectSettings.calls.mostRecent().args;
+		const [projectPath, saved]: [projectRoot: string, sources: IKeyLintSavedTranslationSource[], guardrails?: IKeyLintSavedGuardrails | undefined] =
+			storage.saveProjectSettings.calls.mostRecent().args;
 		expect(projectPath).toBe('C:/project');
 		expect(saved[1].headers[0].value).toBe('Bearer new-secret');
 		expect(Object.keys(saved[1])).not.toContain('draftId');
@@ -128,7 +135,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(storage.saveProjectSettings).toHaveBeenCalledTimes(1);
 	});
 
-	it('deletes stored settings while preserving current inputs for the scan', async () => {
+	it('deletes stored settings while preserving current inputs for the scan', async (): Promise<void> => {
 		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
 		await component.openFolderDialog();
 		await fixture.whenStable();
@@ -139,8 +146,8 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.canStartAnalysis).toBeTrue();
 	});
 
-	it('falls back to project configuration when loading fails and offers deletion', async () => {
-		storage.loadProjectSettings.and.callFake(() => Promise.reject(new Error('sensitive internal detail')));
+	it('falls back to project configuration when loading fails and offers deletion', async (): Promise<void> => {
+		storage.loadProjectSettings.and.callFake((): Promise<IKeyLintSavedProjectSettings | undefined> => Promise.reject(new Error('sensitive internal detail')));
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		fixture.detectChanges();
@@ -151,10 +158,10 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.canStartAnalysis).toBeTrue();
 	});
 
-	it('reports save and delete failures without losing inputs or blocking scans', async () => {
+	it('reports save and delete failures without losing inputs or blocking scans', async (): Promise<void> => {
 		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
-		storage.saveProjectSettings.and.callFake(() => Promise.reject(new Error('secret')));
-		storage.deleteProjectSettings.and.callFake(() => Promise.reject(new Error('secret')));
+		storage.saveProjectSettings.and.callFake((): Promise<void> => Promise.reject(new Error('secret')));
+		storage.deleteProjectSettings.and.callFake((): Promise<void> => Promise.reject(new Error('secret')));
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		component.onMaxFilesInput('251');
@@ -168,10 +175,15 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.hasSavedProjectSettings()).toBeTrue();
 	});
 
-	it('ignores a delayed saved-settings load after selecting another project', async () => {
+	it('ignores a delayed saved-settings load after selecting another project', async (): Promise<void> => {
 		let resolveFirst!: (settings: IKeyLintSavedProjectSettings) => void;
-		storage.loadProjectSettings.and.callFake((projectPath) => projectPath === 'C:/project'
-			? new Promise((resolve) => { resolveFirst = resolve; }) : Promise.resolve(undefined));
+		storage.loadProjectSettings.and.callFake((projectPath: string): Promise<IKeyLintSavedProjectSettings | undefined> =>
+			projectPath === 'C:/project'
+				? new Promise((resolve: (value: IKeyLintSavedProjectSettings | PromiseLike<IKeyLintSavedProjectSettings | undefined> | undefined) => void): void => {
+						resolveFirst = resolve;
+					})
+				: Promise.resolve(undefined)
+		);
 		await component.openFolderDialog();
 		await Promise.resolve();
 		component.onSelectRecentProject({ path: 'C:/other', name: 'other', exists: true });
@@ -182,14 +194,14 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.hasSavedProjectSettings()).toBeFalse();
 	});
 
-	it('ignores completion of saving after project selection has been cleared', async () => {
+	it('ignores completion of saving after project selection has been cleared', async (): Promise<void> => {
 		storage.loadProjectSettings.and.resolveTo({ sources: savedSources });
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		let finish!: () => void;
-		storage.saveProjectSettings.and.returnValue(new Promise<void>((resolve) => { finish = resolve; }));
+		storage.saveProjectSettings.and.returnValue(new Promise<void>((resolve: (value: void | PromiseLike<void>) => void): void => { finish = resolve; }));
 		component.onMaxFilesInput('251');
-		const saving = component.saveProjectSettings();
+		const saving: Promise<void> = component.saveProjectSettings();
 		expect(component.canStartAnalysis).toBeFalse();
 		component.clearSelection();
 		finish();
@@ -199,12 +211,12 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.projectSettingsStorageBusy()).toBeFalse();
 	});
 
-	it('enables the shared save button only for changes and disables it again after reverting or saving', async () => {
+	it('enables the shared save button only for changes and disables it again after reverting or saving', async (): Promise<void> => {
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		fixture.detectChanges();
-		const root = fixture.nativeElement as HTMLElement;
-		const button = root.querySelector<HTMLButtonElement>('.save-settings-btn')!;
+		const root: HTMLElement = fixture.nativeElement as HTMLElement;
+		const button: HTMLButtonElement = root.querySelector<HTMLButtonElement>('.save-settings-btn')!;
 		expect(button.closest('details')).toBeNull();
 		expect(button.disabled).toBeTrue();
 		component.onMaxFilesInput('250');
@@ -220,7 +232,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(button.disabled).toBeTrue();
 	});
 
-	it('restores saved scan settings as overrides while reset restores project defaults', async () => {
+	it('restores saved scan settings as overrides while reset restores project defaults', async (): Promise<void> => {
 		storage.loadProjectSettings.and.resolveTo({ sources: savedSources, guardrails: { maxFiles: 250, maxFileSizeBytes: 2097152 } });
 		await component.openFolderDialog();
 		await fixture.whenStable();
@@ -234,10 +246,10 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.hasUnsavedSettings).toBeTrue();
 	});
 
-	it('detects source edits and rejects saving invalid scan settings', async () => {
+	it('detects source edits and rejects saving invalid scan settings', async (): Promise<void> => {
 		await component.openFolderDialog();
 		await fixture.whenStable();
-		const source = component.translationSources[0];
+		const source: IDesktopTranslationSourceDraft = component.translationSources[0];
 		component.onSourceIdInput(source.draftId, 'local');
 		expect(component.canSaveProjectSettings).toBeTrue();
 		component.onSourceIdInput(source.draftId, '');
@@ -247,11 +259,11 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.canSaveProjectSettings).toBeFalse();
 	});
 
-	it('loads effective project values and identifies their sources', async () => {
+	it('loads effective project values and identifies their sources', async (): Promise<void> => {
 		await component.openFolderDialog();
 		await fixture.whenStable();
 
-		expect(configService.load).toHaveBeenCalledOnceWith('C:/project');
+		expect(configService.load.calls.allArgs()).toEqual([['C:/project']]);
 		expect(component.maxFilesInput).toBe('500');
 		expect(component.maxFileSizeMbInput).toBe('4');
 		expect(component.guardrailSourceLabel('maxFiles')).toBe('package.json');
@@ -259,7 +271,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.canStartAnalysis).toBeTrue();
 	});
 
-	it('passes only changed values to the next scan and resets to project values', async () => {
+	it('passes only changed values to the next scan and resets to project values', async (): Promise<void> => {
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		component.onMaxFilesInput('25');
@@ -267,13 +279,13 @@ describe('ProjectSelectionPage scan settings', () => {
 
 		expect(component.guardrailSourceLabel('maxFiles')).toBe('Desktop override');
 		component.startAnalysis();
-		expect(scanService.setNextScanConfigOverrides).toHaveBeenCalledWith({
+		expect(scanService.setNextScanConfigOverrides.calls.allArgs()).toContain([{
 			guardrails: {
 				maxFiles: 25,
 				maxFileSizeBytes: 1_572_864
 			},
 			translationSources: [{ type: 'filesystem' }]
-		});
+		}]);
 
 		component.resetScanSettings();
 		expect(component.maxFilesInput).toBe('500');
@@ -281,7 +293,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.guardrailSourceLabel('maxFiles')).toBe('package.json');
 	});
 
-	it('renders configured sources and supports editing, removal, and reordering', async () => {
+	it('renders configured sources and supports editing, removal, and reordering', async (): Promise<void> => {
 		configService.load.and.resolveTo({
 			config: {
 				...DEFAULT_SCANNER_CONFIG,
@@ -298,14 +310,14 @@ describe('ProjectSelectionPage scan settings', () => {
 		fixture.detectChanges();
 
 		expect((fixture.nativeElement as HTMLElement).textContent).toContain('Translation sources');
-		expect(component.translationSources.map((source) => source.id)).toEqual(['base', 'api']);
+		expect(component.translationSources.map((source: IDesktopTranslationSourceDraft): string => source.id)).toEqual(['base', 'api']);
 		component.moveTranslationSource(component.translationSources[1].draftId, -1);
-		expect(component.translationSources.map((source) => source.id)).toEqual(['api', 'base']);
+		expect(component.translationSources.map((source: IDesktopTranslationSourceDraft): string => source.id)).toEqual(['api', 'base']);
 		component.removeTranslationSource(component.translationSources[0].draftId);
-		expect(component.translationSources.map((source) => source.id)).toEqual(['base']);
+		expect(component.translationSources.map((source: IDesktopTranslationSourceDraft): string => source.id)).toEqual(['base']);
 	});
 
-	it('requires confirmation before remote navigation and clears temporary secrets after approval', async () => {
+	it('requires confirmation before remote navigation and clears temporary secrets after approval', async (): Promise<void> => {
 		configService.load.and.resolveTo({
 			config: {
 				...DEFAULT_SCANNER_CONFIG,
@@ -319,7 +331,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		});
 		await component.openFolderDialog();
 		await fixture.whenStable();
-		const source = component.translationSources[0];
+		const source: IDesktopTranslationSourceDraft = component.translationSources[0];
 		component.onHeaderValueInput(source.draftId, source.headers[0].id, 'Bearer secret');
 
 		component.startAnalysis();
@@ -328,10 +340,10 @@ describe('ProjectSelectionPage scan settings', () => {
 			hasPrivateOrLocalTarget: true,
 			expectedRequestCount: 1
 		}));
-		expect(scanService.authorizeNextRemoteScan).not.toHaveBeenCalled();
+		expect(scanService.authorizeNextRemoteScan.calls.count()).toBe(0);
 
 		let capturedEnvironment: Record<string, string> = {};
-		scanService.authorizeNextRemoteScan.and.callFake((environment) => {
+		scanService.authorizeNextRemoteScan.and.callFake((environment: Record<string, string>): void => {
 			capturedEnvironment = { ...environment };
 		});
 		component.confirmRemoteAnalysis();
@@ -339,7 +351,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.translationSources[0].headers[0].value).toBe('');
 	});
 
-	it('blocks the scan for invalid values', async () => {
+	it('blocks the scan for invalid values', async (): Promise<void> => {
 		await component.openFolderDialog();
 		await fixture.whenStable();
 		component.onMaxFilesInput('0');
@@ -348,7 +360,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.canStartAnalysis).toBeFalse();
 	});
 
-	it('shows detected auto-http candidates and blocks confirmation until a relative origin is supplied', async () => {
+	it('shows detected auto-http candidates and blocks confirmation until a relative origin is supplied', async (): Promise<void> => {
 		configService.load.and.resolveTo({
 			config: { ...DEFAULT_SCANNER_CONFIG, translationSources: [{ type: 'auto-http' }] },
 			packageJsonConfigApplied: false,
@@ -356,7 +368,7 @@ describe('ProjectSelectionPage scan settings', () => {
 		});
 		await component.openFolderDialog();
 		await fixture.whenStable();
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await new Promise((resolve: (value: unknown) => void): number => setTimeout(resolve, 0));
 		await fixture.whenStable();
 		fixture.detectChanges();
 
@@ -374,6 +386,6 @@ describe('ProjectSelectionPage scan settings', () => {
 		expect(component.remoteConfirmation?.sources[0]).toEqual(jasmine.objectContaining({
 			urlTemplate: 'https://app.example/i18n/{locale}.json', locales: ['en']
 		}));
-		expect(scanService.authorizeNextRemoteScan).not.toHaveBeenCalled();
+		expect(scanService.authorizeNextRemoteScan.calls.count()).toBe(0);
 	});
 });

@@ -1,18 +1,21 @@
-import { Component, OnInit, PendingTasks, inject, signal } from '@angular/core';
+import { Component, OnInit, PendingTasks, inject, signal, WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
-import { RecentProjectsService } from '../../shared/services/recent-projects.service';
+import { RecentProjectsService, IRecentProjectItem } from '../../shared/services/recent-projects.service';
 import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
 import { ThemeService } from '../../services/theme.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
-import { DesktopScannerConfigService } from '../../shared/services/desktop-scanner-config.service';
-import { IScannerGuardrails, ScannerConfigValueSource } from '@key-lint/core';
+import { DesktopScannerConfigService, IDesktopLoadedScannerConfig } from '../../shared/services/desktop-scanner-config.service';
+import { IScannerGuardrails, ScannerConfigValueSource, ILoaderAnalysisSourceFile, IAutoHttpProjectAnalysis } from '@key-lint/core';
 import { ElectronFile, IRecentProjectViewModel } from './project-selection.interfaces';
 import { DesktopRemoteTranslationService } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.service';
 import { ElectronFileSystemAdapter } from '../../shared/services/electron-file-system.adapter';
 import {
-	IDesktopTranslationSourceDraft, IPreparedDesktopRemoteScan, IRemoteScanConfirmation
+	IDesktopTranslationSourceDraft,
+	IPreparedDesktopRemoteScan,
+	IRemoteScanConfirmation,
+	IDesktopRemoteHeaderDraft
 } from '../../shared/services/desktop-remote-translation/desktop-remote-translation.interfaces';
 
 @Component({
@@ -21,29 +24,31 @@ import {
 	styleUrl: './project-selection.page.scss'
 })
 export class ProjectSelectionPage implements OnInit {
-	private readonly projectPathSignal = signal<string | undefined>(undefined);
-	private readonly projectNameSignal = signal<string | undefined>(undefined);
-	private readonly isDragOverSignal = signal(false);
-	private readonly recentProjectsSignal = signal<IRecentProjectViewModel[]>([]);
-	private readonly projectGuardrailsSignal = signal<IScannerGuardrails | undefined>(undefined);
-	private readonly guardrailSourcesSignal = signal<Record<keyof IScannerGuardrails, ScannerConfigValueSource> | undefined>(undefined);
-	private readonly scanSettingsLoadingSignal = signal(false);
-	private readonly scanSettingsErrorSignal = signal('');
-	private readonly maxFilesInputSignal = signal('');
-	private readonly maxFileSizeMbInputSignal = signal('');
-	private readonly translationSourcesSignal = signal<IDesktopTranslationSourceDraft[]>([]);
-	private readonly remoteConfirmationSignal = signal<IRemoteScanConfirmation | undefined>(undefined);
-	readonly hasSavedProjectSettings = signal(false);
-	readonly projectSettingsStorageBusy = signal(false);
-	readonly projectSettingsStorageError = signal('');
-	readonly projectSettingsStorageMessage = signal('');
-	private recentProjectsLoadId = 0;
-	private scanSettingsLoadId = 0;
-	private readonly savedSettingsFingerprint = signal('');
+	private readonly projectPathSignal: WritableSignal<string | undefined> = signal<string | undefined>(undefined);
+	private readonly projectNameSignal: WritableSignal<string | undefined> = signal<string | undefined>(undefined);
+	private readonly isDragOverSignal: WritableSignal<boolean> = signal(false);
+	private readonly recentProjectsSignal: WritableSignal<IRecentProjectViewModel[]> = signal<IRecentProjectViewModel[]>([]);
+	private readonly projectGuardrailsSignal: WritableSignal<IScannerGuardrails | undefined> = signal<IScannerGuardrails | undefined>(undefined);
+	private readonly guardrailSourcesSignal: WritableSignal<Record<keyof IScannerGuardrails, ScannerConfigValueSource> | undefined> = signal<
+		Record<keyof IScannerGuardrails, ScannerConfigValueSource> | undefined
+	>(undefined);
+	private readonly scanSettingsLoadingSignal: WritableSignal<boolean> = signal(false);
+	private readonly scanSettingsErrorSignal: WritableSignal<string> = signal('');
+	private readonly maxFilesInputSignal: WritableSignal<string> = signal('');
+	private readonly maxFileSizeMbInputSignal: WritableSignal<string> = signal('');
+	private readonly translationSourcesSignal: WritableSignal<IDesktopTranslationSourceDraft[]> = signal<IDesktopTranslationSourceDraft[]>([]);
+	private readonly remoteConfirmationSignal: WritableSignal<IRemoteScanConfirmation | undefined> = signal<IRemoteScanConfirmation | undefined>(undefined);
+	readonly hasSavedProjectSettings: WritableSignal<boolean> = signal(false);
+	readonly projectSettingsStorageBusy: WritableSignal<boolean> = signal(false);
+	readonly projectSettingsStorageError: WritableSignal<string> = signal('');
+	readonly projectSettingsStorageMessage: WritableSignal<string> = signal('');
+	private recentProjectsLoadId: number = 0;
+	private scanSettingsLoadId: number = 0;
+	private readonly savedSettingsFingerprint: WritableSignal<string> = signal('');
 	private defaultProjectSettings?: IKeyLintSavedProjectSettings;
 
 	private readonly electronService: ElectronService = inject(ElectronService);
-	private readonly pendingTasks = inject(PendingTasks);
+	private readonly pendingTasks: PendingTasks = inject(PendingTasks);
 	private readonly recentProjectsService: RecentProjectsService = inject(RecentProjectsService);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
@@ -51,8 +56,8 @@ export class ProjectSelectionPage implements OnInit {
 	private readonly desktopScannerConfigService: DesktopScannerConfigService = inject(DesktopScannerConfigService);
 	private readonly desktopRemoteTranslationService: DesktopRemoteTranslationService = inject(DesktopRemoteTranslationService);
 
-	readonly themeService = inject(ThemeService);
-	readonly appVersionService = inject(AppVersionService);
+	readonly themeService: ThemeService = inject(ThemeService);
+	readonly appVersionService: AppVersionService = inject(AppVersionService);
 
 	get isDark(): boolean {
 		return this.themeService.getCurrent() === 'dark';
@@ -124,7 +129,7 @@ export class ProjectSelectionPage implements OnInit {
 			return 'Maximum files must be a positive whole number.';
 		}
 
-		const maxFileSizeMb = this.parsePositiveNumber(this.maxFileSizeMbInput);
+		const maxFileSizeMb: number | undefined = this.parsePositiveNumber(this.maxFileSizeMbInput);
 		if (maxFileSizeMb === undefined || Math.round(maxFileSizeMb * 1024 * 1024) < 1) {
 			return 'Maximum file size must be a positive number.';
 		}
@@ -133,8 +138,8 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	get scanSettingsHighLimitWarning(): string {
-		const maxFiles = this.parsePositiveInteger(this.maxFilesInput);
-		const maxFileSizeMb = this.parsePositiveNumber(this.maxFileSizeMbInput);
+		const maxFiles: number | undefined = this.parsePositiveInteger(this.maxFilesInput);
+		const maxFileSizeMb: number | undefined = this.parsePositiveNumber(this.maxFileSizeMbInput);
 		return (maxFiles !== undefined && maxFiles > 100_000) ||
 			(maxFileSizeMb !== undefined && maxFileSizeMb > 50)
 			? 'High limits can make desktop scans slower and use considerably more memory.'
@@ -173,13 +178,13 @@ export class ProjectSelectionPage implements OnInit {
 		}
 
 		try {
-			const selected = await this.electronService.selectProjectDirectory();
+			const selected: string | undefined = await this.electronService.selectProjectDirectory();
 			if (!selected) {
 				return;
 			}
 
 			this.setSelectedPath(selected);
-		} catch (error) {
+		} catch (error: unknown) {
 			console.error(error);
 		}
 	}
@@ -203,13 +208,13 @@ export class ProjectSelectionPage implements OnInit {
 		event.preventDefault();
 		this.isDragOverSignal.set(false);
 
-		const files = event.dataTransfer?.files;
+		const files: FileList | undefined = event.dataTransfer?.files;
 		if (!files || files.length === 0) {
 			return;
 		}
 
-		const first = files[0] as ElectronFile;
-		const droppedPath = this.resolveSelectedFilePath(first);
+		const first: ElectronFile = files[0];
+		const droppedPath: string | undefined = this.resolveSelectedFilePath(first);
 		if (!droppedPath) {
 			return;
 		}
@@ -218,14 +223,14 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	onFolderInputChange(event: Event): void {
-		const input = event.target as HTMLInputElement;
-		const files = input.files;
+		const input: HTMLInputElement = event.target as HTMLInputElement;
+		const files: FileList | null = input.files;
 		if (!files || files.length === 0) {
 			return;
 		}
 
-		const first = files[0] as ElectronFile;
-		const selectedPath = this.resolveSelectedFilePath(first);
+		const first: ElectronFile = files[0];
+		const selectedPath: string | undefined = this.resolveSelectedFilePath(first);
 		if (!selectedPath) {
 			return;
 		}
@@ -258,18 +263,18 @@ export class ProjectSelectionPage implements OnInit {
 		this.recentProjectsService.removeRecentProject(project.path);
 		void this.loadRecentProjects();
 
-		const selectedPath = this.projectPathSignal();
+		const selectedPath: string | undefined = this.projectPathSignal();
 		if (selectedPath && this.isSamePath(selectedPath, project.path)) {
 			this.clearSelection();
 		}
 	}
 
 	startAnalysis(): void {
-		const projectPath = this.projectPathSignal();
+		const projectPath: string | undefined = this.projectPathSignal();
 		if (!projectPath || !this.canStartAnalysis) {
 			return;
 		}
-		const prepared = this.desktopRemoteTranslationService.prepareScan();
+		const prepared: IPreparedDesktopRemoteScan = this.desktopRemoteTranslationService.prepareScan();
 		if (this.desktopRemoteTranslationService.hasRemoteSources) {
 			this.remoteConfirmationSignal.set(prepared.confirmation);
 			this.wipePreparedEnvironment(prepared);
@@ -279,11 +284,11 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	confirmRemoteAnalysis(): void {
-		const projectPath = this.projectPathSignal();
+		const projectPath: string | undefined = this.projectPathSignal();
 		if (!projectPath || !this.remoteConfirmation) {
 			return;
 		}
-		const prepared = this.desktopRemoteTranslationService.prepareScan();
+		const prepared: IPreparedDesktopRemoteScan = this.desktopRemoteTranslationService.prepareScan();
 		this.remoteConfirmationSignal.set(undefined);
 		this.beginAnalysis(projectPath, prepared, true);
 	}
@@ -324,7 +329,7 @@ export class ProjectSelectionPage implements OnInit {
 		this.desktopRemoteTranslationService.clear();
 		this.syncTranslationSources();
 		this.remoteConfirmationSignal.set(undefined);
-		void this.pendingTasks.run(() => this.loadScanSettings(path));
+		void this.pendingTasks.run((): Promise<void> => this.loadScanSettings(path));
 	}
 
 	onMaxFilesInput(value: string): void {
@@ -336,7 +341,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	resetScanSettings(): void {
-		const guardrails = this.projectGuardrailsSignal();
+		const guardrails: IScannerGuardrails | undefined = this.projectGuardrailsSignal();
 		if (guardrails) {
 			this.setGuardrailInputs(guardrails);
 		}
@@ -390,8 +395,10 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	onAutoCandidateSelected(draftId: string, value: string): void {
-		const candidateIndex = Number(value);
-		if (Number.isInteger(candidateIndex)) this.desktopRemoteTranslationService.selectAutoCandidate(draftId, candidateIndex);
+		const candidateIndex: number = Number(value);
+		if (Number.isInteger(candidateIndex)) {
+			this.desktopRemoteTranslationService.selectAutoCandidate(draftId, candidateIndex);
+		}
 		this.syncTranslationSources();
 	}
 
@@ -421,16 +428,23 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	async saveProjectSettings(): Promise<void> {
-		const projectPath = this.projectPathSignal();
-		if (!projectPath || !this.canSaveProjectSettings) return;
-		const loadId = this.scanSettingsLoadId;
+		const projectPath: string | undefined = this.projectPathSignal();
+		if (!projectPath || !this.canSaveProjectSettings) {
+			return;
+		}
+		const loadId: number = this.scanSettingsLoadId;
 		this.projectSettingsStorageBusy.set(true);
 		this.projectSettingsStorageError.set('');
 		this.projectSettingsStorageMessage.set('');
-		const settings = { ...this.currentProjectSettings(), sources: this.desktopRemoteTranslationService.getSavedSources() };
+		const settings: { sources: IKeyLintSavedTranslationSource[]; guardrails?: IKeyLintSavedGuardrails } = {
+			...this.currentProjectSettings(),
+			sources: this.desktopRemoteTranslationService.getSavedSources()
+		};
 		try {
 			await this.electronService.saveProjectSettings(projectPath, settings.sources, settings.guardrails);
-			if (loadId !== this.scanSettingsLoadId) return;
+			if (loadId !== this.scanSettingsLoadId) {
+				return;
+			}
 			this.hasSavedProjectSettings.set(true);
 			this.savedSettingsFingerprint.set(this.settingsFingerprint(settings));
 			this.projectSettingsStorageMessage.set('Scan settings, translation sources and header values saved for this project.');
@@ -439,27 +453,39 @@ export class ProjectSelectionPage implements OnInit {
 				this.projectSettingsStorageError.set('Could not save translation sources. Secure storage may be unavailable. Your current inputs are still available for this scan.');
 			}
 		} finally {
-			if (loadId === this.scanSettingsLoadId) this.projectSettingsStorageBusy.set(false);
+			if (loadId === this.scanSettingsLoadId) {
+				this.projectSettingsStorageBusy.set(false);
+			}
 		}
 	}
 
 	async deleteSavedProjectSettings(): Promise<void> {
-		const projectPath = this.projectPathSignal();
-		if (!projectPath || !this.hasSavedProjectSettings() || this.projectSettingsStorageBusy() || this.scanSettingsLoading) return;
-		const loadId = this.scanSettingsLoadId;
+		const projectPath: string | undefined = this.projectPathSignal();
+		if (!projectPath || !this.hasSavedProjectSettings() || this.projectSettingsStorageBusy() || this.scanSettingsLoading) {
+			return;
+		}
+		const loadId: number = this.scanSettingsLoadId;
 		this.projectSettingsStorageBusy.set(true);
 		this.projectSettingsStorageError.set('');
 		this.projectSettingsStorageMessage.set('');
 		try {
 			await this.electronService.deleteProjectSettings(projectPath);
-			if (loadId !== this.scanSettingsLoadId) return;
+			if (loadId !== this.scanSettingsLoadId) {
+				return;
+			}
 			this.hasSavedProjectSettings.set(false);
-			if (this.defaultProjectSettings) this.savedSettingsFingerprint.set(this.settingsFingerprint(this.defaultProjectSettings));
+			if (this.defaultProjectSettings) {
+				this.savedSettingsFingerprint.set(this.settingsFingerprint(this.defaultProjectSettings));
+			}
 			this.projectSettingsStorageMessage.set('Saved settings deleted. Current inputs remain available for this scan.');
 		} catch {
-			if (loadId === this.scanSettingsLoadId) this.projectSettingsStorageError.set('Could not delete saved translation sources. Please try again.');
+			if (loadId === this.scanSettingsLoadId) {
+				this.projectSettingsStorageError.set('Could not delete saved translation sources. Please try again.');
+			}
 		} finally {
-			if (loadId === this.scanSettingsLoadId) this.projectSettingsStorageBusy.set(false);
+			if (loadId === this.scanSettingsLoadId) {
+				this.projectSettingsStorageBusy.set(false);
+			}
 		}
 	}
 
@@ -468,7 +494,7 @@ export class ProjectSelectionPage implements OnInit {
 			return 'Desktop override';
 		}
 
-		const source = this.guardrailSourcesSignal()?.[key] ?? 'default';
+		const source: ScannerConfigValueSource = this.guardrailSourcesSignal()?.[key] ?? 'default';
 		return {
 			default: 'Built-in default',
 			'package-json': 'package.json',
@@ -478,14 +504,14 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	private async loadScanSettings(projectPath: string): Promise<void> {
-		const loadId = ++this.scanSettingsLoadId;
+		const loadId: number = ++this.scanSettingsLoadId;
 		this.scanSettingsLoadingSignal.set(true);
 		this.scanSettingsErrorSignal.set('');
 		this.projectGuardrailsSignal.set(undefined);
 		this.resetProjectSettingsStorageState();
 
 		try {
-			const loaded = await this.desktopScannerConfigService.load(projectPath);
+			const loaded: IDesktopLoadedScannerConfig = await this.desktopScannerConfigService.load(projectPath);
 			if (loadId !== this.scanSettingsLoadId) {
 				return;
 			}
@@ -499,15 +525,21 @@ export class ProjectSelectionPage implements OnInit {
 				try {
 					const saved: IKeyLintSavedProjectSettings | undefined =
 						await this.electronService.loadProjectSettings(projectPath);
-					if (loadId !== this.scanSettingsLoadId) return;
+					if (loadId !== this.scanSettingsLoadId) {
+						return;
+					}
 					if (saved !== undefined) {
 						this.desktopRemoteTranslationService.loadSavedSources(saved.sources);
-						if (saved.guardrails) this.setGuardrailInputs(saved.guardrails);
+						if (saved.guardrails) {
+							this.setGuardrailInputs(saved.guardrails);
+						}
 						this.hasSavedProjectSettings.set(true);
 						this.projectSettingsStorageMessage.set('Saved project settings restored.');
 					}
 				} catch {
-					if (loadId !== this.scanSettingsLoadId) return;
+					if (loadId !== this.scanSettingsLoadId) {
+						return;
+					}
 					this.hasSavedProjectSettings.set(true);
 					this.projectSettingsStorageError.set('Could not load saved translation sources. Project defaults are being used. You can delete the saved settings and save them again.');
 				}
@@ -516,13 +548,17 @@ export class ProjectSelectionPage implements OnInit {
 				projectPath,
 				new ElectronFileSystemAdapter(this.electronService, loaded.config.guardrails),
 				loaded.config,
-				(files) => this.electronService.analyzeTranslationLoaders(files)
+				(files: ILoaderAnalysisSourceFile[]): Promise<IAutoHttpProjectAnalysis> => this.electronService.analyzeTranslationLoaders(files)
 			);
-			if (loadId !== this.scanSettingsLoadId) return;
+			if (loadId !== this.scanSettingsLoadId) {
+				return;
+			}
 			this.syncTranslationSources(false);
 			this.savedSettingsFingerprint.set(this.settingsFingerprint(this.currentProjectSettings()));
-			if (!this.hasSavedProjectSettings()) this.defaultProjectSettings = this.currentProjectSettings();
-		} catch (error) {
+			if (!this.hasSavedProjectSettings()) {
+				this.defaultProjectSettings = this.currentProjectSettings();
+			}
+		} catch (error: unknown) {
 			if (loadId === this.scanSettingsLoadId) {
 				this.scanSettingsErrorSignal.set(
 					error instanceof Error ? error.message : 'Could not load project scan settings.'
@@ -537,22 +573,22 @@ export class ProjectSelectionPage implements OnInit {
 
 	private setGuardrailInputs(guardrails: IScannerGuardrails): void {
 		this.maxFilesInputSignal.set(String(guardrails.maxFiles));
-		const sizeMb = guardrails.maxFileSizeBytes / (1024 * 1024);
+		const sizeMb: number = guardrails.maxFileSizeBytes / (1024 * 1024);
 		this.maxFileSizeMbInputSignal.set(String(Number(sizeMb.toFixed(6))));
 	}
 
 	private buildGuardrailOverrides(): Partial<IScannerGuardrails> {
-		const projectGuardrails = this.projectGuardrailsSignal();
+		const projectGuardrails: IScannerGuardrails | undefined = this.projectGuardrailsSignal();
 		if (!projectGuardrails) {
 			return {};
 		}
 
-		const maxFiles = this.parsePositiveInteger(this.maxFilesInput);
-		const maxFileSizeMb = this.parsePositiveNumber(this.maxFileSizeMbInput);
+		const maxFiles: number | undefined = this.parsePositiveInteger(this.maxFilesInput);
+		const maxFileSizeMb: number | undefined = this.parsePositiveNumber(this.maxFileSizeMbInput);
 		if (maxFiles === undefined || maxFileSizeMb === undefined) {
 			return {};
 		}
-		const maxFileSizeBytes = Math.round(maxFileSizeMb * 1024 * 1024);
+		const maxFileSizeBytes: number = Math.round(maxFileSizeMb * 1024 * 1024);
 		if (maxFileSizeBytes < 1) {
 			return {};
 		}
@@ -600,21 +636,33 @@ export class ProjectSelectionPage implements OnInit {
 	private settingsFingerprint(settings: IKeyLintSavedProjectSettings): string {
 		return JSON.stringify({
 			guardrails: settings.guardrails,
-			sources: settings.sources.map((source) => ({
-				type: source.type, id: source.id, includeGlobs: source.includeGlobs, urlTemplate: source.urlTemplate, origin: source.origin,
-				locales: source.locales, selectedCandidateIndex: source.selectedCandidateIndex,
-				headers: source.headers.map((header) => ({ name: header.name, value: header.value }))
-			}))
+			sources: settings.sources.map(
+				(source: IKeyLintSavedTranslationSource): Omit<IKeyLintSavedTranslationSource, 'headers'> & { headers: Pick<IDesktopRemoteHeaderDraft, 'name' | 'value'>[] } => ({
+					type: source.type,
+					id: source.id,
+					includeGlobs: source.includeGlobs,
+					urlTemplate: source.urlTemplate,
+					origin: source.origin,
+					locales: source.locales,
+					selectedCandidateIndex: source.selectedCandidateIndex,
+					headers: source.headers.map((header: { name: string; value: string; environmentName: string; configured: boolean }): { name: string; value: string } => ({
+						name: header.name,
+						value: header.value
+					}))
+				})
+			)
 		});
 	}
 
-	private syncTranslationSources(clearStorageMessage = true): void {
+	private syncTranslationSources(clearStorageMessage: boolean = true): void {
 		this.translationSourcesSignal.set(this.desktopRemoteTranslationService.sources);
-		if (clearStorageMessage) this.projectSettingsStorageMessage.set('');
+		if (clearStorageMessage) {
+			this.projectSettingsStorageMessage.set('');
+		}
 	}
 
 	private parseList(value: string): string[] {
-		return value.split(/[\n,]/).map((entry) => entry.trim()).filter(Boolean);
+		return value.split(/[\n,]/).map((entry: string): string => entry.trim()).filter(Boolean);
 	}
 
 	private wipePreparedEnvironment(prepared: IPreparedDesktopRemoteScan): void {
@@ -628,43 +676,43 @@ export class ProjectSelectionPage implements OnInit {
 		if (!/^\d+$/.test(value)) {
 			return undefined;
 		}
-		const parsed = Number(value);
+		const parsed: number = Number(value);
 		return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 	}
 
 	private parsePositiveNumber(value: string): number | undefined {
-		const parsed = Number(value);
+		const parsed: number = Number(value);
 		return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 	}
 
 	private async loadRecentProjects(): Promise<void> {
 		this.loggerService.debug('ProjectSelectionPage', 'Loading recent projects...');
-		const loadId = ++this.recentProjectsLoadId;
-		const recentProjects = await this.recentProjectsService.getRecentProjects();
+		const loadId: number = ++this.recentProjectsLoadId;
+		const recentProjects: IRecentProjectItem[] = await this.recentProjectsService.getRecentProjects();
 		if (loadId !== this.recentProjectsLoadId) {
 			return;
 		}
-		this.recentProjectsSignal.set(recentProjects.map((project) => ({
+		this.recentProjectsSignal.set(recentProjects.map((project: IRecentProjectItem): { name: string; path: string; exists: boolean; } => ({
 			...project,
 			name: this.getProjectName(project.path)
 		})));
 	}
 
 	private getProjectName(path: string): string {
-		const normalized = path.replaceAll('\\', '/');
-		const parts = normalized.split('/').filter(Boolean);
+		const normalized: string = path.replaceAll('\\', '/');
+		const parts: string[] = normalized.split('/').filter(Boolean);
 		return parts.at(-1) ?? path;
 	}
 
 	private resolveSelectedFilePath(file: ElectronFile): string | undefined {
 		if (this.electronService.isElectron) {
-			const electronPath = this.electronService.getPathForFile(file);
+			const electronPath: string = this.electronService.getPathForFile(file);
 			if (electronPath) {
 				return electronPath;
 			}
 		}
 
-		return file.path || this.extractRootFromWebkitPath(file.webkitRelativePath);
+		return file.path?.length ? file.path : this.extractRootFromWebkitPath(file.webkitRelativePath);
 	}
 
 	private extractRootFromWebkitPath(webkitRelativePath?: string): string | undefined {
@@ -672,7 +720,7 @@ export class ProjectSelectionPage implements OnInit {
 			return undefined;
 		}
 
-		const root = webkitRelativePath.split('/')[0];
+		const root: string = webkitRelativePath.split('/')[0];
 		return root || undefined;
 	}
 
@@ -681,7 +729,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	private normalizePathForCompare(path: string): string {
-		let normalized = path.replaceAll('\\', '/').trim();
+		let normalized: string = path.replaceAll('\\', '/').trim();
 		while (normalized.length > 1 && normalized.endsWith('/')) {
 			normalized = normalized.slice(0, -1);
 		}

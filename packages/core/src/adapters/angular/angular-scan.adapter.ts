@@ -1,6 +1,6 @@
-import { IFileSystemAdapter, IKeyUsage, IProjectContext, IScanAdapter } from '../scan-adapter.interface.js';
-import { IFinding } from '../../models/finding.model.js';
-import { ITranslationMatrix } from '../../models/scan-result.model.js';
+import { IFileSystemAdapter, IKeyUsage, IProjectContext, IScanAdapter, IAdapterDetectionResult } from '../scan-adapter.interface.js';
+import { IFinding, IFileEvidence } from '../../models/finding.model.js';
+import { ITranslationMatrix, ITranslationMatrixRow } from '../../models/scan-result.model.js';
 import { IAngularMarkers } from './angular.interfaces.js';
 import { DYNAMIC_PATTERNS, STATIC_HTML_PATTERNS, STATIC_TS_PATTERNS } from './extractors/translation-usage.patterns.js';
 import { extractMatches } from './extractors/pattern-matcher.util.js';
@@ -23,7 +23,7 @@ import { normalizePath } from '../../util/path.util.js';
  * @param prefix - Optional parent key path for recursive traversal.
  * @returns Leaf key paths in object-entry order, without deduplication or sorting.
  */
-function flattenTranslationObject(value: unknown, prefix = ''): string[] {
+function flattenTranslationObject(value: unknown, prefix: string = ''): string[] {
 	if (value === null || value === undefined) {
 		return [];
 	}
@@ -37,10 +37,10 @@ function flattenTranslationObject(value: unknown, prefix = ''): string[] {
 	}
 
 	const result: string[] = [];
-	const entries = Object.entries(value as Record<string, unknown>);
+	const entries: [string, unknown][] = Object.entries(value as Record<string, unknown>);
 
 	for (const [key, child] of entries) {
-		const nextPrefix = prefix ? `${prefix}.${key}` : key;
+		const nextPrefix: string = prefix ? `${prefix}.${key}` : key;
 		if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
 			result.push(...flattenTranslationObject(child, nextPrefix));
 			continue;
@@ -77,7 +77,7 @@ function leadingLiteralPrefix(expression: string): string | null {
  * @returns Unique values sorted using `localeCompare`.
  */
 function uniqueSorted(values: string[]): string[] {
-	return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+	return [...new Set(values)].sort((a: string, b: string): number => a.localeCompare(b));
 }
 
 /**
@@ -88,11 +88,15 @@ function uniqueSorted(values: string[]): string[] {
  * @returns String content or an empty fallback for unsupported values.
  */
 function stringifyTranslationValue(value: unknown): string {
-	if (typeof value === 'string') return value;
+	if (typeof value === 'string') {
+		return value;
+	}
 	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint' || typeof value === 'symbol') {
 		return value.toString();
 	}
-	if (typeof value === 'function') return value.toString();
+	if (typeof value === 'function') {
+		return value.toString();
+	}
 	return '';
 }
 
@@ -106,7 +110,7 @@ function stringifyTranslationValue(value: unknown): string {
  * @param collector - Flat key-to-value map updated in place.
  * @throws {TypeError} When a leaf array cannot be JSON-serialized.
  */
-function flattenTranslationValueObject(value: unknown, prefix = '', collector: Record<string, string>): void {
+function flattenTranslationValueObject(value: unknown, prefix: string = '', collector: Record<string, string>): void {
 	if (value === null || value === undefined) {
 		if (prefix) {
 			collector[prefix] = '';
@@ -186,12 +190,12 @@ async function collectFilesystemTranslationFiles(
 	includeGlobs: string[] = context.config.includeTranslationGlobs
 ): Promise<string[]> {
 	const listedFiles: string[] = await fs.listFiles(context.projectRoot, includeGlobs, context.config.excludeGlobs);
-	const extensions: Set<string> = new Set<string>(context.config.supportedTranslationExtensions.map((value: string) => value.toLowerCase()));
+	const extensions: Set<string> = new Set<string>(context.config.supportedTranslationExtensions.map((value: string): string => value.toLowerCase()));
 
 	return listedFiles
-		.map((file) => normalizePath(file))
-		.filter((file) => extensions.has(file.slice(file.lastIndexOf('.')).toLowerCase()))
-		.sort((left, right) => left.localeCompare(right));
+		.map((file: string): string => normalizePath(file))
+		.filter((file: string): boolean => extensions.has(file.slice(file.lastIndexOf('.')).toLowerCase()))
+		.sort((left: string, right: string): number => left.localeCompare(right));
 }
 
 /**
@@ -209,9 +213,9 @@ async function collectFilesystemTranslationFiles(
 async function resourcesFromFiles(
 	translationFiles: string[],
 	fs: IFileSystemAdapter,
-	sourceId = 'filesystem-1',
-	sourceIndex = 0,
-	positionOffset = 0
+	sourceId: string = 'filesystem-1',
+	sourceIndex: number = 0,
+	positionOffset: number = 0
 ): Promise<ITranslationResource[]> {
 	const resources: ITranslationResource[] = [];
 	for (const [resourceIndex, filePath] of translationFiles.entries()) {
@@ -241,7 +245,7 @@ async function resourcesFromFiles(
 function definedKeysFromResources(resources: ITranslationResource[]): string[] {
 	return uniqueSorted(
 		[...mergeTranslationResources(resources).values()]
-			.flatMap((content) => flattenTranslationObject(content))
+			.flatMap((content: Record<string, unknown>): string[] => flattenTranslationObject(content))
 	);
 }
 
@@ -267,8 +271,8 @@ function matrixFromResources(resources: ITranslationResource[]): ITranslationMat
 	}
 
 	const locales: string[] = uniqueSorted([...localeToValues.keys()]);
-	const allKeys: string[] = uniqueSorted(locales.flatMap((locale) => Object.keys(localeToValues.get(locale) ?? {})));
-	const rows = allKeys.map((key) => {
+	const allKeys: string[] = uniqueSorted(locales.flatMap((locale: string): string[] => Object.keys(localeToValues.get(locale) ?? {})));
+	const rows: ITranslationMatrixRow[] = allKeys.map((key: string): ITranslationMatrixRow => {
 		const values: Record<string, string> = {};
 		const keyPresence: Record<string, boolean> = {};
 		const placeholders: Record<string, string[]> = {};
@@ -381,11 +385,11 @@ async function readPackageJsonDependencies(root: string, fs: IFileSystemAdapter)
 
 	try {
 		const packageJsonRaw: string = await fs.readFile(packageJsonPath);
-		const packageJson = JSON.parse(packageJsonRaw) as {
+		const packageJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; } = JSON.parse(packageJsonRaw) as {
 			dependencies?: Record<string, string>;
 			devDependencies?: Record<string, string>;
 		};
-		const hasAngularDependency =
+		const hasAngularDependency: boolean =
 			Boolean(packageJson.dependencies?.['@angular/core']) || Boolean(packageJson.devDependencies?.['@angular/cli']) || Boolean(packageJson.devDependencies?.['@nx/angular']);
 
 		return { hasPackageJson: true, hasAngularDependency };
@@ -472,14 +476,16 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @returns Detection support, confidence, reason, and the best root when supported.
 	 * @throws {Error} When a filesystem existence check fails.
 	 */
-	async detect(projectRoot: string, fs: IFileSystemAdapter) {
+	async detect(projectRoot: string, fs: IFileSystemAdapter): Promise<IAdapterDetectionResult> {
 		const normalizedStart: string = normalizePath(projectRoot);
 		const candidates: string[] = collectCandidateRoots(normalizedStart);
 
 		let best: { markers: IAngularMarkers; confidence: number } | null = null;
 
 		for (const root of candidates) {
-			const [hasAngularJson, hasNxJson, hasWorkspaceJson, hasProjectJson, packageInfo] = await Promise.all([
+		const [hasAngularJson, hasNxJson, hasWorkspaceJson, hasProjectJson, packageInfo]: [
+			boolean, boolean, boolean, boolean, { hasPackageJson: boolean; hasAngularDependency: boolean; }
+		] = await Promise.all([
 				fs.fileExists(joinPath(root, 'angular.json')),
 				fs.fileExists(joinPath(root, 'nx.json')),
 				fs.fileExists(joinPath(root, 'workspace.json')),
@@ -531,7 +537,7 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @returns Normalized translation paths in sorted order.
 	 * @throws {Error} When filesystem enumeration fails.
 	 */
-	async collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter) {
+	async collectTranslationFiles(context: IProjectContext, fs: IFileSystemAdapter): Promise<string[]> {
 		return collectFilesystemTranslationFiles(context, fs);
 	},
 
@@ -547,13 +553,13 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @throws {TranslationFileError} When local or remote translation content is unreadable or invalid.
 	 * @throws {Error} When auto-HTTP sources remain unresolved or file enumeration fails.
 	 */
-	async collectTranslationResources(context: IProjectContext, fs: IFileSystemAdapter) {
+	async collectTranslationResources(context: IProjectContext, fs: IFileSystemAdapter): Promise<ITranslationResource[]> {
 		const resources: ITranslationResource[] = [];
 		const configuredSources: ITranslationSourceConfig[] = context.config.translationSources ?? [
 			{ type: 'filesystem' }
 		];
-		const hasRemoteSources = configuredSources.some((source) => source.type === 'http');
-		const remoteResources = hasRemoteSources
+		const hasRemoteSources: boolean = configuredSources.some((source: ITranslationSourceConfig): boolean => source.type === 'http');
+		const remoteResources: Map<number, ITranslationResource[]> = hasRemoteSources
 			? await collectRemoteTranslationResources(
 				configuredSources,
 				context.remoteTranslations ?? { allowNetwork: false },
@@ -562,7 +568,7 @@ export const angularScanAdapter: IScanAdapter = {
 			: new Map<number, ITranslationResource[]>();
 		for (const [sourceIndex, source] of configuredSources.entries()) {
 			if (source.type === 'http') {
-				const sourceResources = (remoteResources.get(sourceIndex) ?? []).map((resource, resourceIndex) => ({
+				const sourceResources: ITranslationResource[] = (remoteResources.get(sourceIndex) ?? []).map((resource: ITranslationResource, resourceIndex: number): ITranslationResource => ({
 					...resource,
 					resourceIndex,
 					position: resources.length + resourceIndex
@@ -574,7 +580,7 @@ export const angularScanAdapter: IScanAdapter = {
 				throw new Error('auto-http translation sources must be resolved before resource collection.');
 			}
 
-			const files = await collectFilesystemTranslationFiles(
+			const files: string[] = await collectFilesystemTranslationFiles(
 				context,
 				fs,
 				source.includeGlobs ?? context.config.includeTranslationGlobs
@@ -600,7 +606,7 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @returns Unique sorted keys from the merged translations.
 	 * @throws {TranslationFileError} When a file cannot be read or parsed as a JSON object.
 	 */
-	async extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter) {
+	async extractDefinedKeys(translationFiles: string[], fs: IFileSystemAdapter): Promise<string[]> {
 		return definedKeysFromResources(await resourcesFromFiles(translationFiles, fs));
 	},
 
@@ -610,8 +616,8 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @param resources - Parsed resources whose positions determine locale merge precedence.
 	 * @returns Unique sorted leaf keys across merged locales.
 	 */
-	async extractDefinedKeysFromResources(resources: ITranslationResource[]) {
-		return definedKeysFromResources(resources);
+	async extractDefinedKeysFromResources(resources: ITranslationResource[]): Promise<string[]> {
+		return Promise.resolve(definedKeysFromResources(resources));
 	},
 
 	/**
@@ -634,7 +640,7 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @throws {TypeError} When a translation array cannot be JSON-serialized for display.
 	 */
 	async buildTranslationMatrixFromResources(resources: ITranslationResource[]): Promise<ITranslationMatrix> {
-		return matrixFromResources(resources);
+		return Promise.resolve(matrixFromResources(resources));
 	},
 
 	/**
@@ -648,12 +654,12 @@ export const angularScanAdapter: IScanAdapter = {
 	 * @returns Heuristic key-usage evidence with locations, snippets, and parameter metadata.
 	 * @throws {Error} When source enumeration or reading fails.
 	 */
-	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter) {
+	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter): Promise<IKeyUsage[]> {
 		const sourceFiles: string[] = await fs.listFiles(context.projectRoot, context.config.includeSourceGlobs, context.config.excludeGlobs);
 
 		const used: IKeyUsage[] = [];
 
-		for (const filePath of sourceFiles.map((file) => normalizePath(file)).sort((a, b) => a.localeCompare(b))) {
+		for (const filePath of sourceFiles.map((file: string): string => normalizePath(file)).sort((a: string, b: string): number => a.localeCompare(b))) {
 			const source: string = await fs.readFile(filePath);
 			const descriptors: IPatternDescriptor[] = filePath.endsWith('.html') ? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS] : [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
 			const fileUsages: IKeyUsage[] = extractMatches(source, filePath, descriptors);
@@ -702,7 +708,7 @@ export const angularScanAdapter: IScanAdapter = {
 		baseLocale?: string;
 		baseLocaleSelectionSource?: BaseLocaleSelectionSource;
 		context: IProjectContext;
-	}) {
+	}): Promise<IFinding[]> {
 		const findings: IFinding[] = [];
 		const staticUsage: Set<string> = new Set<string>();
 		const dynamicUsage: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
@@ -745,17 +751,19 @@ export const angularScanAdapter: IScanAdapter = {
 				continue;
 			}
 
-			const usages: IKeyUsage[] = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === key);
+			const usages: IKeyUsage[] = input.usedKeys.filter((usage: IKeyUsage): boolean => !usage.isDynamic && usage.key === key);
 			for (const usage of usages) {
-				const parameterUsage = usage.placeholderParameters ?? { kind: 'absent' as const, names: [] };
-				const missing: string[] = required.filter((name) => !parameterUsage.names.includes(name));
+				const parameterUsage: NonNullable<IKeyUsage['placeholderParameters']> = usage.placeholderParameters ?? { kind: 'absent' as const, names: [] };
+				const missing: string[] = required.filter((name: string): boolean => !parameterUsage.names.includes(name));
 				if (missing.length === 0) {
 					continue;
 				}
 
 				const uncertain: boolean =
-					parameterUsage.kind === 'dynamic' || missing.some((name) => (parameterUsage.dynamicPrefixes ?? []).some((prefix) => name.startsWith(`${prefix}.`)));
-				const status = uncertain ? ('placeholder-uncertain' as const) : ('placeholder-missing' as const);
+					parameterUsage.kind === 'dynamic' || missing.some(
+						(name: string): boolean => (parameterUsage.dynamicPrefixes ?? []).some((prefix: string): boolean => name.startsWith(`${prefix}.`))
+					);
+				const status: 'placeholder-uncertain' | 'placeholder-missing' = uncertain ? ('placeholder-uncertain' as const) : ('placeholder-missing' as const);
 				const locationId: string = `${usage.filePath}:${usage.line ?? 0}:${usage.column ?? 0}`;
 				findings.push({
 					id: `${status}:${key}:${locationId}`,
@@ -764,8 +772,8 @@ export const angularScanAdapter: IScanAdapter = {
 					status,
 					severity: uncertain ? 'warning' : 'error',
 					message: uncertain
-						? `Key "${key}" requires placeholder(s) ${missing.map((name) => `"${name}"`).join(', ')}, but the supplied parameters cannot be resolved statically.`
-						: `Key "${key}" is used without required placeholder(s) ${missing.map((name) => `"${name}"`).join(', ')}.`,
+						? `Key "${key}" requires placeholder(s) ${missing.map((name: string): string => `"${name}"`).join(', ')}, but the supplied parameters cannot be resolved statically.`
+						: `Key "${key}" is used without required placeholder(s) ${missing.map((name: string): string => `"${name}"`).join(', ')}.`,
 					evidence: [
 						{
 							filePath: usage.filePath,
@@ -795,7 +803,7 @@ export const angularScanAdapter: IScanAdapter = {
 						continue;
 					}
 					const actual: string[] = row.placeholders?.[locale] ?? [];
-					const matches: boolean = expected.length === actual.length && expected.every((name) => actual.includes(name));
+					const matches: boolean = expected.length === actual.length && expected.every((name: string): boolean => actual.includes(name));
 					if (matches) {
 						continue;
 					}
@@ -824,7 +832,7 @@ export const angularScanAdapter: IScanAdapter = {
 		 * @param key - Defined key to compare with inferred literal prefixes.
 		 * @returns The first matching usage record, or `undefined` when no prefix covers the key.
 		 */
-		const matchDynamicPrefix = (key: string): IKeyUsage | undefined => {
+		const matchDynamicPrefix: (key: string) => IKeyUsage | undefined = (key: string): IKeyUsage | undefined => {
 			for (const [prefix, usage] of dynamicPrefixes.entries()) {
 				if (key.startsWith(prefix)) {
 					return usage;
@@ -844,8 +852,8 @@ export const angularScanAdapter: IScanAdapter = {
 					severity: 'info',
 					message: `Key "${key}" is used in project sources.`,
 					evidence: input.usedKeys
-						.filter((usage) => !usage.isDynamic && usage.key === key)
-						.map((usage) => ({
+						.filter((usage: IKeyUsage): boolean => !usage.isDynamic && usage.key === key)
+						.map((usage: IKeyUsage): IFileEvidence => ({
 							filePath: usage.filePath,
 							line: usage.line,
 							column: usage.column,
@@ -932,7 +940,7 @@ export const angularScanAdapter: IScanAdapter = {
 		}
 
 		if (input.baseLocale) {
-			const targetLocales: string[] = translationMatrix.locales.filter((locale) => locale !== input.baseLocale);
+			const targetLocales: string[] = translationMatrix.locales.filter((locale: string): boolean => locale !== input.baseLocale);
 
 			for (const row of translationMatrix.rows) {
 				const isInBaseLocale: boolean = hasTranslationKey(row, input.baseLocale);
@@ -943,7 +951,7 @@ export const angularScanAdapter: IScanAdapter = {
 							continue;
 						}
 
-						const evidence: IKeyUsage[] = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === row.key);
+						const evidence: IKeyUsage[] = input.usedKeys.filter((usage: IKeyUsage): boolean => !usage.isDynamic && usage.key === row.key);
 						findings.push({
 							id: `missing:${row.key}:${locale}`,
 							adapterId: this.id,
@@ -952,7 +960,7 @@ export const angularScanAdapter: IScanAdapter = {
 							severity: 'error',
 							language: locale,
 							message: `Key "${row.key}" is present in base locale "${input.baseLocale}" but missing in locale "${locale}".`,
-							evidence: evidence.map((usage) => ({
+							evidence: evidence.map((usage: IKeyUsage): IFileEvidence => ({
 								filePath: usage.filePath,
 								line: usage.line,
 								column: usage.column,
@@ -989,7 +997,7 @@ export const angularScanAdapter: IScanAdapter = {
 				continue;
 			}
 
-			const evidence: IKeyUsage[] = input.usedKeys.filter((usage) => !usage.isDynamic && usage.key === usedKey);
+			const evidence: IKeyUsage[] = input.usedKeys.filter((usage: IKeyUsage): boolean => !usage.isDynamic && usage.key === usedKey);
 			const missingLocales: string[] | undefined[] = translationMatrix.locales.length > 0 ? translationMatrix.locales : [undefined];
 
 			for (const locale of missingLocales) {
@@ -1001,7 +1009,7 @@ export const angularScanAdapter: IScanAdapter = {
 					severity: 'error',
 					language: locale,
 					message: locale ? `Key "${usedKey}" is used but missing in locale "${locale}".` : `Key "${usedKey}" is used but not present in discovered translation files.`,
-					evidence: evidence.map((usage) => ({
+					evidence: evidence.map((usage: IKeyUsage): IFileEvidence => ({
 						filePath: usage.filePath,
 						line: usage.line,
 						column: usage.column,
@@ -1012,6 +1020,6 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 		}
 
-		return findings.sort((a, b) => a.key.localeCompare(b.key) || (a.language ?? '').localeCompare(b.language ?? ''));
+		return Promise.resolve(findings.sort((a: IFinding, b: IFinding): number => a.key.localeCompare(b.key) || (a.language ?? '').localeCompare(b.language ?? '')));
 	}
 };

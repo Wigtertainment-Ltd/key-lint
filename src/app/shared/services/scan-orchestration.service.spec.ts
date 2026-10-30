@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject } from 'rxjs';
-import { IProjectScanResult } from '@key-lint/core';
+import { IProjectScanResult, ITranslationMatrixRow, IFinding } from '@key-lint/core';
 
 import { ElectronService } from './electron.service';
 import { LoggerService } from './logging/logger.service';
@@ -12,7 +12,7 @@ interface IFakeEntry {
 	type: 'directory' | 'file';
 }
 
-describe('ScanOrchestrationService translation updates', () => {
+describe('ScanOrchestrationService translation updates', (): void => {
 	let writtenPath: string | undefined;
 	let writtenContent: string | undefined;
 	let contents: Record<string, string>;
@@ -22,7 +22,7 @@ describe('ScanOrchestrationService translation updates', () => {
 	let remoteRequests: IKeyLintTranslationFetchRequest[];
 	let tree: Record<string, IFakeEntry[]>;
 
-	beforeEach(() => {
+	beforeEach((): void => {
 		writtenPath = undefined;
 		writtenContent = undefined;
 		unreadablePaths = new Set<string>();
@@ -62,40 +62,41 @@ describe('ScanOrchestrationService translation updates', () => {
 			'C:/project/translations/de.json': '{}',
 			'C:/project/translations/en.json': '{"APP":{"TITLE":"Configured title"}}'
 		};
-		const electronService = {
+		const electronService: ElectronService = {
 			isElectron: true,
-			readDirectory: async (path: string) => {
+			readDirectory: async (path: string): Promise<IKeyLintDirectoryEntry[]> => {
 				if (unreadablePaths.has(path)) {
 					throw new Error('Access denied');
 				}
 
-				return (tree[path] ?? []).map((entry) => ({
+				return Promise.resolve((tree[path] ?? []).map((entry: IFakeEntry): IKeyLintDirectoryEntry => ({
 					name: entry.name,
 					isDirectory: entry.type === 'directory',
 					isFile: entry.type === 'file',
 					isSymbolicLink: false,
 					sizeBytes: contents[`${path}/${entry.name}`]?.length
-				}));
+				})));
 			},
-			readFile: async (path: string) => contents[path],
-			writeFile: async (path: string, content: string) => {
+			readFile: async (path: string): Promise<string> => Promise.resolve(contents[path]),
+			writeFile: async (path: string, content: string): Promise<void> => {
 				writtenPath = path;
 				writtenContent = content;
 				contents[path] = content;
+				return Promise.resolve();
 			},
-			pathExists: async (path: string) => path in tree || path in contents,
+			pathExists: async (path: string): Promise<boolean> => Promise.resolve(path in tree || path in contents),
 			fetchTranslationResource: async (request: IKeyLintTranslationFetchRequest): Promise<IKeyLintTranslationFetchResult> => {
 				remoteRequestCount += 1;
 				remoteRequests.push(request);
-				return {
+				return Promise.resolve({
 					ok: true,
 					value: {
 						body: '{"APP":{"TITLE":"Remote title"}}',
 						finalUrl: request.url
 					}
-				};
+				});
 			},
-			endTranslationScan: async (): Promise<IKeyLintTranslationEndResult> => ({ ok: true })
+			endTranslationScan: async (): Promise<IKeyLintTranslationEndResult> => Promise.resolve(({ ok: true }))
 		} as unknown as ElectronService;
 		historyService = jasmine.createSpyObj<ProjectHistoryService>('ProjectHistoryService', ['addEvent']);
 
@@ -104,7 +105,7 @@ describe('ScanOrchestrationService translation updates', () => {
 				ScanOrchestrationService,
 				{ provide: ElectronService, useValue: electronService },
 				{ provide: ProjectHistoryService, useValue: historyService },
-				{ provide: LoggerService, useValue: jasmine.createSpyObj('LoggerService', ['info', 'error']) }
+				{ provide: LoggerService, useValue: jasmine.createSpyObj<LoggerService>('LoggerService', ['info', 'error']) }
 			]
 		});
 	});
@@ -128,45 +129,47 @@ describe('ScanOrchestrationService translation updates', () => {
 		};
 	}
 
-	it('scans React through the desktop filesystem and records its adapter in history', async () => {
+	it('scans React through the desktop filesystem and records its adapter in history', async (): Promise<void> => {
 		useReactProject();
-		const service = TestBed.inject(ScanOrchestrationService);
-		const result = await service.scanProject('C:/project');
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
+		const result: IProjectScanResult = await service.scanProject('C:/project');
 		expect(result.adapterId).toBe('react');
 		expect(result.summary).toEqual(jasmine.objectContaining({ totalKeys: 6, used: 3, unused: 1, missingInLanguage: 1, dynamicOrUncertain: 2 }));
 		expect(service.snapshot.state).toBe('completed');
 		expect(result.metadata?.['translationFileCount']).toBe(4);
 		expect(result.metadata?.['fileSystemWarningCount']).toBe(0);
-		expect(historyService.addEvent).toHaveBeenCalledWith(jasmine.objectContaining({ type: 'scan-completed', payload: jasmine.objectContaining({ adapterId: 'react' }) }));
+		expect(historyService.addEvent.calls.allArgs()).toContain([
+			jasmine.objectContaining({ type: 'scan-completed', payload: jasmine.objectContaining({ adapterId: 'react' }) })
+		]);
 	});
 
-	it('writes React keys into the correct namespace and retains React interpolation metadata', async () => {
+	it('writes React keys into the correct namespace and retains React interpolation metadata', async (): Promise<void> => {
 		useReactProject();
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		await service.scanProject('C:/project');
-		const adminBefore = contents['C:/project/locales/de/admin.json'];
-		const value = 'Hallo {{name}} {{- html}} {{price, number}}';
-		const file = await service.addTranslationKeyForLocale('de', 'common:greeting', value, 'results-overview');
+		const adminBefore: string = contents['C:/project/locales/de/admin.json'];
+		const value: string = 'Hallo {{name}} {{- html}} {{price, number}}';
+		const file: string = await service.addTranslationKeyForLocale('de', 'common:greeting', value, 'results-overview');
 		expect(file).toBe('C:/project/locales/de/common.json');
 		expect(JSON.parse(writtenContent ?? '{}') as Record<string, unknown>).toEqual(jasmine.objectContaining({ greeting: value }));
 		expect(JSON.parse(writtenContent ?? '{}') as Record<string, unknown>).not.toEqual(jasmine.objectContaining({ 'common:greeting': value }));
 		expect(contents['C:/project/locales/de/admin.json']).toBe(adminBefore);
 		expect(service.snapshot.result?.summary.missingInLanguage).toBe(0);
-		expect(service.snapshot.result?.translationMatrix?.rows.find((row) => row.key === 'common:greeting')?.placeholders?.['de']).toEqual(['html', 'name', 'price']);
+		expect(service.snapshot.result?.translationMatrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'common:greeting')?.placeholders?.['de']).toEqual(['html', 'name', 'price']);
 	});
 
-	it('does not write a React key into an unrelated namespace when its target file is missing', async () => {
+	it('does not write a React key into an unrelated namespace when its target file is missing', async (): Promise<void> => {
 		useReactProject();
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		await service.scanProject('C:/project');
 		await expectAsync(service.addTranslationKeyForLocale('de', 'absent:greeting', 'Hallo')).toBeRejectedWithError(/namespace "absent"/);
 		expect(writtenPath).toBeUndefined();
 	});
 
-	it('uses project config for both scanning and later translation writes', async () => {
-		const service = TestBed.inject(ScanOrchestrationService);
+	it('uses project config for both scanning and later translation writes', async (): Promise<void> => {
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 
-		const result = await service.scanProject('C:/project');
+		const result: IProjectScanResult = await service.scanProject('C:/project');
 
 		expect(result.metadata?.['configFilePath']).toBe('C:/project/keylint.config.json');
 		expect(result.metadata?.['packageJsonConfigApplied']).toBeFalse();
@@ -187,20 +190,20 @@ describe('ScanOrchestrationService translation updates', () => {
 		});
 	});
 
-	it('requires per-scan confirmation before a remote-only request', async () => {
+	it('requires per-scan confirmation before a remote-only request', async (): Promise<void> => {
 		contents['C:/project/keylint.config.json'] = JSON.stringify({
 			translationSources: [{
 				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en']
 			}],
 			includeSourceGlobs: ['src/*.html']
 		});
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 
 		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(/was not confirmed/);
 		expect(remoteRequestCount).toBe(0);
 	});
 
-	it('analyzes remote-only translations and clears authorization after completion', async () => {
+	it('analyzes remote-only translations and clears authorization after completion', async (): Promise<void> => {
 		contents['C:/project/keylint.config.json'] = JSON.stringify({
 			translationSources: [{
 				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'],
@@ -208,11 +211,11 @@ describe('ScanOrchestrationService translation updates', () => {
 			}],
 			includeSourceGlobs: ['src/*.html']
 		});
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		service.authorizeNextRemoteScan({ KEYLINT_AUTH: 'Bearer temporary-secret' });
 		service.setNextDetectedLoaderTypes(['ngx-translate']);
 
-		const result = await service.scanProject('C:/project');
+		const result: IProjectScanResult = await service.scanProject('C:/project');
 
 		expect(remoteRequestCount).toBe(1);
 		expect(remoteRequests[0].headers).toEqual({ Authorization: 'Bearer temporary-secret' });
@@ -225,7 +228,7 @@ describe('ScanOrchestrationService translation updates', () => {
 			remoteRequestCount: 1,
 			detectedLoaderTypes: ['ngx-translate']
 		}));
-		expect(result.translationMatrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
+		expect(result.translationMatrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
 		expect(JSON.stringify(result)).not.toContain('temporary-secret');
 		expect(JSON.stringify(historyService.addEvent.calls.allArgs())).not.toContain('temporary-secret');
 		await expectAsync(service.addTranslationKeyForLocale('en', 'APP.NEW', 'New'))
@@ -235,7 +238,7 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(remoteRequestCount).toBe(1);
 	});
 
-	it('preserves configured mixed-source override order', async () => {
+	it('preserves configured mixed-source override order', async (): Promise<void> => {
 		contents['C:/project/keylint.config.json'] = JSON.stringify({
 			translationSources: [
 				{ type: 'filesystem', id: 'base', includeGlobs: ['translations/*.json'] },
@@ -243,12 +246,12 @@ describe('ScanOrchestrationService translation updates', () => {
 			],
 			includeSourceGlobs: ['src/*.html']
 		});
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		service.authorizeNextRemoteScan({});
 
-		const result = await service.scanProject('C:/project');
+		const result: IProjectScanResult = await service.scanProject('C:/project');
 
-		expect(result.translationMatrix?.rows.find((row) => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
+		expect(result.translationMatrix?.rows.find((row: ITranslationMatrixRow): boolean => row.key === 'APP.TITLE')?.values['en']).toBe('Remote title');
 		expect(result.metadata?.['translationReadOnly']).toBeTrue();
 		expect(result.metadata).toEqual(jasmine.objectContaining({
 			translationSourceCount: 2,
@@ -258,14 +261,14 @@ describe('ScanOrchestrationService translation updates', () => {
 		}));
 	});
 
-	it('clears pending remote authorization on reset', async () => {
+	it('clears pending remote authorization on reset', async (): Promise<void> => {
 		contents['C:/project/keylint.config.json'] = JSON.stringify({
 			translationSources: [{
 				type: 'http', id: 'api', urlTemplate: 'https://example.com/{locale}.json', locales: ['en'],
 				headersFromEnv: { Authorization: 'KEYLINT_AUTH' }
 			}]
 		});
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		service.authorizeNextRemoteScan({ KEYLINT_AUTH: 'Bearer reset-secret' });
 		service.reset();
 
@@ -273,12 +276,12 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(remoteRequestCount).toBe(0);
 	});
 
-	it('keeps scanning and exposes filesystem guardrail warnings in metadata', async () => {
+	it('keeps scanning and exposes filesystem guardrail warnings in metadata', async (): Promise<void> => {
 		unreadablePaths.add('C:/project/src/assets');
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 
-		const result = await service.scanProject('C:/project');
-		const warnings = result.metadata?.['fileSystemWarnings'] as {
+		const result: IProjectScanResult = await service.scanProject('C:/project');
+		const warnings: { code: string; filePath?: string; }[] = result.metadata?.['fileSystemWarnings'] as {
 			code: string;
 			filePath?: string;
 		}[];
@@ -290,7 +293,7 @@ describe('ScanOrchestrationService translation updates', () => {
 		}));
 	});
 
-	it('applies guardrails loaded from the desktop project configuration', async () => {
+	it('applies guardrails loaded from the desktop project configuration', async (): Promise<void> => {
 		contents['C:/project/keylint.config.json'] = JSON.stringify({
 			includeTranslationGlobs: ['translations/*.json'],
 			includeSourceGlobs: ['src/*.html'],
@@ -299,22 +302,22 @@ describe('ScanOrchestrationService translation updates', () => {
 				maxFileSizeBytes: 2_097_152
 			}
 		});
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 
-		const result = await service.scanProject('C:/project');
-		const warnings = result.metadata?.['fileSystemWarnings'] as { code: string }[];
+		const result: IProjectScanResult = await service.scanProject('C:/project');
+		const warnings: { code: string; }[] = result.metadata?.['fileSystemWarnings'] as { code: string }[];
 
 		expect(result.metadata?.['translationFileCount']).toBe(1);
 		expect(warnings).toContain(jasmine.objectContaining({ code: 'max-files-reached' }));
 	});
 
-	it('applies temporary desktop overrides and records their effective source', async () => {
-		const service = TestBed.inject(ScanOrchestrationService);
+	it('applies temporary desktop overrides and records their effective source', async (): Promise<void> => {
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		service.setNextScanConfigOverrides({
 			guardrails: { maxFiles: 50, maxFileSizeBytes: 1_048_576 }
 		});
 
-		const result = await service.scanProject('C:/project');
+		const result: IProjectScanResult = await service.scanProject('C:/project');
 
 		expect(result.metadata?.['guardrails']).toEqual({
 			maxFiles: 50,
@@ -326,8 +329,8 @@ describe('ScanOrchestrationService translation updates', () => {
 		});
 	});
 
-	it('writes nested JSON and resolves only the matching locale finding', async () => {
-		const service = TestBed.inject(ScanOrchestrationService);
+	it('writes nested JSON and resolves only the matching locale finding', async (): Promise<void> => {
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		const result: IProjectScanResult = {
 			projectRoot: 'C:/project',
 			adapterId: 'angular',
@@ -377,12 +380,12 @@ describe('ScanOrchestrationService translation updates', () => {
 				}]
 			}
 		};
-		const internal = service as unknown as {
+		const internal: { stateSubject: BehaviorSubject<ScanExecutionSnapshot>; } = service as unknown as {
 			stateSubject: BehaviorSubject<ScanExecutionSnapshot>;
 		};
 		internal.stateSubject.next({ state: 'completed', result });
 
-		const filePath = await service.addTranslationKeyForLocale(
+		const filePath: string = await service.addTranslationKeyForLocale(
 			'de',
 			'APP.TITLE',
 			'Titel',
@@ -392,23 +395,23 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(filePath).toBe('C:/project/src/assets/i18n/de.json');
 		expect(writtenPath).toBe(filePath);
 		expect(JSON.parse(writtenContent ?? '{}')).toEqual({ APP: { TITLE: 'Titel' } });
-		expect(service.snapshot.result?.findings.map((finding) => finding.id)).toEqual([
+		expect(service.snapshot.result?.findings.map((finding: IFinding): string => finding.id)).toEqual([
 			'missing:APP.TITLE:fr'
 		]);
 		expect(service.snapshot.result?.summary.missingInLanguage).toBe(1);
 		expect(service.snapshot.result?.summary.totalFindings).toBe(1);
 		expect(service.snapshot.result?.translationMatrix?.rows[0].values['de']).toBe('Titel');
 		expect(service.snapshot.result?.translationMatrix?.rows[0].keyPresence?.['de']).toBeTrue();
-		expect(historyService.addEvent).toHaveBeenCalledWith(jasmine.objectContaining({
+		expect(historyService.addEvent.calls.allArgs()).toContain([jasmine.objectContaining({
 			projectPath: 'C:/project',
 			type: 'translation-key-added',
 			payload: jasmine.objectContaining({ locale: 'de', key: 'APP.TITLE' })
-		}));
+		})]);
 	});
 
-	it('fails the scan and exposes the file error when translation JSON is invalid', async () => {
+	it('fails the scan and exposes the file error when translation JSON is invalid', async (): Promise<void> => {
 		contents['C:/project/translations/de.json'] = '{"APP":';
-		const service = TestBed.inject(ScanOrchestrationService);
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 
 		// Match the complete invalid translation path while escaping regex-significant slashes and dots.
 		await expectAsync(service.scanProject('C:/project')).toBeRejectedWithError(
@@ -419,8 +422,8 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(service.snapshot.error).toContain('C:/project/translations/de.json');
 	});
 
-	it('never overwrites invalid translation JSON while adding a key', async () => {
-		const service = TestBed.inject(ScanOrchestrationService);
+	it('never overwrites invalid translation JSON while adding a key', async (): Promise<void> => {
+		const service: ScanOrchestrationService = TestBed.inject(ScanOrchestrationService);
 		const result: IProjectScanResult = {
 			projectRoot: 'C:/project',
 			adapterId: 'angular',
@@ -458,7 +461,7 @@ describe('ScanOrchestrationService translation updates', () => {
 				}]
 			}
 		};
-		const internal = service as unknown as {
+		const internal: { stateSubject: BehaviorSubject<ScanExecutionSnapshot>; } = service as unknown as {
 			stateSubject: BehaviorSubject<ScanExecutionSnapshot>;
 		};
 		internal.stateSubject.next({ state: 'completed', result });
@@ -472,6 +475,6 @@ describe('ScanOrchestrationService translation updates', () => {
 		expect(writtenPath).toBeUndefined();
 		expect(writtenContent).toBeUndefined();
 		expect(service.snapshot.result).toBe(result);
-		expect(historyService.addEvent).not.toHaveBeenCalled();
+		expect(historyService.addEvent.calls.count()).toBe(0);
 	});
 });

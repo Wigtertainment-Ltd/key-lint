@@ -20,11 +20,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  */
 function cloneTranslationValue(value: unknown): unknown {
 	if (Array.isArray(value)) {
-		return value.map((entry) => cloneTranslationValue(entry));
+		return value.map((entry: unknown): unknown => cloneTranslationValue(entry));
 	}
 	if (isPlainObject(value)) {
 		return Object.fromEntries(
-			Object.entries(value).map(([key, entry]) => [key, cloneTranslationValue(entry)])
+			Object.entries(value).map(([key, entry]: [string, unknown]): [string, unknown] => [key, cloneTranslationValue(entry)])
 		);
 	}
 	return value;
@@ -61,7 +61,7 @@ export function mergeTranslationObjects(earlier: Record<string, unknown>, later:
  */
 export function mergeTranslationResources(resources: ITranslationResource[]): Map<string, Record<string, unknown>> {
 	const localeContent: Map<string, Record<string, unknown>> = new Map<string, Record<string, unknown>>();
-	const ordered: ITranslationResource[] = [...resources].sort((left, right) => left.position - right.position);
+	const ordered: ITranslationResource[] = [...resources].sort((left: ITranslationResource, right: ITranslationResource): number => left.position - right.position);
 
 	for (const resource of ordered) {
 		localeContent.set(

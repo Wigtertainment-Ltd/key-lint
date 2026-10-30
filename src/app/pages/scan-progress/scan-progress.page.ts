@@ -1,7 +1,7 @@
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal, Signal, WritableSignal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ScanExecutionSnapshot, ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ScanExecutionSnapshot, ScanOrchestrationService, ScanExecutionState } from '../../shared/services/scan-orchestration.service';
 import { IProjectScanResult } from '@key-lint/core';
 import { LoggerService } from '../../shared/services/logging/logger.service';
 import { IStepItem } from './scan-progress.interfaces';
@@ -12,20 +12,20 @@ import { IStepItem } from './scan-progress.interfaces';
 	styleUrl: './scan-progress.page.scss'
 })
 export class ScanProgressPage implements OnInit {
-	projectPath = '';
-	readonly scanState = computed<ScanExecutionSnapshot['state']>(() => this.scanSnapshot().state);
-	readonly scanStage = computed(() => this.scanSnapshot().stage);
-	readonly scanError = computed(() => this.scanSnapshot().error);
-	readonly scanResult = computed<IProjectScanResult | undefined>(() => this.scanSnapshot().result);
-	readonly progressPercent = signal(0);
-	isCancelling = false;
+	projectPath: string = '';
+	readonly scanState: Signal<ScanExecutionState> = computed<ScanExecutionSnapshot['state']>((): ScanExecutionState => this.scanSnapshot().state);
+	readonly scanStage: Signal<string | undefined> = computed((): string | undefined => this.scanSnapshot().stage);
+	readonly scanError: Signal<string | undefined> = computed((): string | undefined => this.scanSnapshot().error);
+	readonly scanResult: Signal<IProjectScanResult | undefined> = computed<IProjectScanResult | undefined>((): IProjectScanResult | undefined => this.scanSnapshot().result);
+	readonly progressPercent: WritableSignal<number> = signal(0);
+	isCancelling: boolean = false;
 
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
 	private readonly destroyRef: DestroyRef = inject(DestroyRef);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
-	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+	private readonly scanSnapshot: Signal<ScanExecutionSnapshot> = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
 	readonly steps: IStepItem[] = [
@@ -37,12 +37,12 @@ export class ScanProgressPage implements OnInit {
 		{ id: 6, title: 'Running rule evaluation', trigger: 'Evaluating scan rules' }
 	];
 
-	readonly logLines = signal<string[]>([]);
-	private lastProgressPercent = 0;
+	readonly logLines: WritableSignal<string[]> = signal<string[]>([]);
+	private lastProgressPercent: number = 0;
 	private lastLoggedStage?: string;
-	private hasLoggedCompletionMessage = false;
-	private hasLoggedFailureMessage = false;
-	private readonly loggedStepIds = new Set<number>();
+	private hasLoggedCompletionMessage: boolean = false;
+	private hasLoggedFailureMessage: boolean = false;
+	private readonly loggedStepIds: Set<number> = new Set<number>();
 
 	ngOnInit(): void {
 		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
@@ -57,14 +57,14 @@ export class ScanProgressPage implements OnInit {
 		this.hasLoggedFailureMessage = false;
 		this.loggedStepIds.clear();
 
-		this.scanOrchestrationService.state$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((snapshot) => {
+		this.scanOrchestrationService.state$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((snapshot: ScanExecutionSnapshot): void => {
 			if (snapshot.stage && snapshot.stage !== this.lastLoggedStage) {
 				this.lastLoggedStage = snapshot.stage;
 				this.logStepFromStage(snapshot.stage);
 				this.appendLog(snapshot.stage);
 			}
 
-			const nextProgress = this.calculateProgress(snapshot, this.lastProgressPercent);
+			const nextProgress: number = this.calculateProgress(snapshot, this.lastProgressPercent);
 			this.lastProgressPercent = nextProgress;
 			this.progressPercent.set(nextProgress);
 
@@ -82,8 +82,8 @@ export class ScanProgressPage implements OnInit {
 		void this.runScan();
 	}
 	get selectedProjectShort(): string {
-		const normalized = this.projectPath.replaceAll('\\', '/');
-		const parts = normalized.split('/').filter(Boolean);
+		const normalized: string = this.projectPath.replaceAll('\\', '/');
+		const parts: string[] = normalized.split('/').filter(Boolean);
 		if (parts.length <= 3) {
 			return this.projectPath;
 		}
@@ -100,12 +100,12 @@ export class ScanProgressPage implements OnInit {
 			return this.steps.at(-1)?.id ?? 1;
 		}
 
-		const stage = this.scanStage();
+		const stage: string | undefined = this.scanStage();
 		if (!stage) {
 			return 1;
 		}
 
-		const idx = this.steps.findIndex((step) => stage.includes(step.trigger));
+		const idx: number = this.steps.findIndex((step: IStepItem): boolean => stage.includes(step.trigger));
 		return idx >= 0 ? this.steps[idx].id : 1;
 	}
 
@@ -165,12 +165,12 @@ export class ScanProgressPage implements OnInit {
 			return;
 		}
 
-		const timestamp = new Date().toLocaleTimeString();
-		this.logLines.update((lines) => [...lines, `[${timestamp}] ${message}`].slice(-80));
+		const timestamp: string = new Date().toLocaleTimeString();
+		this.logLines.update((lines: string[]): string[] => [...lines, `[${timestamp}] ${message}`].slice(-80));
 	}
 
 	private logStepFromStage(stage: string): void {
-		const step = this.steps.find((item) => stage.includes(item.trigger));
+		const step: IStepItem | undefined = this.steps.find((item: IStepItem): boolean => stage.includes(item.trigger));
 		if (!step || this.loggedStepIds.has(step.id)) {
 			return;
 		}
@@ -196,12 +196,12 @@ export class ScanProgressPage implements OnInit {
 			return 10;
 		}
 
-		const index = this.steps.findIndex((step) => snapshot.stage?.includes(step.trigger));
+		const index: number = this.steps.findIndex((step: IStepItem): boolean | undefined => snapshot.stage?.includes(step.trigger));
 		if (index < 0) {
 			return Math.max(15, currentProgress);
 		}
 
-		const ratio = (index + 1) / this.steps.length;
+		const ratio: number = (index + 1) / this.steps.length;
 		return Math.min(95, Math.max(currentProgress, Math.round(ratio * 100)));
 	}
 }

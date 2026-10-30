@@ -21,7 +21,7 @@ export function severityRank(severity: FindingSeverity): number {
 /** Removes configured runtime credential values from every user-visible reporter surface. */
 export function redactReporterText(text: string, sensitiveValues: readonly string[]): string {
 	return [...new Set(sensitiveValues)]
-		.filter((value) => value.length > 0)
-		.sort((left, right) => right.length - left.length)
-		.reduce((redacted, value) => redacted.split(value).join('[redacted]'), text);
+		.filter((value: string): boolean => value.length > 0)
+		.sort((left: string, right: string): number => right.length - left.length)
+		.reduce((redacted: string, value: string): string => redacted.split(value).join('[redacted]'), text);
 }

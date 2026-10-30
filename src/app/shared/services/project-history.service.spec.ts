@@ -1,11 +1,12 @@
 import { ProjectHistoryService } from './project-history.service';
+import type { IProjectHistoryEvent, ProjectHistoryEventType } from '@key-lint/core';
 
-describe('ProjectHistoryService', () => {
-	beforeEach(() => localStorage.clear());
-	afterEach(() => localStorage.clear());
+describe('ProjectHistoryService', (): void => {
+	beforeEach((): void => localStorage.clear());
+	afterEach((): void => localStorage.clear());
 
-	it('normalizes project paths, isolates projects, and orders newest events first', () => {
-		const service = new ProjectHistoryService();
+	it('normalizes project paths, isolates projects, and orders newest events first', (): void => {
+		const service: ProjectHistoryService = new ProjectHistoryService();
 		service.addEvent({
 			projectPath: 'C:\\Work\\App\\',
 			type: 'scan-started',
@@ -30,13 +31,13 @@ describe('ProjectHistoryService', () => {
 			payload: { requestedProjectRoot: 'C:/Work/Other' }
 		});
 
-		const events = service.getEventsForProject('C:/WORK/APP/');
-		expect(events.map((event) => event.type)).toEqual(['scan-completed', 'scan-started']);
-		expect(events.every((event) => event.projectPath.toLowerCase() === 'c:/work/app')).toBeTrue();
+		const events: IProjectHistoryEvent[] = service.getEventsForProject('C:/WORK/APP/');
+		expect(events.map((event: IProjectHistoryEvent): ProjectHistoryEventType => event.type)).toEqual(['scan-completed', 'scan-started']);
+		expect(events.every((event: IProjectHistoryEvent): boolean => event.projectPath.toLowerCase() === 'c:/work/app')).toBeTrue();
 	});
 
-	it('persists events and restores them in a new service instance', () => {
-		const first = new ProjectHistoryService();
+	it('persists events and restores them in a new service instance', (): void => {
+		const first: ProjectHistoryService = new ProjectHistoryService();
 		first.addEvent({
 			projectPath: '/workspace/app',
 			type: 'translation-key-added',
@@ -49,14 +50,14 @@ describe('ProjectHistoryService', () => {
 			}
 		});
 
-		const restored = new ProjectHistoryService().getEventsForProject('/workspace/app');
+		const restored: IProjectHistoryEvent[] = new ProjectHistoryService().getEventsForProject('/workspace/app');
 		expect(restored).toHaveSize(1);
 		expect(restored[0].payload).toEqual(jasmine.objectContaining({ locale: 'de', key: 'APP.TITLE' }));
 	});
 
-	it('keeps at most 500 events per project without deleting other projects', () => {
-		const service = new ProjectHistoryService();
-		for (let index = 0; index < 501; index += 1) {
+	it('keeps at most 500 events per project without deleting other projects', (): void => {
+		const service: ProjectHistoryService = new ProjectHistoryService();
+		for (let index: number = 0; index < 501; index += 1) {
 			service.addEvent({
 				projectPath: '/workspace/main',
 				type: 'scan-started',
@@ -74,9 +75,9 @@ describe('ProjectHistoryService', () => {
 		expect(service.getEventsForProject('/workspace/other')).toHaveSize(1);
 	});
 
-	it('clears only the selected project and tolerates malformed storage', () => {
+	it('clears only the selected project and tolerates malformed storage', (): void => {
 		localStorage.setItem('key-lint.project-history.v1', '{invalid json');
-		const service = new ProjectHistoryService();
+		const service: ProjectHistoryService = new ProjectHistoryService();
 		expect(service.getEventsForProject('/workspace/main')).toEqual([]);
 
 		service.addEvent({

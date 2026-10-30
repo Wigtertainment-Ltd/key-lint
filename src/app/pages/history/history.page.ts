@@ -1,10 +1,11 @@
-import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, Injector, OnInit, signal, WritableSignal, Signal, EffectCleanupRegisterFn } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { IProjectHistoryEvent, IScanCompletedHistoryPayload, ITranslationKeyAddedHistoryPayload, normalizePath } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
-import { ScanOrchestrationService } from '../../shared/services/scan-orchestration.service';
+import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
 import { IHistoryDayGroup } from './history.interfaces';
+import type { Subscription } from 'rxjs';
 
 @Component({
 	selector: 'app-history-page',
@@ -16,25 +17,25 @@ export class HistoryPage implements OnInit {
 	private readonly historyService: ProjectHistoryService = inject(ProjectHistoryService);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly injector: Injector = inject(Injector);
-	private readonly projectPathSignal = signal('');
+	private readonly projectPathSignal: WritableSignal<string> = signal('');
 	activeFilter: 'all' | 'scan' | 'translation' = 'all';
-	private readonly scanSnapshot = toSignal(this.scanOrchestrationService.state$, {
+	private readonly scanSnapshot: Signal<ScanExecutionSnapshot> = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
-	private readonly events = signal<IProjectHistoryEvent[]>([]);
-	private currentWatchedProjectPath = '';
+	private readonly events: WritableSignal<IProjectHistoryEvent[]> = signal<IProjectHistoryEvent[]>([]);
+	private currentWatchedProjectPath: string = '';
 
 	ngOnInit(): void {
-		const routeProjectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
-		const scanProjectPath = this.scanOrchestrationService.snapshot.result?.projectRoot ?? '';
-		const initialProjectPath = normalizePath(scanProjectPath || routeProjectPath);
+		const routeProjectPath: string = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
+		const scanProjectPath: string = this.scanOrchestrationService.snapshot.result?.projectRoot ?? '';
+		const initialProjectPath: string = normalizePath(scanProjectPath || routeProjectPath);
 		if (initialProjectPath) {
 			this.projectPathSignal.set(initialProjectPath);
 		}
 
-		effect((onCleanup) => {
-			const snapshotPath = normalizePath(this.scanSnapshot().result?.projectRoot ?? '');
-			const livePath = snapshotPath || this.projectPathSignal();
+		effect((onCleanup: EffectCleanupRegisterFn): void => {
+			const snapshotPath: string = normalizePath(this.scanSnapshot().result?.projectRoot ?? '');
+			const livePath: string = snapshotPath || this.projectPathSignal();
 			if (!livePath || livePath === this.currentWatchedProjectPath) {
 				return;
 			}
@@ -42,11 +43,11 @@ export class HistoryPage implements OnInit {
 			this.currentWatchedProjectPath = livePath;
 			this.projectPathSignal.set(livePath);
 
-			const subscription = this.historyService.watchEventsForProject(livePath).subscribe((events) => {
+			const subscription: Subscription = this.historyService.watchEventsForProject(livePath).subscribe((events: IProjectHistoryEvent[]): void => {
 				this.events.set(events);
 			});
 
-			onCleanup(() => subscription.unsubscribe());
+			onCleanup((): void => subscription.unsubscribe());
 		}, { injector: this.injector });
 	}
 
@@ -59,29 +60,29 @@ export class HistoryPage implements OnInit {
 	}
 
 	get filteredEvents(): IProjectHistoryEvent[] {
-		const events = this.events();
+		const events: IProjectHistoryEvent[] = this.events();
 		if (this.activeFilter === 'all') {
 			return events;
 		}
 
 		if (this.activeFilter === 'scan') {
-			return events.filter((event) => event.type === 'scan-started' || event.type === 'scan-completed');
+			return events.filter((event: IProjectHistoryEvent): boolean => event.type === 'scan-started' || event.type === 'scan-completed');
 		}
 
-		return events.filter((event) => event.type === 'translation-key-added');
+		return events.filter((event: IProjectHistoryEvent): boolean => event.type === 'translation-key-added');
 	}
 
 	get groupedEvents(): IHistoryDayGroup[] {
-		const groups = new Map<string, IProjectHistoryEvent[]>();
+		const groups: Map<string, IProjectHistoryEvent[]> = new Map<string, IProjectHistoryEvent[]>();
 		for (const event of this.filteredEvents) {
-			const date = new Date(event.timestamp);
-			const dayKey = Number.isNaN(date.getTime()) ? 'Unknown date' : date.toDateString();
-			const bucket = groups.get(dayKey) ?? [];
+			const date: Date = new Date(event.timestamp);
+			const dayKey: string = Number.isNaN(date.getTime()) ? 'Unknown date' : date.toDateString();
+			const bucket: IProjectHistoryEvent[] = groups.get(dayKey) ?? [];
 			bucket.push(event);
 			groups.set(dayKey, bucket);
 		}
 
-		return Array.from(groups.entries()).map(([label, events]) => ({ label, events }));
+		return Array.from(groups.entries()).map(([label, events]: [string, IProjectHistoryEvent[]]): { label: string; events: IProjectHistoryEvent[]; } => ({ label, events }));
 	}
 
 	get hasProjectContext(): boolean {
@@ -93,7 +94,7 @@ export class HistoryPage implements OnInit {
 	}
 
 	formatTime(timestamp: string): string {
-		const date = new Date(timestamp);
+		const date: Date = new Date(timestamp);
 		if (Number.isNaN(date.getTime())) {
 			return 'Unknown time';
 		}
@@ -119,12 +120,12 @@ export class HistoryPage implements OnInit {
 		}
 
 		if (event.type === 'scan-completed') {
-			const payload = event.payload as IScanCompletedHistoryPayload;
+			const payload: IScanCompletedHistoryPayload = event.payload as IScanCompletedHistoryPayload;
 			return `Adapter ${payload.adapterId} finished in ${Math.max(0, Math.round(payload.durationMs / 1000))}s, ${payload.totalFindings} finding(s), ${payload.totalKeys} key(s), ${payload.localeCount} locale(s).`;
 		}
 
-		const payload = event.payload as ITranslationKeyAddedHistoryPayload;
-		const valueState = payload.valueWasEmpty ? 'empty value' : 'text value';
+		const payload: ITranslationKeyAddedHistoryPayload = event.payload as ITranslationKeyAddedHistoryPayload;
+		const valueState: 'empty value' | 'text value' = payload.valueWasEmpty ? 'empty value' : 'text value';
 		return `Key "${payload.key}" was added to locale "${payload.locale}" (${valueState}) from ${payload.source}.`;
 	}
 
@@ -133,7 +134,7 @@ export class HistoryPage implements OnInit {
 			return this.projectPath;
 		}
 
-		const payload = event.payload as ITranslationKeyAddedHistoryPayload;
+		const payload: ITranslationKeyAddedHistoryPayload = event.payload as ITranslationKeyAddedHistoryPayload;
 		return payload.filePath;
 	}
 }

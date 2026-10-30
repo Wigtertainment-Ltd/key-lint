@@ -2,24 +2,24 @@ import { fileURLToPath } from 'node:url';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, Mock } from 'vitest';
 
 import { normalizePath, IProjectScanResult } from '@key-lint/core';
 import { parseCliArgs, USAGE } from './args.js';
 import { runCli } from './cli.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
-import { ICliIo } from './cli.interfaces.js';
+import { ICliIo, ICliOptions } from './cli.interfaces.js';
 
-const FIXTURE_ROOT = fileURLToPath(
+const FIXTURE_ROOT: string = fileURLToPath(
 	new URL('../../core/test/fixtures/angular/ngx-translate-json/kitchen-sink', import.meta.url)
 );
-const MULTI_LOCALE_FIXTURE_ROOT = fileURLToPath(
+const MULTI_LOCALE_FIXTURE_ROOT: string = fileURLToPath(
 	new URL('../test/fixtures/multi-locale', import.meta.url)
 );
-const INVALID_BASE_CONFIG = fileURLToPath(
+const INVALID_BASE_CONFIG: string = fileURLToPath(
 	new URL('../test/fixtures/multi-locale/invalid-base.config.json', import.meta.url)
 );
-const INVALID_TRANSLATION_FIXTURE_ROOT = fileURLToPath(
+const INVALID_TRANSLATION_FIXTURE_ROOT: string = fileURLToPath(
 	new URL('../test/fixtures/invalid-translation', import.meta.url)
 );
 
@@ -32,15 +32,15 @@ interface ICapturedIo extends ICliIo {
 function createIo(): ICapturedIo {
 	const out: string[] = [];
 	const err: string[] = [];
-	const files = new Map<string, string>();
+	const files: Map<string, string> = new Map<string, string>();
 
 	return {
 		out,
 		err,
 		files,
-		stdout: (text) => void out.push(text),
-		stderr: (text) => void err.push(text),
-		writeFile: async (filePath, content) => void files.set(filePath, content)
+		stdout: (text: string): undefined => void out.push(text),
+		stderr: (text: string): undefined => void err.push(text),
+		writeFile: (filePath: string, content: string): Promise<undefined> => Promise.resolve(void files.set(filePath, content))
 	};
 }
 
@@ -67,7 +67,7 @@ function parseJsonReport(io: ICapturedIo): IJsonReport {
 }
 
 async function createRemoteFixture(headersFromEnv?: Record<string, string>): Promise<string> {
-	const root = await mkdtemp(join(tmpdir(), 'keylint-remote-'));
+	const root: string = await mkdtemp(join(tmpdir(), 'keylint-remote-'));
 	await mkdir(join(root, 'src', 'app'), { recursive: true });
 	await writeFile(join(root, 'angular.json'), '{"version":1}', 'utf8');
 	await writeFile(join(root, 'src', 'app', 'app.component.html'), "{{ 'APP.TITLE' | translate }}", 'utf8');
@@ -87,7 +87,7 @@ async function createAutoHttpFixture(
 	kind: 'ngx' | 'transloco' | 'both' | 'none',
 	source: Record<string, unknown> = {}
 ): Promise<string> {
-	const root = await mkdtemp(join(tmpdir(), 'keylint-auto-http-'));
+	const root: string = await mkdtemp(join(tmpdir(), 'keylint-auto-http-'));
 	await mkdir(join(root, 'src', 'app'), { recursive: true });
 	await writeFile(join(root, 'angular.json'), '{"version":1}', 'utf8');
 	await writeFile(join(root, 'src', 'app', 'app.component.html'), "{{ 'APP.TITLE' | translate }}", 'utf8');
@@ -116,41 +116,41 @@ async function createAutoHttpFixture(
 	return root;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach((): typeof vi => vi.unstubAllGlobals());
 
-describe('runCli', () => {
-	it.each(['basic', 'namespaces', 'default-namespace', 'trans-placeholders', 'plurals-dynamic'])('scans the React %s fixture through the default registry', async (scenario) => {
-		const root = fileURLToPath(new URL(`../../core/test/fixtures/react/react-i18next-json/${scenario}`, import.meta.url));
-		const expected = JSON.parse(await readFile(join(root, '_expected.json'), 'utf8')) as { summary: IProjectScanResult['summary'] };
-		const io = createIo();
-		const code = await runCli(['scan', root, '--quiet', '--reporter', 'json'], io);
-		const report = parseJsonReport(io);
+describe('runCli', (): void => {
+	it.each(['basic', 'namespaces', 'default-namespace', 'trans-placeholders', 'plurals-dynamic'])('scans the React %s fixture through the default registry', async (scenario: string): Promise<void> => {
+		const root: string = fileURLToPath(new URL(`../../core/test/fixtures/react/react-i18next-json/${scenario}`, import.meta.url));
+		const expected: { summary: IProjectScanResult['summary']; } = JSON.parse(await readFile(join(root, '_expected.json'), 'utf8')) as { summary: IProjectScanResult['summary'] };
+		const io: ICapturedIo = createIo();
+		const code: number = await runCli(['scan', root, '--quiet', '--reporter', 'json'], io);
+		const report: IJsonReport = parseJsonReport(io);
 		expect(code).toBe(EXIT_THRESHOLD_EXCEEDED);
 		expect(report.adapterId).toBe('react');
 		expect(report.summary).toEqual(expected.summary);
 		expect(report.metadata.translationReadOnly).toBe(false);
 	});
 
-	it('applies React warning thresholds and namespace-qualified ignore patterns', async () => {
-		const root = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/plurals-dynamic', import.meta.url));
-		const passing = createIo();
+	it('applies React warning thresholds and namespace-qualified ignore patterns', async (): Promise<void> => {
+		const root: string = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/plurals-dynamic', import.meta.url));
+		const passing: ICapturedIo = createIo();
 		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '3'], passing)).toBe(EXIT_OK);
-		const failing = createIo();
+		const failing: ICapturedIo = createIo();
 		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '2'], failing)).toBe(EXIT_THRESHOLD_EXCEEDED);
-		const ignored = createIo();
+		const ignored: ICapturedIo = createIo();
 		expect(
 			await runCli(
 				['scan', root, '--quiet', '--reporter', 'json', '--ignore', 'common:missing_*', '--ignore', 'common:status.*', '--ignore', 'common:unused', '--max-warnings', '0'],
 				ignored
 			)
 		).toBe(EXIT_OK);
-		expect(parseJsonReport(ignored).findings.every((finding) => finding.status === 'used')).toBe(true);
+		expect(parseJsonReport(ignored).findings.every((finding: { key: string; status: string; severity: string; language: string | null; }): boolean => finding.status === 'used')).toBe(true);
 	});
 
-	it('renders React results through text, Markdown and HTML reporters', async () => {
-		const root = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/basic', import.meta.url));
-		const io = createIo();
-		const code = await runCli(['scan', root, '--quiet', '--max-errors', '1', '--output', 'text=react.txt', '--output', 'markdown=react.md', '--output', 'html=react.html'], io);
+	it('renders React results through text, Markdown and HTML reporters', async (): Promise<void> => {
+		const root: string = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/basic', import.meta.url));
+		const io: ICapturedIo = createIo();
+		const code: number = await runCli(['scan', root, '--quiet', '--max-errors', '1', '--output', 'text=react.txt', '--output', 'markdown=react.md', '--output', 'html=react.html'], io);
 		expect(code).toBe(EXIT_OK);
 		expect(io.files.size).toBe(3);
 		for (const report of io.files.values()) {
@@ -160,26 +160,26 @@ describe('runCli', () => {
 		}
 	});
 
-	it('reports missing keys as errors and fails with the default thresholds', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('reports missing keys as errors and fails with the default thresholds', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--no-color'],
 			io
 		);
 
-		const report = parseJsonReport(io);
+		const report: IJsonReport = parseJsonReport(io);
 
 		expect(exitCode).toBe(EXIT_THRESHOLD_EXCEEDED);
 		expect(report.schemaVersion).toBe(2);
 		expect(report.severityCounts.error).toBe(1);
-		expect(report.findings.some((f) => f.key === 'APP.MISSING' && f.status === 'missing-in-language')).toBe(true);
-		expect(report.findings.some((f) => f.key === 'APP.TITLE' && f.status === 'used')).toBe(true);
-		expect(report.findings.some((f) => f.key === 'APP.UNUSED' && f.status === 'unused')).toBe(true);
+		expect(report.findings.some((f: IJsonReport['findings'][number]): boolean => f.key === 'APP.MISSING' && f.status === 'missing-in-language')).toBe(true);
+		expect(report.findings.some((f: IJsonReport['findings'][number]): boolean => f.key === 'APP.TITLE' && f.status === 'used')).toBe(true);
+		expect(report.findings.some((f: IJsonReport['findings'][number]): boolean => f.key === 'APP.UNUSED' && f.status === 'unused')).toBe(true);
 	});
 
-	it('passes when the error threshold allows the finding', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('passes when the error threshold allows the finding', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--max-errors', '1'],
 			io
 		);
@@ -187,9 +187,9 @@ describe('runCli', () => {
 		expect(exitCode).toBe(EXIT_OK);
 	});
 
-	it('fails when the warning threshold is exceeded', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('fails when the warning threshold is exceeded', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--max-errors', '1', '--max-warnings', '0'],
 			io
 		);
@@ -197,26 +197,26 @@ describe('runCli', () => {
 		expect(exitCode).toBe(EXIT_THRESHOLD_EXCEEDED);
 	});
 
-	it('drops findings matching --ignore', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('drops findings matching --ignore', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--ignore', 'APP.MISSING', '--ignore', 'APP.UNUSED'],
 			io
 		);
-		const report = parseJsonReport(io);
+		const report: IJsonReport = parseJsonReport(io);
 
 		expect(exitCode).toBe(EXIT_OK);
-		expect(report.findings.some((f) => f.key === 'APP.MISSING')).toBe(false);
+		expect(report.findings.some((f: IJsonReport['findings'][number]): boolean => f.key === 'APP.MISSING')).toBe(false);
 		expect(report.severityCounts.error).toBe(0);
 	});
 
-	it('counts per-locale findings against thresholds and reports their locales', async () => {
-		const failingIo = createIo();
-		const failingExitCode = await runCli(
+	it('counts per-locale findings against thresholds and reports their locales', async (): Promise<void> => {
+		const failingIo: ICapturedIo = createIo();
+		const failingExitCode: number = await runCli(
 			['scan', MULTI_LOCALE_FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--max-errors', '2'],
 			failingIo
 		);
-		const report = parseJsonReport(failingIo);
+		const report: IJsonReport = parseJsonReport(failingIo);
 
 		expect(failingExitCode).toBe(EXIT_THRESHOLD_EXCEEDED);
 		expect(report.severityCounts.error).toBe(3);
@@ -233,19 +233,19 @@ describe('runCli', () => {
 		}));
 		expect(
 			report.findings
-				.filter((finding) => finding.key === 'APP.NOWHERE')
-				.map((finding) => finding.language)
+				.filter((finding: IJsonReport['findings'][number]): boolean => finding.key === 'APP.NOWHERE')
+				.map((finding: IJsonReport['findings'][number]): string | null => finding.language)
 				.sort()
 		).toEqual(['de', 'en']);
 
-		const passingIo = createIo();
-		const passingExitCode = await runCli(
+		const passingIo: ICapturedIo = createIo();
+		const passingExitCode: number = await runCli(
 			['scan', MULTI_LOCALE_FIXTURE_ROOT, '--quiet', '--reporter', 'json', '--max-errors', '3'],
 			passingIo
 		);
 		expect(passingExitCode).toBe(EXIT_OK);
 
-		const ignoredIo = createIo();
+		const ignoredIo: ICapturedIo = createIo();
 		await runCli(
 			[
 				'scan',
@@ -260,14 +260,14 @@ describe('runCli', () => {
 			],
 			ignoredIo
 		);
-		const ignoredReport = parseJsonReport(ignoredIo);
+		const ignoredReport: IJsonReport = parseJsonReport(ignoredIo);
 		expect(ignoredReport.severityCounts.error).toBe(1);
-		expect(ignoredReport.findings.some((finding) => finding.key === 'APP.NOWHERE')).toBe(false);
+		expect(ignoredReport.findings.some((finding: IJsonReport['findings'][number]): boolean => finding.key === 'APP.NOWHERE')).toBe(false);
 	});
 
-	it('fails clearly when configured baseLocale is not discovered', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('fails clearly when configured baseLocale is not discovered', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', MULTI_LOCALE_FIXTURE_ROOT, '--quiet', '--config', INVALID_BASE_CONFIG],
 			io
 		);
@@ -276,9 +276,9 @@ describe('runCli', () => {
 		expect(io.err.join('')).toContain('Configured baseLocale "fr" was not found');
 	});
 
-	it('fails without a partial report when a translation file contains invalid JSON', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('fails without a partial report when a translation file contains invalid JSON', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', INVALID_TRANSLATION_FIXTURE_ROOT, '--quiet', '--reporter', 'json'],
 			io
 		);
@@ -290,21 +290,21 @@ describe('runCli', () => {
 		expect(io.err.join('')).toContain('/src/assets/i18n/de.json');
 	});
 
-	it('writes a reporter to a file instead of stdout', async () => {
-		const io = createIo();
+	it('writes a reporter to a file instead of stdout', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
 		await runCli(['scan', FIXTURE_ROOT, '--quiet', '--output', 'json=report.json', '--max-errors', '9'], io);
 
 		expect(io.out).toHaveLength(0);
-		expect([...io.files.keys()].some((file) => file.endsWith('report.json'))).toBe(true);
+		expect([...io.files.keys()].some((file: string): boolean => file.endsWith('report.json'))).toBe(true);
 	});
 
-	it('writes a standalone HTML report without exposing the absolute project root', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('writes a standalone HTML report without exposing the absolute project root', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', FIXTURE_ROOT, '--quiet', '--output', 'html=reports/keylint.html', '--max-errors', '9'],
 			io
 		);
-		const htmlEntry = [...io.files.entries()].find(([file]) => normalizePath(file).endsWith('reports/keylint.html'));
+		const htmlEntry: [string, string] | undefined = [...io.files.entries()].find(([file]: [string, string]): boolean => normalizePath(file).endsWith('reports/keylint.html'));
 
 		expect(exitCode).toBe(EXIT_OK);
 		expect(io.out).toHaveLength(0);
@@ -314,9 +314,9 @@ describe('runCli', () => {
 		expect(htmlEntry?.[1]).not.toContain(FIXTURE_ROOT);
 	});
 
-	it('writes the HTML reporter to stdout when selected explicitly', async () => {
-		const io = createIo();
-		const exitCode = await runCli(
+	it('writes the HTML reporter to stdout when selected explicitly', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(
 			['scan', FIXTURE_ROOT, '--quiet', '--reporter', 'html', '--max-errors', '9'],
 			io
 		);
@@ -326,29 +326,29 @@ describe('runCli', () => {
 		expect(io.out.join('')).toContain('<!doctype html>');
 	});
 
-	it('exits with the runtime error code for a missing project path', async () => {
-		const io = createIo();
-		const exitCode = await runCli(['scan', `${FIXTURE_ROOT}-does-not-exist`, '--quiet'], io);
+	it('exits with the runtime error code for a missing project path', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(['scan', `${FIXTURE_ROOT}-does-not-exist`, '--quiet'], io);
 
 		expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 		expect(io.err.join('')).toContain('does not exist');
 	});
 
-	it('exits with the usage error code for an unknown reporter', async () => {
-		const io = createIo();
-		const exitCode = await runCli(['scan', FIXTURE_ROOT, '--reporter', 'xml'], io);
+	it('exits with the usage error code for an unknown reporter', async (): Promise<void> => {
+		const io: ICapturedIo = createIo();
+		const exitCode: number = await runCli(['scan', FIXTURE_ROOT, '--reporter', 'xml'], io);
 
 		expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 		expect(io.err.join('')).toContain('Unknown reporter');
 	});
 
-	it('does not request remote translations without explicit network opt-in', async () => {
-		const root = await createRemoteFixture();
-		const fetch = vi.fn();
+	it('does not request remote translations without explicit network opt-in', async (): Promise<void> => {
+		const root: string = await createRemoteFixture();
+		const fetch: Mock<typeof globalThis.fetch> = vi.fn<typeof globalThis.fetch>();
 		vi.stubGlobal('fetch', fetch);
 		try {
-			const io = createIo();
-			const exitCode = await runCli(['scan', root, '--quiet'], io);
+			const io: ICapturedIo = createIo();
+			const exitCode: number = await runCli(['scan', root, '--quiet'], io);
 
 			expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 			expect(fetch).not.toHaveBeenCalled();
@@ -358,19 +358,19 @@ describe('runCli', () => {
 		}
 	});
 
-	it('fetches remote-only translations with environment headers after opt-in', async () => {
-		const environmentName = 'KEYLINT_TEST_REMOTE_AUTH';
-		const root = await createRemoteFixture({ Authorization: environmentName });
-		const fetch = vi.fn(async () => new Response('{"APP":{"TITLE":"Title"}}'));
+	it('fetches remote-only translations with environment headers after opt-in', async (): Promise<void> => {
+		const environmentName: string = 'KEYLINT_TEST_REMOTE_AUTH';
+		const root: string = await createRemoteFixture({ Authorization: environmentName });
+		const fetch: Mock<typeof globalThis.fetch> = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response('{"APP":{"TITLE":"Title"}}'));
 		vi.stubGlobal('fetch', fetch);
 		process.env[environmentName] = 'Bearer test-secret';
 		try {
-			const io = createIo();
-			const exitCode = await runCli(
+			const io: ICapturedIo = createIo();
+			const exitCode: number = await runCli(
 				['scan', root, '--quiet', '--allow-network', '--reporter', 'json'],
 				io
 			);
-			const report = parseJsonReport(io);
+			const report: IJsonReport = parseJsonReport(io);
 
 			expect(exitCode).toBe(EXIT_OK);
 			expect(fetch).toHaveBeenCalledTimes(1);
@@ -395,13 +395,13 @@ describe('runCli', () => {
 		}
 	});
 
-	it('fails before requesting when a configured header environment variable is missing', async () => {
-		const root = await createRemoteFixture({ Authorization: 'KEYLINT_MISSING_REMOTE_AUTH' });
-		const fetch = vi.fn();
+	it('fails before requesting when a configured header environment variable is missing', async (): Promise<void> => {
+		const root: string = await createRemoteFixture({ Authorization: 'KEYLINT_MISSING_REMOTE_AUTH' });
+		const fetch: Mock<typeof globalThis.fetch> = vi.fn<typeof globalThis.fetch>();
 		vi.stubGlobal('fetch', fetch);
 		try {
-			const io = createIo();
-			const exitCode = await runCli(['scan', root, '--quiet', '--allow-network'], io);
+			const io: ICapturedIo = createIo();
+			const exitCode: number = await runCli(['scan', root, '--quiet', '--allow-network'], io);
 
 			expect(exitCode).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 			expect(fetch).not.toHaveBeenCalled();
@@ -411,13 +411,13 @@ describe('runCli', () => {
 		}
 	});
 
-	it('detects and fetches one ngx-translate auto-http candidate end to end', async () => {
-		const root = await createAutoHttpFixture('ngx', { origin: 'https://app.example' });
-		const fetch = vi.fn(async () => new Response('{"APP":{"TITLE":"Title"}}'));
+	it('detects and fetches one ngx-translate auto-http candidate end to end', async (): Promise<void> => {
+		const root: string = await createAutoHttpFixture('ngx', { origin: 'https://app.example' });
+		const fetch: Mock<typeof globalThis.fetch> = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response('{"APP":{"TITLE":"Title"}}'));
 		vi.stubGlobal('fetch', fetch);
 		try {
-			const io = createIo();
-			const exitCode = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
+			const io: ICapturedIo = createIo();
+			const exitCode: number = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
 
 			expect(exitCode).toBe(EXIT_OK);
 			expect(fetch).toHaveBeenCalledTimes(1);
@@ -433,13 +433,13 @@ describe('runCli', () => {
 		}
 	});
 
-	it('detects and fetches one Transloco auto-http candidate end to end', async () => {
-		const root = await createAutoHttpFixture('transloco');
-		const fetch = vi.fn(async () => new Response('{"APP":{"TITLE":"Titel"}}'));
+	it('detects and fetches one Transloco auto-http candidate end to end', async (): Promise<void> => {
+		const root: string = await createAutoHttpFixture('transloco');
+		const fetch: Mock<typeof globalThis.fetch> = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response('{"APP":{"TITLE":"Titel"}}'));
 		vi.stubGlobal('fetch', fetch);
 		try {
-			const io = createIo();
-			const exitCode = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
+			const io: ICapturedIo = createIo();
+			const exitCode: number = await runCli(['scan', root, '--quiet', '--allow-network', '--reporter', 'json'], io);
 
 			expect(exitCode).toBe(EXIT_OK);
 			expect(fetch).toHaveBeenCalledTimes(1);
@@ -455,46 +455,46 @@ describe('runCli', () => {
 		}
 	});
 
-	it('makes no request for disabled, zero, multiple, or unresolved-relative auto-http sources', async () => {
-		const fetch = vi.fn();
+	it('makes no request for disabled, zero, multiple, or unresolved-relative auto-http sources', async (): Promise<void> => {
+		const fetch: Mock<typeof globalThis.fetch> = vi.fn<typeof globalThis.fetch>();
 		vi.stubGlobal('fetch', fetch);
-		const disabled = await createAutoHttpFixture('ngx', { origin: 'https://app.example' });
-		const zero = await createAutoHttpFixture('none');
-		const multiple = await createAutoHttpFixture('both', { origin: 'https://app.example', locales: ['en'] });
-		const relative = await createAutoHttpFixture('ngx');
+		const disabled: string = await createAutoHttpFixture('ngx', { origin: 'https://app.example' });
+		const zero: string = await createAutoHttpFixture('none');
+		const multiple: string = await createAutoHttpFixture('both', { origin: 'https://app.example', locales: ['en'] });
+		const relative: string = await createAutoHttpFixture('ngx');
 		try {
-			const disabledIo = createIo();
+			const disabledIo: ICapturedIo = createIo();
 			expect(await runCli(['scan', disabled, '--quiet'], disabledIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 			expect(disabledIo.err.join('')).toContain('--allow-network');
-			const zeroIo = createIo();
+			const zeroIo: ICapturedIo = createIo();
 			expect(await runCli(['scan', zero, '--quiet', '--allow-network'], zeroIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 			expect(zeroIo.err.join('')).toContain('No compatible static');
 			expect(zeroIo.err.join('')).toContain('explicit HTTP source');
-			const multipleIo = createIo();
+			const multipleIo: ICapturedIo = createIo();
 			expect(await runCli(['scan', multiple, '--quiet', '--allow-network'], multipleIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 			expect(multipleIo.err.join('')).toContain('Multiple compatible');
 			expect(multipleIo.err.join('')).toContain('ngx.config.ts');
 			expect(multipleIo.err.join('')).toContain('transloco.config.ts');
-			const relativeIo = createIo();
+			const relativeIo: ICapturedIo = createIo();
 			expect(await runCli(['scan', relative, '--quiet', '--allow-network'], relativeIo)).toBe(EXIT_USAGE_OR_RUNTIME_ERROR);
 			expect(relativeIo.err.join('')).toContain('requires an origin');
 			expect(fetch).not.toHaveBeenCalled();
 		} finally {
-			await Promise.all([disabled, zero, multiple, relative].map((root) => rm(root, { recursive: true, force: true })));
+			await Promise.all([disabled, zero, multiple, relative].map((root: string): Promise<void> => rm(root, { recursive: true, force: true })));
 		}
 	});
 });
 
-describe('parseCliArgs', () => {
-	it('documents every reporter and the publishable HTML output path', () => {
+describe('parseCliArgs', (): void => {
+	it('documents every reporter and the publishable HTML output path', (): void => {
 		expect(USAGE).toContain('text, json, markdown, html');
 		expect(USAGE).toContain('--output json=keylint-report/keylint.json');
 		expect(USAGE).toContain('--output markdown=keylint-report/keylint.md');
 		expect(USAGE).toContain('--output html=keylint-report/site/index.html');
 	});
 
-	it('defaults to the text reporter and the current directory', () => {
-		const options = parseCliArgs([]);
+	it('defaults to the text reporter and the current directory', (): void => {
+		const options: ICliOptions = parseCliArgs([]);
 
 		expect(options.command).toBe('scan');
 		expect(options.projectPath).toBe('.');
@@ -504,31 +504,31 @@ describe('parseCliArgs', () => {
 		expect(options.allowNetwork).toBe(false);
 	});
 
-	it('registers reporters referenced by --output', () => {
-		const options = parseCliArgs(['scan', '.', '--output', 'markdown=summary.md']);
+	it('registers reporters referenced by --output', (): void => {
+		const options: ICliOptions = parseCliArgs(['scan', '.', '--output', 'markdown=summary.md']);
 
 		expect(options.reporters).toEqual(['markdown']);
 		expect(options.outputs.get('markdown')).toBe('summary.md');
 	});
 
-	it('registers the HTML reporter referenced by --output', () => {
-		const options = parseCliArgs(['scan', '.', '--output', 'html=report.html']);
+	it('registers the HTML reporter referenced by --output', (): void => {
+		const options: ICliOptions = parseCliArgs(['scan', '.', '--output', 'html=report.html']);
 
 		expect(options.reporters).toEqual(['html']);
 		expect(options.outputs.get('html')).toBe('report.html');
 	});
 
-	it('rejects malformed --output values', () => {
+	it('rejects malformed --output values', (): void => {
 		// Match the documented reporter-to-file assignment syntax in the validation error.
-		expect(() => parseCliArgs(['scan', '.', '--output', 'summary.md'])).toThrowError(/<reporter>=<file>/);
+		expect((): ICliOptions => parseCliArgs(['scan', '.', '--output', 'summary.md'])).toThrowError(/<reporter>=<file>/);
 	});
 
-	it('recognizes explicit network opt-in', () => {
+	it('recognizes explicit network opt-in', (): void => {
 		expect(parseCliArgs(['scan', '.', '--allow-network']).allowNetwork).toBe(true);
 	});
 
-	it('rejects negative thresholds', () => {
+	it('rejects negative thresholds', (): void => {
 		// Match the stable validation phrase requiring a threshold of zero or greater.
-		expect(() => parseCliArgs(['scan', '.', '--max-errors=-1'])).toThrowError(/non-negative/);
+		expect((): ICliOptions => parseCliArgs(['scan', '.', '--max-errors=-1'])).toThrowError(/non-negative/);
 	});
 });

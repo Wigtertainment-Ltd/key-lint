@@ -5,8 +5,8 @@ import { REPORTERS } from './index.js';
 import { redactReporterText } from './reporter.js';
 import { IReporterContext } from './reporter.interfaces.js';
 
-const secret = 'Bearer cross-reporter-secret';
-const result = {
+const secret: string = 'Bearer cross-reporter-secret';
+const result: IProjectScanResult = {
 	projectRoot: '/project', adapterId: 'angular', startedAt: '', finishedAt: '', durationMs: 1,
 	summary: {
 		totalKeys: 1, used: 0, unused: 1, dynamicOrUncertain: 0, indirectUncertain: 0,
@@ -26,10 +26,10 @@ const context: IReporterContext = {
 	counts: { error: 0, warning: 1, info: 0 }, sensitiveValues: [secret]
 };
 
-describe('reporter credential redaction', () => {
+describe('reporter credential redaction', (): void => {
 	for (const [name, reporter] of Object.entries(REPORTERS)) {
-		it(`redacts configured credential values from ${name} output`, () => {
-			const output = redactReporterText(reporter.format(result, context), context.sensitiveValues ?? []);
+		it(`redacts configured credential values from ${name} output`, (): void => {
+			const output: string = redactReporterText(reporter.format(result, context), context.sensitiveValues ?? []);
 			expect(output).not.toContain(secret);
 			expect(output).toContain('[redacted]');
 		});

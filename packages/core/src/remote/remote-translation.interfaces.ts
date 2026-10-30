@@ -40,7 +40,7 @@ export interface IRemoteTranslationLimits {
 	maxResponseBytes: IScannerGuardrails['maxFileSizeBytes'];
 }
 
-export const DEFAULT_REMOTE_TRANSLATION_LIMITS = Object.freeze({
+export const DEFAULT_REMOTE_TRANSLATION_LIMITS: Readonly<Omit<IRemoteTranslationLimits, 'maxResponseBytes'>> = Object.freeze({
 	timeoutMs: 15_000,
 	maxRedirects: 3,
 	maxRequests: 100
