@@ -10,6 +10,12 @@ permissions:
 jobs:
   keylint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: keylint-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     outputs:
       site-exists: ${{ steps.site.outputs.exists }}
       site-directory: ${{ steps.i18n.outputs.site-directory }}
@@ -26,6 +32,7 @@ jobs:
         with:
           path: .
           max-errors: '0'
+          pr-comment: 'true'
           ignore: |
             LEGACY.**
 

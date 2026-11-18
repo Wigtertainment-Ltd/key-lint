@@ -99,7 +99,56 @@ returning exit code `1`, threshold failures still produce a downloadable HTML
 site. Runtime failures may produce no HTML; provider publication must therefore
 check for `site/index.html` rather than relying on the scan exit status alone.
 
+### GitLab merge request comments
+
+Copy [gitlab-ci.yml](gitlab-ci.yml) into your pipeline and keep
+[comment-gitlab.cjs](comment-gitlab.cjs) at `docs/ci/comment-gitlab.cjs` in the
+repository being scanned. The script requires Node.js 20 or later and no extra
+dependencies. The template enables comments with `KEYLINT_MR_COMMENT: 'true'`;
+set it to `'false'` to disable them. The standalone script is disabled by default.
+
+Create a project access token with the `api` scope and a role that can view and
+comment on merge requests (for example, Reporter). Store it as the masked CI/CD
+variable `KEYLINT_GITLAB_TOKEN`, never in the YAML or KeyLint configuration.
+Use a dedicated project bot, or a dedicated bot user's personal access token if
+project access tokens are unavailable. The regular `CI_JOB_TOKEN` cannot create
+or update MR notes. See GitLab's [token setup](https://docs.gitlab.com/user/project/settings/project_access_tokens/)
+and [job token permissions](https://docs.gitlab.com/ci/jobs/ci_job_token/).
+
+Make the variable available only to trusted MR pipelines under your project's
+variable protection settings. Protected variables may be unavailable on ordinary
+feature branches; missing tokens are skipped with a job-log warning. Fork MRs are
+always skipped, including fork pipelines run in the parent project. Treat the
+pipeline code as trusted before exposing the token; a script-level fork check
+does not protect a secret from modified pipeline code.
+
+The comment contains the status and numeric error/warning counts, plus a link to
+the scan job with its downloadable reports. Later runs update the marked note
+owned by the token's user. Keep that bot identity when rotating credentials to
+continue updating the same note. No findings or source snippets are posted.
+
+Keep one commenting job and the template's `resource_group` to serialize updates
+for each MR. Pipeline and job IDs prevent older pipelines or retries from
+overwriting newer results; the current source SHA is checked for detached,
+merged-results and merge-train pipelines. The rules enable MR pipelines and avoid
+duplicate push jobs when an MR is open, while retaining manual, scheduled, branch
+and tag scans.
+
+The template publishes after scan exit codes `0` and `1`, preserving a nonzero
+scan exit code and always retaining report artifacts. Runtime failures (code `2`),
+missing reports, non-MR pipelines and closed or outdated MRs do not publish.
+Missing token permissions produce a warning; other publication failures fail a
+previously successful scan job. Comments use GitLab's [Notes API](https://docs.gitlab.com/api/notes/).
+
 ### Publishing the report with GitHub Pages
+
+The GitHub Actions example also enables an automatically updated pull request
+comment with status, error and warning counts, and a link to the report's workflow
+run. This is optional: remove `pr-comment: 'true'` to disable it. The scan job
+requires `pull-requests: write` and uses a concurrency group to prevent overlapping
+comment updates. Fork pull requests retain downloadable artifacts without posting
+comments. See the [Action reference](../../packages/action/README.md#pull-request-comments)
+for setup and failure handling.
 
 The [GitHub Actions example](github-actions.yml) uploads the complete report
 directory as a normal CI artifact on every run. Pull requests therefore expose a

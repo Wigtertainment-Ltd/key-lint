@@ -39,6 +39,10 @@ inputs:
     description: Append the Markdown report to the GitHub job summary.
     required: false
     default: 'true'
+  pr-comment:
+    description: Create or update a pull request summary comment using the workflow token. Requires pull-requests write permission.
+    required: false
+    default: 'false'
   allow-network:
     description: Explicitly allow configured HTTP translation requests. Project configuration alone cannot enable networking.
     required: false
@@ -85,8 +89,14 @@ runs:
         INPUT_REPORT_DIRECTORY: ${{ inputs.report-directory }}
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
         INPUT_ALLOW_NETWORK: ${{ inputs.allow-network }}
+        INPUT_PR_COMMENT: ${{ inputs.pr-comment }}
       run: |
         set -euo pipefail
+
+        case "${INPUT_PR_COMMENT}" in
+          true|false) ;;
+          *) echo "pr-comment must be 'true' or 'false'." >&2; exit 2 ;;
+        esac
 
         report_dir="${INPUT_REPORT_DIRECTORY}"
         site_dir="${report_dir}/site"
@@ -146,3 +156,13 @@ runs:
         fi
 
         exit "${exit_code}"
+
+    - name: Update KeyLint pull request comment
+      if: ${{ !cancelled() && inputs.pr-comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        KEYLINT_ACTION_PATH: ${{ github.action_path }}
+        KEYLINT_JSON_REPORT: ${{ steps.scan.outputs.json-report }}
+        KEYLINT_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: node "${KEYLINT_ACTION_PATH}/pr-comment.cjs"

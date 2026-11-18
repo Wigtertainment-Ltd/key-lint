@@ -56,6 +56,13 @@ module.exports = defineConfig([
 		ignores: ['dist/**', 'coverage/**', 'node_modules/**']
 	},
 	{
+		files: ['packages/action/*.cjs', 'docs/ci/*.cjs'],
+		extends: [eslint.configs.recommended],
+		languageOptions: {
+			globals: { __dirname: 'readonly', process: 'readonly', console: 'readonly', fetch: 'readonly', AbortSignal: 'readonly' }
+		}
+	},
+	{
 		files: ['packages/core/src/**/*.ts', 'packages/core/test/jasmine-matchers.ts', 'packages/cli/src/**/*.ts'],
 		extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked],
 		languageOptions: {
