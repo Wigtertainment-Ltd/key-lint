@@ -1,6 +1,6 @@
 {
 	"name": "key-lint",
-	"version": "1.4.0",
+	"version": "1.5.0",
 	"description": "Desktop tool for auditing i18n translation keys in Angular and React projects.",
 	"author": "Wigtertainment Ltd",
 	"license": "MIT",

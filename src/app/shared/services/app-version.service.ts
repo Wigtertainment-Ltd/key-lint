@@ -2,7 +2,7 @@ import { inject, Injectable, signal, WritableSignal } from '@angular/core';
 
 import { ElectronService } from './electron.service';
 
-const APP_VERSION_FALLBACK: string = '1.4.0';
+const APP_VERSION_FALLBACK: string = '1.5.0';
 
 @Injectable({
 	providedIn: 'root'
