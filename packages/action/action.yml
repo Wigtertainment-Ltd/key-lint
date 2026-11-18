@@ -90,6 +90,7 @@ runs:
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
         INPUT_ALLOW_NETWORK: ${{ inputs.allow-network }}
         INPUT_PR_COMMENT: ${{ inputs.pr-comment }}
+        GITHUB_TOKEN: ${{ inputs.pr-comment == 'true' && github.token || '' }}
       run: |
         set -euo pipefail
 
@@ -110,6 +111,10 @@ runs:
         args+=(--output "markdown=${markdown_report}")
         args+=(--output "html=${html_report}")
         args+=(--max-errors "${INPUT_MAX_ERRORS}")
+
+        if [ "${INPUT_PR_COMMENT}" = "true" ]; then
+          args+=(--pr-comment)
+        fi
 
         case "${INPUT_ALLOW_NETWORK}" in
           true) args+=(--allow-network) ;;
@@ -156,13 +161,3 @@ runs:
         fi
 
         exit "${exit_code}"
-
-    - name: Update KeyLint pull request comment
-      if: ${{ !cancelled() && inputs.pr-comment == 'true' && github.event_name == 'pull_request' }}
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-        KEYLINT_ACTION_PATH: ${{ github.action_path }}
-        KEYLINT_JSON_REPORT: ${{ steps.scan.outputs.json-report }}
-        KEYLINT_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
-      run: node "${KEYLINT_ACTION_PATH}/pr-comment.cjs"

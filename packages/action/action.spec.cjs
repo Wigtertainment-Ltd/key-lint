@@ -1,6 +1,7 @@
 const { existsSync } = require('node:fs');
-const { readFile } = require('node:fs/promises');
+const { readFile, mkdtemp, rm } = require('node:fs/promises');
 const { resolve } = require('node:path');
+const { tmpdir } = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -168,4 +169,84 @@ test('syntax-checks provider scripts and prevents accidental private report publ
 	assert.match(netlifyWorkflow, /KEYLINT_NETLIFY_DEPLOY_MODE: preview/);
 	assert.match(netlifyWorkflow, /KEYLINT_NETLIFY_DEPLOY_MODE: production/);
 	assert.match(netlifyWorkflow, /hashFiles\('keylint-report\/site\/index\.html'\) != ''/);
+});
+
+test('uses the native CLI comment option for both CI providers without helper scripts', async () => {
+	const action = await readFile(actionPath, 'utf8');
+	const gitlab = await readFile(resolve(ciDocsDirectory, 'gitlab-ci.yml'), 'utf8');
+	const prettier = await import('prettier');
+	await assert.doesNotReject(() => prettier.format(action, { parser: 'yaml' }));
+	// Match the input declaration through its opt-in default.
+	assert.match(action, /pr-comment:\s*\r?\n\s+description:.*\r?\n\s+required: false\r?\n\s+default: 'false'/);
+	assert.ok(action.includes('args+=(--pr-comment)'));
+	assert.ok(action.includes("GITHUB_TOKEN: ${{ inputs.pr-comment == 'true' && github.token || '' }}"));
+	assert.ok(gitlab.includes('--pr-comment'));
+	assert.ok(!action.includes('pr-comment.cjs'));
+	assert.ok(!action.includes('KEYLINT_ACTION_PATH'));
+	assert.ok(!gitlab.includes('comment-gitlab.cjs'));
+	assert.ok(!gitlab.includes('KEYLINT_EXIT_CODE'));
+	assert.equal(existsSync(resolve(__dirname, 'pr-comment.cjs')), false);
+	assert.equal(existsSync(resolve(ciDocsDirectory, 'comment-gitlab.cjs')), false);
+});
+
+test('forwards comment opt-in and token to the CLI while preserving exit codes, outputs and summary', async (context) => {
+	const directory = await mkdtemp(resolve(tmpdir(), 'keylint-action-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const action = (await readFile(actionPath, 'utf8')).replaceAll('\r\n', '\n');
+	const scanScript = action.split('      run: |\n')[1].split('\n').map((line) => line.slice(8)).join('\n');
+	const windowsGitBash = resolve(process.env.ProgramFiles ?? 'C:/Program Files', 'Git/bin/bash.exe');
+	const shell = process.platform === 'win32' && existsSync(windowsGitBash) ? windowsGitBash : 'bash';
+	const mockNpx = `npx() {
+  printf '%s\n' "$@" > invocation
+  printf '%s' "$GITHUB_TOKEN" > token
+  printf '%s' '{"findings":[],"severityCounts":{"error":2,"warning":3}}' > "$INPUT_REPORT_DIRECTORY/keylint.json"
+  printf '%s' '# KeyLint test report' > "$INPUT_REPORT_DIRECTORY/keylint.md"
+  return "$MOCK_EXIT_CODE"
+}
+`;
+	for (const enabled of ['true', 'false']) {
+		for (const exitCode of [0, 1, 2]) {
+			const suffix = `${enabled}-${exitCode}`;
+			const result = spawnSync(shell, ['-c', mockNpx + scanScript], {
+				cwd: directory,
+				encoding: 'utf8',
+				env: {
+					...process.env,
+					INPUT_PR_COMMENT: enabled,
+					INPUT_ALLOW_NETWORK: 'false',
+					INPUT_PATH: '.',
+					INPUT_CONFIG: '',
+					INPUT_VERSION: 'latest',
+					INPUT_MAX_ERRORS: '0',
+					INPUT_MAX_WARNINGS: '',
+					INPUT_IGNORE: '',
+					INPUT_REPORT_DIRECTORY: `report-${suffix}`,
+					INPUT_JOB_SUMMARY: 'true',
+					GITHUB_TOKEN: enabled === 'true' ? 'workflow-token' : '',
+					GITHUB_OUTPUT: `output-${suffix}`,
+					GITHUB_STEP_SUMMARY: `summary-${suffix}`,
+					MOCK_EXIT_CODE: String(exitCode)
+				}
+			});
+			assert.equal(result.status, exitCode, result.stderr);
+			const invocation = (await readFile(resolve(directory, 'invocation'), 'utf8')).trimEnd().split('\n');
+			assert.equal(invocation.filter((argument) => argument === '--pr-comment').length, enabled === 'true' ? 1 : 0);
+			assert.equal(await readFile(resolve(directory, 'token'), 'utf8'), enabled === 'true' ? 'workflow-token' : '');
+			const output = await readFile(resolve(directory, `output-${suffix}`), 'utf8');
+			assert.ok(output.includes(`exit-code=${exitCode}`));
+			assert.ok(output.includes(`json-report=report-${suffix}/keylint.json`));
+			assert.ok(output.includes('error-count=2'));
+			assert.ok(output.includes('warning-count=3'));
+			assert.equal(await readFile(resolve(directory, `summary-${suffix}`), 'utf8'), '# KeyLint test report');
+		}
+	}
+
+	const invalidInput = spawnSync(shell, ['-c', 'npx() { printf invoked > invalid-invocation; exit 99; }\n' + scanScript], {
+		cwd: directory,
+		encoding: 'utf8',
+		env: { ...process.env, INPUT_PR_COMMENT: 'yes' }
+	});
+	assert.equal(invalidInput.status, 2, invalidInput.stderr);
+	assert.ok(invalidInput.stderr.includes("pr-comment must be 'true' or 'false'."));
+	assert.equal(existsSync(resolve(directory, 'invalid-invocation')), false);
 });

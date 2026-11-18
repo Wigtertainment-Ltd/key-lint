@@ -56,7 +56,7 @@ module.exports = defineConfig([
 		ignores: ['dist/**', 'coverage/**', 'node_modules/**']
 	},
 	{
-		files: ['packages/action/*.cjs', 'docs/ci/*.cjs'],
+		files: ['packages/action/*.cjs'],
 		extends: [eslint.configs.recommended],
 		languageOptions: {
 			globals: { __dirname: 'readonly', process: 'readonly', console: 'readonly', fetch: 'readonly', AbortSignal: 'readonly' }

@@ -2,8 +2,8 @@
 
 The composite Action runs `@key-lint/cli`, writes JSON and Markdown reports,
 generates a directly publishable HTML site and optionally appends the Markdown
-report to the job summary. Network access is disabled by default and cannot be
-enabled by project configuration.
+report to the job summary. Remote translation requests are disabled by default
+and cannot be enabled by project configuration.
 
 The CLI supports the `text`, `json`, `markdown` and `html` reporters. The Action
 generates the three file-based formats—JSON, Markdown, and HTML—in one scan.
@@ -88,6 +88,9 @@ Set `pr-comment: 'true'` to create one KeyLint summary comment per pull request.
 Later runs update that comment with the result, error and warning counts, and a
 link to the workflow run containing the full report. Comments are disabled by
 default and use the built-in workflow token; no additional secret is needed.
+The Action forwards the CLI's `--pr-comment` flag; GitHub and GitLab use the
+same packaged implementation. No helper scripts need to be copied into the
+scanned project. When pinning `version`, select a CLI release with this option.
 
 ```yaml
 permissions:
@@ -118,8 +121,10 @@ attempts of the same workflow do not overwrite a newer result. Only comments
 with the KeyLint marker authored by `github-actions[bot]` are updated.
 
 Comments run after successful scans and threshold failures (exit codes `0` and
-`1`), preserving the scan's failure status. Runtime failures, missing reports,
-cancelled runs, push events and fork pull requests are skipped. Missing token
-permissions produce a warning; other publication failures fail the comment step.
+`1`), preserving a threshold failure's exit code. Runtime scan failures, push
+events and fork pull requests are skipped. Missing tokens and rejected
+authentication or permissions produce a stderr warning. Other publication
+failures return exit code `2` after a successful scan. Commenting uses scan data
+directly; it does not depend on JSON or Markdown report files.
 Keep the normal `pull_request` trigger; do not switch to `pull_request_target`
 to obtain write access for fork code.
