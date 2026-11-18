@@ -34,6 +34,7 @@ keylint scan /path/to/project \
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited (`-1`). |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Overrides config file `ignoreKeys`. |
 | `--allow-network` | Explicitly allow requests for configured HTTP translation sources. Disabled by default. |
+| `--pr-comment` | Create or update a GitHub PR or GitLab MR comment using CI credentials. Disabled by default. |
 | `--quiet` | Suppress progress output on stderr. |
 | `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
 
@@ -51,6 +52,34 @@ All requested reporters finish writing before a threshold failure returns exit
 code `1`, so their files remain available to artifact and deployment steps. A
 usage, configuration, or runtime failure with exit code `2` may stop before an
 HTML file exists; publishing automation must verify the file before deployment.
+
+### Pull request comments
+
+Enable the same built-in integration on GitHub and GitLab:
+
+```bash
+npx @key-lint/cli scan . --pr-comment
+```
+
+The CLI detects the platform and PR/MR from the CI environment. No helper scripts
+or report files are required. It posts the result, error and warning counts, and
+a link to the CI run or job. Later runs update the same KeyLint comment.
+
+On GitHub, provide the built-in workflow token as `GITHUB_TOKEN` with
+`pull-requests: write`. On GitLab, store an API token with access to the project
+as the masked CI/CD variable `KEYLINT_GITLAB_TOKEN`; the regular `CI_JOB_TOKEN`
+cannot write MR comments. Expose tokens only to trusted pipeline code.
+
+Use one commenting job with GitHub `concurrency` or GitLab `resource_group` to
+serialize updates. See the [CI examples](../../docs/ci/README.md) for setup.
+Fork contributions, non-PR pipelines, closed requests and outdated results are
+skipped. Missing tokens and rejected authentication or permissions produce a
+warning on stderr. Other publication failures return `2` after an otherwise
+successful scan; a threshold failure keeps exit code `1`.
+
+`--pr-comment` authorizes CI API requests separately from `--allow-network`,
+which only enables remote translation sources. Both options are off by default.
+When pinning the CLI version, select a release that includes `--pr-comment`.
 
 ### Severity mapping
 

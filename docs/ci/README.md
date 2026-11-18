@@ -24,6 +24,7 @@ npx @key-lint/cli scan . \
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited. |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Replaces `ignoreKeys` from the config file. |
 | `--allow-network` | Explicitly enable configured remote translation requests. Disabled by default. |
+| `--pr-comment` | Create or update a GitHub PR or GitLab MR comment using CI credentials. Disabled by default. |
 | `--quiet` | No progress output on stderr. |
 | `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
 
@@ -99,7 +100,65 @@ returning exit code `1`, threshold failures still produce a downloadable HTML
 site. Runtime failures may produce no HTML; provider publication must therefore
 check for `site/index.html` rather than relying on the scan exit status alone.
 
+### Pull request comments
+
+Both GitHub and GitLab use the CLI's built-in `--pr-comment` option. Only pipeline
+configuration and a CI token are needed; no KeyLint scripts must be copied into
+the scanned project. The CLI uses scan results directly, so report output files
+are optional. Select a CLI release that includes this option when pinning versions.
+
+```bash
+npx @key-lint/cli scan . --pr-comment
+```
+
+Comments show the same result and error/warning counts on both platforms, with a
+link to the current CI run or job. Existing owned KeyLint comments are updated.
+Successful scans and threshold failures publish results; runtime scan failures
+do not. Missing tokens and rejected authentication or permissions produce a
+stderr warning. Other publication failures return `2` after a successful scan;
+a threshold failure keeps exit code `1`. Fork contributions, closed requests,
+non-PR pipelines and outdated results are skipped. `--allow-network` controls
+remote translation sources separately and is not required for comments.
+
+On GitHub, the [Action](../../packages/action/README.md#pull-request-comments)
+maps `pr-comment: 'true'` to that CLI flag and supplies the workflow token. Direct
+CLI calls must provide `GITHUB_TOKEN` with `pull-requests: write`. Keep one
+commenting workflow and the `concurrency` group from [github-actions.yml](github-actions.yml).
+
+### GitLab setup
+
+The [GitLab CI example](gitlab-ci.yml) enables comments by adding `--pr-comment`
+to the scan command. Remove that flag to disable them. Keep its `resource_group`
+to serialize updates per MR. Its rules retain manual, scheduled, branch and tag
+scans while suppressing duplicate push jobs when an MR is open.
+
+Create a project access token with the `api` scope and a role that can view and
+comment on merge requests (for example, Reporter). Store it as the masked CI/CD
+variable `KEYLINT_GITLAB_TOKEN`, never in the YAML or KeyLint configuration.
+Use a dedicated project bot, or a dedicated bot user's personal access token if
+project access tokens are unavailable. The regular `CI_JOB_TOKEN` cannot create
+or update MR notes. See GitLab's [token setup](https://docs.gitlab.com/user/project/settings/project_access_tokens/)
+and [job token permissions](https://docs.gitlab.com/ci/jobs/ci_job_token/).
+
+Make the variable available only to trusted MR pipelines under your project's
+variable protection settings. Protected variables may be unavailable on ordinary
+feature branches; missing tokens are skipped with a job-log warning. Fork MRs are
+always skipped, including fork pipelines run in the parent project. Treat the
+pipeline code as trusted before exposing the token; a CLI-level fork check
+does not protect a secret from modified pipeline code.
+
+Keep the bot identity when rotating credentials to continue updating its existing
+comment. Comments use GitLab's [Notes API](https://docs.gitlab.com/api/notes/).
+
 ### Publishing the report with GitHub Pages
+
+The GitHub Actions example also enables an automatically updated pull request
+comment with status, error and warning counts, and a link to the report's workflow
+run. This is optional: remove `pr-comment: 'true'` to disable it. The scan job
+requires `pull-requests: write` and uses a concurrency group to prevent overlapping
+comment updates. Fork pull requests retain downloadable artifacts without posting
+comments. See the [Action reference](../../packages/action/README.md#pull-request-comments)
+for setup and failure handling.
 
 The [GitHub Actions example](github-actions.yml) uploads the complete report
 directory as a normal CI artifact on every run. Pull requests therefore expose a

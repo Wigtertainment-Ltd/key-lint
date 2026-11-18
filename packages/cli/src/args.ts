@@ -15,6 +15,7 @@ Options:
   --max-warnings <n>       Allowed warning findings before failing (default: unlimited)
   --ignore <glob>          Translation key glob to ignore, repeatable
   --allow-network          Allow configured remote translation requests
+  --pr-comment             Publish a GitHub/GitLab pull request comment using CI credentials
   --quiet                  Suppress progress output on stderr
   --no-color               Disable ANSI colors
   -h, --help               Show this help
@@ -56,6 +57,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 			'max-warnings'?: string;
 			ignore?: string[];
 			'allow-network'?: boolean;
+			'pr-comment'?: boolean;
 			quiet?: boolean;
 			help?: boolean;
 			version?: boolean;
@@ -74,6 +76,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 				'max-warnings': { type: 'string' },
 				ignore: { type: 'string', multiple: true },
 				'allow-network': { type: 'boolean' },
+				'pr-comment': { type: 'boolean' },
 				quiet: { type: 'boolean' },
 				help: { type: 'boolean', short: 'h' },
 				version: { type: 'boolean', short: 'v' }
@@ -95,6 +98,7 @@ export function parseCliArgs(argv: string[]): ICliOptions {
 		maxWarnings: -1,
 		ignoreKeys: [],
 		allowNetwork: Boolean(values['allow-network']),
+		prComment: Boolean(values['pr-comment']),
 		quiet: Boolean(values.quiet),
 		color
 	};

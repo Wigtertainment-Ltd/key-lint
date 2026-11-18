@@ -39,6 +39,10 @@ inputs:
     description: Append the Markdown report to the GitHub job summary.
     required: false
     default: 'true'
+  pr-comment:
+    description: Create or update a pull request summary comment using the workflow token. Requires pull-requests write permission.
+    required: false
+    default: 'false'
   allow-network:
     description: Explicitly allow configured HTTP translation requests. Project configuration alone cannot enable networking.
     required: false
@@ -85,8 +89,15 @@ runs:
         INPUT_REPORT_DIRECTORY: ${{ inputs.report-directory }}
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
         INPUT_ALLOW_NETWORK: ${{ inputs.allow-network }}
+        INPUT_PR_COMMENT: ${{ inputs.pr-comment }}
+        GITHUB_TOKEN: ${{ inputs.pr-comment == 'true' && github.token || '' }}
       run: |
         set -euo pipefail
+
+        case "${INPUT_PR_COMMENT}" in
+          true|false) ;;
+          *) echo "pr-comment must be 'true' or 'false'." >&2; exit 2 ;;
+        esac
 
         report_dir="${INPUT_REPORT_DIRECTORY}"
         site_dir="${report_dir}/site"
@@ -100,6 +111,10 @@ runs:
         args+=(--output "markdown=${markdown_report}")
         args+=(--output "html=${html_report}")
         args+=(--max-errors "${INPUT_MAX_ERRORS}")
+
+        if [ "${INPUT_PR_COMMENT}" = "true" ]; then
+          args+=(--pr-comment)
+        fi
 
         case "${INPUT_ALLOW_NETWORK}" in
           true) args+=(--allow-network) ;;

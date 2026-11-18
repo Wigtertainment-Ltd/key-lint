@@ -2,8 +2,8 @@
 
 The composite Action runs `@key-lint/cli`, writes JSON and Markdown reports,
 generates a directly publishable HTML site and optionally appends the Markdown
-report to the job summary. Network access is disabled by default and cannot be
-enabled by project configuration.
+report to the job summary. Remote translation requests are disabled by default
+and cannot be enabled by project configuration.
 
 The CLI supports the `text`, `json`, `markdown` and `html` reporters. The Action
 generates the three file-based formats—JSON, Markdown, and HTML—in one scan.
@@ -81,3 +81,50 @@ or summaries are written. Avoid printing secrets in surrounding workflow steps.
 
 All inputs and outputs are defined in [`action.yml`](action.yml). Automatic
 sources use `type: "auto-http"` and follow the same opt-in and secret mapping.
+
+## Pull request comments
+
+Set `pr-comment: 'true'` to create one KeyLint summary comment per pull request.
+Later runs update that comment with the result, error and warning counts, and a
+link to the workflow run containing the full report. Comments are disabled by
+default and use the built-in workflow token; no additional secret is needed.
+The Action forwards the CLI's `--pr-comment` flag; GitHub and GitLab use the
+same packaged implementation. No helper scripts need to be copied into the
+scanned project. When pinning `version`, select a CLI release with this option.
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: keylint-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+```
+
+Enable the option on the Action step:
+
+```yaml
+- uses: Wigtertainment-Ltd/key-lint/packages/action@v1
+  with:
+    pr-comment: 'true'
+```
+
+Keep the report upload step with `if: always()` as shown in the
+[complete workflow](../../docs/ci/github-actions.yml). The comment links to that
+specific run, so no public HTML hosting is required. Only the status and numeric
+counts are posted; findings remain in the existing reports.
+
+Use one commenting workflow per pull request and the concurrency group above to
+avoid simultaneous comment creation or updates. Older commits and older runs or
+attempts of the same workflow do not overwrite a newer result. Only comments
+with the KeyLint marker authored by `github-actions[bot]` are updated.
+
+Comments run after successful scans and threshold failures (exit codes `0` and
+`1`), preserving a threshold failure's exit code. Runtime scan failures, push
+events and fork pull requests are skipped. Missing tokens and rejected
+authentication or permissions produce a stderr warning. Other publication
+failures return exit code `2` after a successful scan. Commenting uses scan data
+directly; it does not depend on JSON or Markdown report files.
+Keep the normal `pull_request` trigger; do not switch to `pull_request_target`
+to obtain write access for fork code.

@@ -25,6 +25,7 @@ import { parseCliArgs, USAGE } from './args.js';
 import { EXIT_OK, EXIT_THRESHOLD_EXCEEDED, EXIT_USAGE_OR_RUNTIME_ERROR } from './exit-codes.js';
 import { countSeverities, redactReporterText, REPORTERS, IReporterContext, ISeverityCounts } from './reporters/index.js';
 import { ICliIo, ICliOptions, CliUsageError } from './cli.interfaces.js';
+import { publishPrComment } from './pr-comment.js';
 
 const defaultIo: ICliIo = {
 	stdout: (text: string): boolean => process.stdout.write(text),
@@ -171,7 +172,17 @@ export async function runCli(argv: string[], io: ICliIo = defaultIo): Promise<nu
 
 		await emitReports(options, result, context, io);
 
-		return determineExitCode(options, counts.error, counts.warning);
+		const scanExitCode: number = determineExitCode(options, counts.error, counts.warning);
+		if (options.prComment) {
+			try {
+				await publishPrComment(counts, scanExitCode, (text: string): void => io.stderr(text));
+			} catch {
+				io.stderr('KeyLint: could not publish the pull request comment.\n');
+				return scanExitCode === EXIT_THRESHOLD_EXCEEDED ? scanExitCode : EXIT_USAGE_OR_RUNTIME_ERROR;
+			}
+		}
+
+		return scanExitCode;
 	} catch (error: unknown) {
 		if (error instanceof CliUsageError || error instanceof ScannerConfigError) {
 			io.stderr(`${redactReporterText(error.message, sensitiveValues)}\n`);

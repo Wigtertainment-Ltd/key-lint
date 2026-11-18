@@ -12,6 +12,7 @@ export interface ICliOptions {
 	maxWarnings: number;
 	ignoreKeys: string[];
 	allowNetwork: boolean;
+	prComment: boolean;
 	quiet: boolean;
 	color: boolean;
 }
