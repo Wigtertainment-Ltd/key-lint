@@ -19,19 +19,20 @@ Framework-agnostic i18n scan engine. Detects missing, unused and dynamically res
 npm install @key-lint/core --save-dev
 ```
 
-Requires Node ≥ 20.
+Node.js 26 LTS is recommended for Node.js usage. The [package manifest](package.json)
+defines the minimum runtime requirement.
 
 ## Usage (browser / Angular)
 
+Browser and Electron renderer callers supply an `IFileSystemAdapter` for their
+host environment. The scanner does not access the browser's filesystem directly:
+
 ```ts
-import { runScan, defaultAdapterRegistry } from '@key-lint/core';
+import { runScan, type IFileSystemAdapter, type IProjectScanResult } from '@key-lint/core';
 
-const result = await runScan({
-  projectRoot: '/path/to/project',
-  registry: defaultAdapterRegistry,
-});
-
-console.log(result.summary.totalFindings); // → 37
+export function scanProject(projectRoot: string, fs: IFileSystemAdapter): Promise<IProjectScanResult> {
+  return runScan({ projectRoot, fs });
+}
 ```
 
 Set `config.baseLocale` to make one locale canonical. When omitted, the engine
@@ -130,30 +131,26 @@ effective guardrail.
 
 ## Usage (Node / CLI)
 
-The Node subpath export exposes `NodeFileSystemAdapter` and config loading:
+The Node subpath export exposes `NodeFileSystemAdapter` and config loading.
+`loadScannerConfig()` returns a wrapper containing the resolved `config`:
 
 ```ts
-import { runScan } from '@key-lint/core';
-import {
-  NodeFileSystemAdapter,
-  NodeRemoteTranslationFetcher,
-  loadScannerConfig
-} from '@key-lint/core/node';
+import { resolve } from 'node:path';
+import { runScan, type ILoadedScannerConfig, type IProjectScanResult } from '@key-lint/core';
+import { NodeFileSystemAdapter, loadScannerConfig } from '@key-lint/core/node';
 
-const config = await loadScannerConfig({ projectRoot: '.' });
-const fs = new NodeFileSystemAdapter(config.guardrails);
+const projectRoot: string = resolve('.');
+const { config }: ILoadedScannerConfig = await loadScannerConfig({ projectRoot });
+const fs: NodeFileSystemAdapter = new NodeFileSystemAdapter(config.guardrails);
+const result: IProjectScanResult = await runScan({ projectRoot, fs, config });
 
-const result = await runScan({
-  projectRoot: '.',
-  fs,
-  config,
-  remoteTranslations: {
-    allowNetwork: true,
-    fetcher: new NodeRemoteTranslationFetcher(),
-    environment: process.env
-  }
-});
+console.log(result.summary);
 ```
+
+Configured HTTP sources additionally require explicit `remoteTranslations`
+runtime consent and an injected `NodeRemoteTranslationFetcher`. See
+[HTTP translation sources](#http-translation-sources-experimental) and the
+[remote translation guide](../../docs/remote-translations.md).
 
 ## Subpath exports
 
@@ -161,6 +158,7 @@ const result = await runScan({
 | --- | --- |
 | `@key-lint/core` | Browser-safe engine (adapter registry, scan, models) |
 | `@key-lint/core/node` | Node-only APIs (`NodeFileSystemAdapter`, `NodeRemoteTranslationFetcher`, `loadScannerConfig`) |
+| `@key-lint/core/detection` | Static ngx-translate and Transloco HTTP-loader analyzers |
 
 ## License
 

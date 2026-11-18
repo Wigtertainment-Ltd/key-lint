@@ -8,6 +8,8 @@ and cannot be enabled by project configuration.
 The CLI supports the `text`, `json`, `markdown` and `html` reporters. The Action
 generates the three file-based formats—JSON, Markdown, and HTML—in one scan.
 
+Use Node.js 26 LTS in the workflow. See the [complete example](../../docs/ci/github-actions.yml).
+
 ```yaml
 - uses: Wigtertainment-Ltd/key-lint/packages/action@v1
   env:

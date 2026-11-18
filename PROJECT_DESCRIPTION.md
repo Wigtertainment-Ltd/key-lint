@@ -5,7 +5,7 @@ KeyLint is a desktop utility built with Angular and Electron. It lets a user sel
 
 The scan engine lives in the standalone package `@key-lint/core` and is shared by two front ends: the Electron desktop app and the headless CLI `@key-lint/cli` for CI/CD pipelines.
 
-The scan pipeline, the adapter architecture, the multi-page analysis UI, and the persisted project history are implemented. Angular (ngx-translate style usage) is currently the only shipped scan adapter, and JSON is the only supported translation format.
+The scan pipeline, the adapter architecture, the multi-page analysis UI, and the persisted project history are implemented. Angular (ngx-translate style usage) and React/react-i18next scan adapters are shipped; JSON is the supported translation format.
 
 ## Goals
 - Provide a simple desktop interface to select and audit a target project
@@ -46,11 +46,12 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
   - `models/finding.model.ts`, `models/scan-result.model.ts`, `models/history-event.model.ts`
   - `adapters/scan-adapter.interface.ts`, `adapters/adapter-registry.ts`, `adapters/default-adapter-registry.ts`
   - `adapters/angular/angular-scan.adapter.ts`
+  - `adapters/react/react-scan.adapter.ts`
   - `config/scanner-defaults.ts`, `config/scanner-config.ts`, `config/resolve-config.ts` (shared merge + validation), `config/load-config.ts` (Node only)
   - `scan/run-scan.ts` (the pipeline itself)
   - `fs/node-file-system.adapter.ts` (Node only, exported via `@key-lint/core/node`)
   - `util/` (path, glob and translation JSON helpers)
-- `packages/cli/` — `@key-lint/cli`, argument parsing, reporters (text/json/markdown), exit codes
+- `packages/cli/` — `@key-lint/cli`, argument parsing, text/JSON/Markdown/HTML reporters, exit codes
 - `packages/action/` — GitHub Action wrapping the CLI
 - `src/app/shared/services/` — desktop runtime services
   - `electron.service.ts` (typed client for the isolated preload bridge)
@@ -68,7 +69,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `**` — redirect to `/`
 
 ### Scan Pipeline
-1. Detect project adapter (parent directories are also probed; best confidence wins)
+1. Detect the nearest recognized project; confidence resolves adapter matches at the same project root
 2. Collect translation files
 3. Extract defined translation keys
 4. Build the translation matrix (keys x locales); unreadable, malformed or
@@ -78,7 +79,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 7. Emit `ScanExecutionSnapshot` (`idle` / `running` / `completed` / `failed`) and record history events
 
 ### Finding Model
-- `FindingStatus`: `used`, `unused`, `dynamic-uncertain`, `indirect-uncertain`, `missing-in-language`, `extra-in-language`
+- Finding statuses and severities are defined in the [finding model](packages/core/src/models/finding.model.ts), including locale consistency, usage and placeholder findings.
 - Missing and extra findings are emitted per affected locale and populate `language`.
 - The canonical locale is configured with `baseLocale` or selected automatically (`en`, English variant, most complete locale).
 - `FindingSeverity`: `info`, `warning`, `error`
@@ -93,37 +94,35 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - Translation JSON is validated before analysis and before desktop write-back; invalid files are never silently skipped or overwritten
 
 ### Scanner Defaults (`DEFAULT_SCANNER_CONFIG`)
-- Translation globs: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`, `i18n/**/*.json`, `locales/**/*.json`, plus `apps|libs|packages/**/src/assets/i18n/**/*.json`
-- Source globs: `**/*.html`, `**/*.ts`
-- Excludes: `node_modules`, `dist`, `coverage`, `.git`, `.nx`, `tmp`, `out`
-- Ignored keys: none by default (`ignoreKeys`, glob matched against translation keys)
-- Guardrails: max. 25.000 files, max. 2 MB per file (enforced by the Node filesystem adapter)
+The [scanner defaults](packages/core/src/config/scanner-defaults.ts) define source
+and translation globs, exclusions, ignored keys and filesystem guardrails.
+See the [configuration reference](packages/cli/README.md#configuration-file) for overrides.
 
 ## CLI / CI-CD Usage
 - Command: `npx @key-lint/cli scan <path> [options]`
-- Reporters: `text` (stdout), `json` (machine readable, without the translation matrix), `markdown` (job summary / PR comment)
+- Reporters: `text`, `json`, `markdown` and self-contained `html` reports
+- PR/MR comments: `--pr-comment` posts scan summaries directly on GitHub or GitLab
 - Thresholds: `--max-errors` (default 0), `--max-warnings` (default unlimited)
 - Exit codes: `0` thresholds respected, `1` thresholds exceeded, `2` usage/config/runtime error
 - Configuration: desktop and CLI both load `keylint.config.json` or a `keylint` key in `package.json`; precedence defaults < package.json < config file < CLI flags
 - Distribution: npm packages, GitHub Action (`packages/action`), Docker image (`docker/Dockerfile`)
-- Details and pipeline templates: `docs/ci/`
+- Details and pipeline templates: [CI/CD guide](docs/ci/README.md)
 
 ## Startup Flow
-1. `npm start` runs `ng serve --hmr` and launches Electron against `http://localhost:4200` once the port is ready.
+1. `npm start` builds Core, runs `ng serve --hmr` and launches Electron against `http://localhost:4200` once the port is ready.
 2. `npm run start:dist` builds the Angular app and loads `dist/key-lint/browser/index.html` in Electron.
 3. The app opens on the project selection page (native folder dialog + recent projects).
 4. The scan runs with live stage feedback and navigates into the analysis area.
 5. Results are explored via dashboard, results overview, translation keys and history.
 
 ## Technology Stack
-- Angular 18 (standalone bootstrap, standalone components, router)
-- Electron 43 with `contextIsolation`, renderer sandbox and IPC/preload bridge
-- TypeScript 5.5
+- Angular 22 (standalone bootstrap, standalone components, router)
+- Electron 44 with `contextIsolation`, renderer sandbox and IPC/preload bridge
+- TypeScript 6
 - SCSS with centralized design tokens in `src/styles.scss`
-- PrimeNG + PrimeFlex (UI styling framework)
-- `@wigtertainment-ltd/comp-lib` (custom UI components)
+- Angular CDK virtual scrolling and application-specific UI components
 - `@ngx-translate/core` + `@ngx-translate/http-loader` (i18n loader setup)
-- Jasmine + Karma (unit testing setup)
+- Jasmine + Karma (desktop tests), Vitest (Core and CLI tests), Node test runner (Action and Electron tests)
 
 ## Build, Run, and Test
 - Install dependencies: `npm install` (npm workspace, links `@key-lint/core`)
@@ -146,6 +145,7 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 - `packages/core/src/adapters/scan-adapter.interface.ts`: Contract every scan adapter implements
 - `packages/core/src/config/scanner-defaults.ts`: Default globs, excludes and guardrails
 - `packages/core/src/adapters/angular/angular-scan.adapter.ts`: Angular/ngx-translate scan adapter
+- `packages/core/src/adapters/react/react-scan.adapter.ts`: React/react-i18next scan adapter
 - `packages/core/src/scan/run-scan.ts`: The scan pipeline shared by desktop app and CLI
 - `packages/cli/src/cli.ts`: CLI entry logic, reporter selection and exit codes
 - `src/app/shared/services/scan-orchestration.service.ts`: Desktop state wrapper and translation writes
@@ -156,18 +156,18 @@ The scan pipeline, the adapter architecture, the multi-page analysis UI, and the
 ## Current Status and Limitations
 - Angular and React/react-i18next adapters support JSON; `TranslationFormat` also declares `yaml`, `xliff` and `po`, which remain unsupported.
 - Persistence for recent projects and history relies on `localStorage`, not on files on disk.
-- The desktop UI has no dedicated report export flow yet; JSON/Markdown reporting is available via `@key-lint/cli` and the GitHub Action in `packages/action`.
-- Scanning requires the Electron runtime; in a plain browser context the filesystem adapter returns no files.
+- The desktop UI has no dedicated report export flow yet; text, JSON, Markdown and HTML reporting is available via `@key-lint/cli` and the GitHub Action.
+- Desktop filesystem scanning requires the Electron bridge; programmatic Core callers must provide their own filesystem adapter.
 - Desktop filesystem warnings are attached to scan metadata and shown in the shared analysis-layout status bar.
 - Automated coverage includes core adapter/config integration, CLI thresholds/reporting, and desktop persistence, filesystem, configuration and translation-write services.
-- `strict: true` is not enabled in the TypeScript configuration.
+- TypeScript strict mode and type-checked ESLint rules are enabled across the application and packages.
 
 ## Suggested Next Milestones
 1. Add further framework adapters (Vue/vue-i18n, React Intl, Lingui).
 2. Support additional translation formats (YAML, XLIFF, PO).
 3. Add a desktop in-app report export flow (e.g. JSON/Markdown/CSV).
-4. Expand CI guidance and automation examples beyond the current GitHub Action + CLI baseline.
-5. Expand test coverage across orchestration, history and page logic, then enable stricter TypeScript settings.
+4. Extend the existing GitHub, GitLab, Azure DevOps and Jenkins integration examples.
+5. Expand regression coverage as additional framework adapters and UI workflows are introduced.
 
 ## Notes
 The project has moved from a prototype shell to a working i18n auditing tool with a clear separation between core contracts, framework adapters and UI. The main remaining value lies in broadening framework/format support and improving desktop export ergonomics plus broader automation coverage.
