@@ -10,7 +10,8 @@ npm install -g @key-lint/cli
 npx @key-lint/cli scan .
 ```
 
-Requires Node ≥ 20.
+Node.js 26 LTS is recommended. The [package manifest](package.json) defines the
+minimum runtime requirement.
 
 ## Command
 
@@ -93,7 +94,8 @@ When pinning the CLI version, select a release that includes `--pr-comment`.
 
 ## Configuration file
 
-Place a `keylint.config.json` in your project root:
+Place a `keylint.config.json` in your project root. This example customizes an
+Angular project with translations under `src/assets/i18n`:
 
 ```json
 {

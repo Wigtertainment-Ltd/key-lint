@@ -66,6 +66,6 @@ body:
     id: environment
     attributes:
       label: Environment
-      placeholder: "Windows 11, Node 20.11, npm 10.5"
+      placeholder: "Windows 11, Node.js 26 LTS, npm <version>"
     validations:
       required: true

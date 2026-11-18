@@ -3,6 +3,10 @@
 Remote translation documents must be JSON objects. KeyLint never writes them.
 Every runtime keeps networking disabled until the user explicitly opts in.
 
+Remote translation sources are supported by the Angular adapter. The
+[React adapter](../packages/core/src/adapters/react/README.md) currently supports
+local JSON resources only.
+
 ## Source order and merge behavior
 
 `translationSources` is evaluated from first to last. Filesystem and HTTP sources
@@ -46,3 +50,10 @@ produce diagnostics and require a manual explicit HTTP source.
 Safe report metadata contains only source/request counts, loader framework names
 and read-only state. It excludes full endpoint URLs, header values, environment
 values and desktop credentials.
+
+## Implementation references
+
+- [Automatic HTTP source integration](architecture/auto-http-integration.md)
+- [ngx-translate loader detection](architecture/ngx-translate-http-loader-detection.md)
+- [Transloco loader detection](architecture/transloco-http-loader-detection.md)
+- [Electron remote translation boundary](architecture/electron-remote-translations.md)

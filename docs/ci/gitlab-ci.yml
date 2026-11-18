@@ -1,6 +1,6 @@
 keylint:
   stage: test
-  image: node:20-alpine
+  image: node:26-alpine
   resource_group: keylint-$CI_MERGE_REQUEST_IID
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

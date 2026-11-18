@@ -4,389 +4,130 @@
 
 # KeyLint
 
-**Catch missing, unused and inconsistent Angular translation keys before they reach production.**
+**Find missing, unused and inconsistent translation keys in Angular and React projects.**
 
-Run it as a desktop app while you code, or wire it into your CI pipeline so a broken
-translation never gets merged again.
+Review translations in the desktop app or check them in CI. Both use the same scan engine.
 
-[Desktop app](#-desktop-app) · [CLI](#-command-line) · [CI/CD](#-cicd-integration) · [GitHub Action](#github-action) · [Docker](#docker)
+[Desktop app](#desktop-app) · [CLI](#command-line) · [CI pipelines](#ci-pipelines) · [Documentation](#documentation)
 
 </div>
 
----
+## What KeyLint checks
 
-## Why KeyLint?
+- Missing and extra translations per locale
+- Unused keys and uncertain dynamic or indirect usage
+- Missing placeholder parameters and inconsistent locale contracts
+- Source evidence with file and line locations
 
-Translation keys drift. Someone renames a key, forgets a locale, or leaves a dead
-key behind after a refactor - and nobody notices until a user sees a raw
-`DASHBOARD.TITLE` on screen. KeyLint scans your source **and** your translation
-files and tells you exactly what is wrong:
+## Supported projects
 
-- 🔴 **Missing keys** - used in code/templates but absent in a locale file
-- 🟡 **Unused keys** - defined in a locale file but never referenced
-- 🟡 **Extra keys** - present in one locale but missing in the base language
-- 🟡 **Dynamic / indirect keys** - resolved at runtime, flagged so you can review them
-- 🔴 **Placeholder contracts** - detects missing `{{name}}` parameters and locale drift
-- ✅ **Used keys** - confirmed and safe
+| Area | Support |
+| --- | --- |
+| Angular | ngx-translate-style usage with JSON translations |
+| React | react-i18next with local JSON translations |
+| Desktop | Windows x64, macOS Universal (Intel and Apple Silicon), Linux x64 |
+| CLI | Node.js; Node.js 26 LTS is recommended |
 
-The desktop app and the CLI run the **exact same scan engine**, so what you see
-while developing is what your pipeline enforces.
+Common translation directories and source files are detected automatically. Configure
+custom paths and exclusions through [`keylint.config.json`](packages/cli/README.md#configuration-file).
 
----
+The [React adapter reference](packages/core/src/adapters/react/README.md) covers namespaces,
+`useTranslation`, explicit `<Trans i18nKey>` usage, plurals, placeholders and current limitations.
 
-## 💻 Desktop app
+## Desktop app
 
-The fastest way to audit a project. No config required.
+1. Download the latest Windows, macOS or Linux build from
+   [Releases](https://github.com/Wigtertainment-Ltd/key-lint/releases).
+2. Open KeyLint and select your project folder.
+3. Review the dashboard, filter findings, or compare translations in the locale matrix.
+4. Add missing translations to local JSON files directly from the app.
 
-1. Download the latest build for Windows, macOS or Linux from the
-   [Releases](https://github.com/Wigtertainment-Ltd/key-lint/releases) page.
-2. Launch KeyLint and pick your project folder - the framework is detected
-   automatically.
-3. Explore the results:
+Scan history is saved per project. Light and dark themes are included. Remote and
+mixed-source results are read-only; see the [remote translation guide](docs/remote-translations.md).
 
-   | View | What it gives you |
-   | --- | --- |
-   | **Dashboard** | KPI metrics and a scan-trend chart with day drilldown |
-   | **Results** | Filterable findings with evidence snippets, file/line and copy actions |
-   | **Translation keys** | A locale matrix (keys × languages) with filters and a detail panel |
-   | **History** | Every scan and change tracked per project |
+## Command line
 
-4. **Fix missing translations in place** - type the value and KeyLint writes it
-   back into the correct (nested) spot in your locale JSON.
-
-> Light/dark theme included, with a `prefers-color-scheme` fallback.
-
----
-
-## ⚙️ Using KeyLint in your project
-
-KeyLint works out of the box for **Angular projects using ngx-translate** and
-**React projects using react-i18next** with **JSON** locale files. The scanner
-already knows the common layouts:
-
-- Translation files: `src/assets/i18n/**/*.json`, `assets/i18n/**/*.json`,
-  `i18n/**/*.json`, `locales/**/*.json`, `public/locales/**/*.json`,
-  `src/locales/**/*.json`, plus the usual Nx `apps|libs|packages` paths.
-- Source files: `**/*.html`, `**/*.ts`, `**/*.tsx`, `**/*.js` and `**/*.jsx`.
-
-Nothing to configure to get started. When you need to tune it, drop a
-`keylint.config.json` in your project root (or a `"keylint"` key in
-`package.json`):
-
-```json
-{
-  "baseLocale": "en",
-  "includeTranslationGlobs": ["src/assets/i18n/**/*.json"],
-  "includeSourceGlobs": ["**/*.html", "**/*.ts"],
-  "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
-  "ignoreKeys": ["LEGACY.**", "VENDOR.*"]
-}
-```
-
-`baseLocale` is optional. Without it, KeyLint selects exact `en`, then the most
-complete `en-*` locale, and finally the most complete discovered locale. Missing
-and extra findings are emitted per affected locale. An explicitly configured
-locale that cannot be found is a configuration error.
-
-### Placeholder contracts
-
-Mustache placeholders such as `{{name}}` are extracted from every JSON locale.
-The base locale defines the required parameter names. KeyLint checks parameters
-passed to ngx-translate and Transloco methods, pipes, directives and structural
-calls. Missing static parameters and locale mismatches are errors; variables,
-spreads and computed parameter objects that cannot be resolved statically are
-warnings. Additional parameters are allowed. The check is enabled by default and
-can be suppressed per key with the existing `ignoreKeys` patterns.
-
-Precedence is: built-in defaults < `package.json` < config file < CLI flags.
-Arrays are replaced (never merged), and the config file is pure JSON - it can
-never execute code.
-
-The desktop app reloads `package.json` and `keylint.config.json` before every
-scan and uses the same validation and merge rules as the CLI. CLI flags remain
-the only CLI-specific precedence level.
-
-After selecting a project, the desktop app shows the effective file-count and
-file-size guardrails together with their source. Values changed there apply only
-to the next analysis and do not modify project files. Desktop precedence is:
-built-in defaults < `package.json` < `keylint.config.json` < pre-scan override.
-
-Translation files must contain valid JSON with an object at the root. An
-unreadable or invalid file stops the scan and reports its path instead of being
-silently omitted. The desktop editor applies the same validation before writing,
-so malformed files are never replaced with newly generated content.
-
-The configured filesystem guardrails apply equally to desktop and CLI scans.
-Both skip oversized files and symbolic links, stop collecting after `maxFiles`,
-and report unreadable directories as warnings. Desktop warnings are shown above
-every analysis page in the shared app status bar and are also available in the
-scan metadata.
-
----
-
-## 🖥️ Command line
-
-Run the same engine headless - no Electron, no browser. Requires Node ≥ 20.
+Node.js 26 LTS is recommended. Run a scan without installing KeyLint globally:
 
 ```bash
-# One-off scan, no install
 npx @key-lint/cli scan .
+```
 
-# Or install it globally
+Or install the CLI once:
+
+```bash
 npm install -g @key-lint/cli
 keylint scan /path/to/project --max-errors 0
 ```
 
-Write machine-readable and human-readable reports at the same time:
+Reporters include `text`, `json`, `markdown` and `html`. For example, write a
+self-contained HTML report:
 
 ```bash
-keylint scan . \
-  --reporter text \
-  --output json=keylint-report/keylint.json \
-  --output markdown=keylint-report/keylint.md \
-  --output html=keylint-report/site/index.html \
-  --max-errors 0
+npx @key-lint/cli scan . --output html=keylint-report/site/index.html
 ```
 
-| Option | Description |
-| --- | --- |
-| `--config <file>` | Path to a `keylint.config.json`. |
-| `--reporter <name>` | `text`, `json`, `markdown` or `html`. Repeatable. Default `text`. |
-| `--output <name>=<file>` | Redirect a reporter to a file (also enables it). |
-| `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
-| `--max-warnings <n>` | Tolerated `warning` findings. Default unlimited. |
-| `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. |
-| `--allow-network` | Explicitly allow configured HTTP translation requests. Disabled by default. |
-| `--quiet` | No progress output on stderr. |
-| `--no-color` | Disable ANSI colors (also honoured via `NO_COLOR`). |
+Exit code `0` means thresholds passed, `1` means a threshold was exceeded, and `2`
+means the run failed. Requested reports are written before a threshold failure.
 
-Progress goes to **stderr**, reports go to **stdout**, so `--reporter json` pipes
-cleanly. Exit code `0` means thresholds were respected, `1` means they were
-exceeded, `2` means the run itself failed.
+See the [CLI reference](packages/cli/README.md) for options, configuration, report
+formats and exit-code details.
 
-Requested reports are written before exit code `1` is returned, so a failed
-quality gate can still publish `keylint-report/site/index.html`. A usage,
-configuration, or runtime failure with exit code `2` may produce no HTML report;
-deployment steps must check that `index.html` exists.
+## CI pipelines
 
-Full option reference and reporter details:
-[packages/cli/README.md](packages/cli/README.md).
+Choose the integration for your CI provider:
 
----
-
-## 🔁 CI/CD integration
-
-Fail the build the moment a translation key goes missing.
-
-### GitHub Action
-
-```yaml
-- uses: actions/checkout@v4
-- uses: actions/setup-node@v4
-  with:
-    node-version: 20
-    cache: npm
-
-- id: keylint
-  uses: Wigtertainment-Ltd/key-lint/packages/action@v1
-  with:
-    path: .
-    max-errors: '0'
-    allow-network: 'false'
-    ignore: |
-      LEGACY.**
-
-# Upload the private JSON and Markdown reports
-- if: always()
-  uses: actions/upload-artifact@v4
-  with:
-    name: keylint-report
-    path: |
-      ${{ steps.keylint.outputs.json-report }}
-      ${{ steps.keylint.outputs.markdown-report }}
-
-# Upload only an existing publishable HTML site
-- if: always() && hashFiles('keylint-report/site/index.html') != ''
-  uses: actions/upload-artifact@v4
-  with:
-    name: keylint-site
-    path: ${{ steps.keylint.outputs.site-directory }}
-```
-
-The action appends a Markdown summary to the GitHub job summary and exposes
-finding counts plus the generated JSON, Markdown and HTML paths as outputs. The
-`site-directory` output contains only the directly publishable HTML site; JSON
-and Markdown stay outside that directory.
-The [GitHub Pages example](docs/ci/github-actions.yml) publishes that directory
-only from the repository's default branch and keeps pull-request reports as
-ordinary workflow artifacts.
-
-The public HTML site is deliberately less detailed than the private reports. It
-omits absolute project roots, translation values, and source snippets, while the
-same credential-redaction pass used by every reporter remains active. Hosting
-credentials are handled by CI and hosting providers, never by KeyLint.
-Remote sources require `allow-network: 'true'`; configuration alone never enables
-traffic. Map authentication headers to environment names in configuration and
-provide their values from GitHub Secrets. See the
-[Action reference](packages/action/README.md) and
-[remote translation guide](docs/remote-translations.md).
-
-### Docker
-
-```bash
-docker pull ghcr.io/wigtertainment/key-lint:latest
-docker run --rm -v "$PWD:/work" -w /work ghcr.io/wigtertainment/key-lint scan . --max-errors 0
-```
-
-### Other pipelines
-
-Ready-to-use snippets for GitLab CI, Azure DevOps and Jenkins live in
-[docs/ci/README.md](docs/ci/README.md), alongside the full configuration schema.
-
-```bash
-npx @key-lint/cli scan . --max-errors 0 \
-  --output markdown=keylint-report/keylint.md \
-  --output html=keylint-report/site/index.html
-```
-
----
-
-## Supported today
-
-| Area | Status |
-| --- | --- |
-| Framework | Angular (ngx-translate style usage), React (react-i18next) |
-| Translation format | JSON |
-| Platforms (desktop) | Windows x64, macOS (Apple Silicon + Intel), Linux x64 |
-
-The React adapter supports `useTranslation`, explicit `<Trans i18nKey>` usage,
-namespaces, `keyPrefix`, static `defaultNS`, JSON v4 plurals and placeholder
-contracts. Dynamic keys produce warnings. See the [React adapter scope](packages/core/src/adapters/react/README.md).
-
-More framework adapters (Vue/vue-i18n, React Intl, Lingui) and formats (YAML, XLIFF,
-PO) are on the roadmap. Contributions welcome - see
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
----
-
-<br>
-
-# For developers
-
-Everything below is for working **on** KeyLint itself.
-
-## Workspace layout
-
-The repository is an npm workspace:
-
-| Path | Package | Purpose |
+| Provider | Setup | Complete example |
 | --- | --- | --- |
-| `/` | `key-lint` | Angular + Electron desktop app |
-| `packages/core` | `@key-lint/core` | Framework-agnostic scan engine (adapters, rules, config) |
-| `packages/cli` | `@key-lint/cli` | Headless CLI for CI/CD pipelines |
-| `packages/action` | - | GitHub Action wrapping the CLI |
+| GitHub Actions | [Action inputs and outputs](packages/action/README.md) | [GitHub workflow](docs/ci/github-actions.yml) |
+| GitLab CI | [MR comments and token setup](docs/ci/README.md#gitlab-setup) | [GitLab pipeline](docs/ci/gitlab-ci.yml) |
+| Azure DevOps | [CI guide](docs/ci/README.md) | [Azure pipeline](docs/ci/azure-pipelines.yml) |
+| Jenkins | [CI guide](docs/ci/README.md) | [Jenkinsfile](docs/ci/Jenkinsfile) |
 
-The desktop app and the CLI run the exact same engine. `npm run build:core` has to
-run before the Angular build; the `build`, `start` and `test` scripts do that
-automatically.
+### Pull request and merge request comments
 
-The Electron renderer is isolated and sandboxed: `nodeIntegration` is disabled,
-`contextIsolation` is enabled, and `preload.js` exposes only allowlisted dialog
-and filesystem operations through `window.keyLint`. Filesystem IPC validates
-absolute paths; renderer writes are additionally limited to JSON files and 2 MB.
+Enable the built-in integration on GitHub or GitLab:
 
-## Development server
+```bash
+npx @key-lint/cli scan . --pr-comment
+```
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+The CLI creates or updates one KeyLint summary comment with the result, error and
+warning counts, and a link to the CI run. No helper scripts or report files are
+required. Provide the CI token and permissions described in the
+[comment setup guide](docs/ci/README.md#pull-request-comments).
 
-## Code scaffolding
+For the GitHub Action, use [`pr-comment: 'true'`](packages/action/README.md#pull-request-comments).
+Comments are disabled by default and preserve threshold failure exit codes.
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+### Reports and Docker
 
-## Build
+The [CI guide](docs/ci/README.md) explains artifact uploads and HTML publishing with
+[GitHub Pages](docs/ci/README.md#publishing-the-report-with-github-pages),
+[Amazon S3](docs/ci/README.md#publishing-to-amazon-s3) and
+[Netlify](docs/ci/README.md#publishing-to-netlify).
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+To build and run a local container, follow the [Docker instructions](docs/ci/README.md#docker).
 
-## Production desktop builds
+## Documentation
 
-| Script | Purpose |
+| You want to… | Read |
 | --- | --- |
-| `npm run build:electron` | Angular production build with `--base-href ./` for Electron's local renderer |
-| `npm run pack:win` | Unpacked app in `release/win-unpacked/` – fast smoke test, no installer |
-| `npm run dist:win` | NSIS installer + portable `.exe` + `latest.yml` in `release/` |
-| `npm run pack:mac` | Unpacked universal app in `release/mac-universal/` |
-| `npm run dist:mac` | Universal DMG + ZIP + `latest-mac.yml` in `release/` |
-| `npm run pack:linux` | Unpacked x64 app in `release/linux-unpacked/` |
-| `npm run dist:linux` | x64 AppImage + DEB + `latest-linux.yml` in `release/` |
+| Configure scanning, thresholds and reporters | [CLI reference](packages/cli/README.md) |
+| Configure GitHub Actions | [Action reference](packages/action/README.md) |
+| Set up another CI provider or publish reports | [CI guide and examples](docs/ci/README.md) |
+| Configure HTTP sources and automatic loader detection | [Remote translation guide](docs/remote-translations.md) |
+| Integrate the scan engine in another tool | [Core API guide](packages/core/README.md) |
+| Check React support and limitations | [React adapter reference](packages/core/src/adapters/react/README.md) |
+| Understand the application structure | [Project architecture](PROJECT_DESCRIPTION.md#architecture) |
+| Develop, test or release KeyLint | [Contributing guide](CONTRIBUTING.md) |
 
-Packaging is configured in `electron-builder.yml`. Build macOS artifacts on macOS and Linux
-artifacts on Linux. Production Windows and macOS builds require their signing credentials.
+## Contributing and support
 
-### Releasing
-
-1. Bump `version` in `package.json`.
-2. Push a matching tag, e.g. `v1.0.1`. This triggers `.github/workflows/release-desktop.yml`.
-3. The workflow tests once, builds on native Windows, macOS and Linux runners, verifies the
-   packages, generates `SHA256SUMS.txt` and attests the release assets.
-4. A final job collects every platform into one **draft** release in this repository.
-5. Review the draft and publish it. Only then do the assets become downloadable and does auto-update
-   start serving the new version.
-
-Release publishing and signing are handled by maintainers via repository secrets and the release
-workflow configuration. Contributor pull requests do not need access to publishing credentials.
-
-Windows continues to use Azure Trusted Signing. macOS uses a `Developer ID Application`
-certificate plus Apple's notarization service. The workflow expects these additional secrets:
-
-- `MAC_CSC_LINK` – base64-encoded `.p12` containing the Developer ID certificate and private key
-- `MAC_CSC_KEY_PASSWORD` – password used when exporting the `.p12`
-- `APPLE_ID` – Apple Developer account email
-- `APPLE_APP_SPECIFIC_PASSWORD` – app-specific password for notarization
-- `APPLE_TEAM_ID` – ten-character Apple Developer team ID
-
-Linux release files have SHA-256 checksums and GitHub build provenance attestations. Linux does not
-have a platform-wide code-signing trust system equivalent to Windows Authenticode or macOS
-Gatekeeper.
-
-### Auto-update
-
-`electron-updater` checks for updates on startup in packaged Windows, macOS and Linux builds. It is
-skipped for the dev server and for the Windows portable executable (which cannot update itself).
-macOS needs both the downloadable DMG and the ZIP/update metadata produced by the release workflow.
-A failing check is logged and never blocks startup. No token is embedded in the app – the release
-repository is public.
-
-### Known limitations
-
-- **SmartScreen reputation still takes time.** Even with valid Trusted Signing, new apps/versions
-  can still trigger warnings until reputation is established.
-- **Placeholder icon.** `build/icon.png` is a generated stand-in. Replace it with the real artwork
-  (256x256 or larger); electron-builder converts it to a multi-size `.ico`.
-- **Local build on Windows may fail while extracting `winCodeSign`** with
-  `Cannot create symbolic link`. Enabling Windows Developer Mode typically resolves this.
-- **Linux ARM64 and additional repositories are not included yet.** The first Linux release is x64
-  AppImage/DEB only; Snap, Flatpak, RPM and distro repositories are outside the current scope.
-- **No store distribution.** The desktop packages are not submitted to the Microsoft Store, Mac
-  App Store, Homebrew or Linux stores.
-
-## Running unit tests
-
-Run `ng test` to execute the desktop unit tests via [Karma](https://karma-runner.github.io).
-Run `npm run test:packages` to execute the engine and CLI tests via Vitest.
-
-## Running end-to-end tests
-
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
-
-## Contributing
-
-Bug reports and pull requests are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[Code of Conduct](CODE_OF_CONDUCT.md). Security issues must be reported privately, see
-[SECURITY.md](SECURITY.md).
+Report bugs and request features through [GitHub Issues](https://github.com/Wigtertainment-Ltd/key-lint/issues).
+For code contributions, read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described
+in [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -4,6 +4,8 @@ The scan engine that powers the desktop app is published as a headless CLI
 (`@key-lint/cli`). It reads the same adapters, globs and rules, so a pipeline
 run produces the same findings as the desktop UI.
 
+Node.js 26 LTS is recommended and used in the pipeline examples below.
+
 ## Command
 
 ```bash
@@ -20,7 +22,7 @@ npx @key-lint/cli scan . \
 | `--config <file>` | Path to a `keylint.config.json`. Missing file is an error. |
 | `--reporter <name>` | `text`, `json`, `markdown` or `html`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
-| `--max-errors <n>` | Tolerated `error` findings (missing keys). Default `0`. |
+| `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
 | `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited. |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Replaces `ignoreKeys` from the config file. |
 | `--allow-network` | Explicitly enable configured remote translation requests. Disabled by default. |
@@ -37,13 +39,15 @@ piped safely.
 | --- | --- |
 | `0` | Thresholds respected |
 | `1` | Error or warning threshold exceeded |
-| `2` | Usage error, invalid config, unreadable project path, no adapter detected |
+| `2` | Usage, configuration, scan runtime or comment publication error |
 
 ### Severity mapping
 
 | Finding status | Severity |
 | --- | --- |
 | `missing-in-language` | `error` |
+| `placeholder-missing`, `placeholder-mismatch` | `error` |
+| `placeholder-uncertain` | `warning` |
 | `unused`, `dynamic-uncertain`, `indirect-uncertain`, `extra-in-language` | `warning` |
 | `used` | `info` (never counted against thresholds) |
 
@@ -51,6 +55,8 @@ piped safely.
 
 `keylint.config.json` in the project root (or a `keylint` key in
 `package.json`). Only JSON is supported - a config file must never execute code.
+
+This example customizes paths for an Angular project:
 
 ```json
 {
@@ -87,6 +93,10 @@ locations remain available for remediation. Hosting credentials belong to the
 CI or hosting provider and must never be supplied to KeyLint.
 
 ## Pipeline examples
+
+Choose a provider below. The [CLI reference](../../packages/cli/README.md)
+documents all options; the [GitHub Action reference](../../packages/action/README.md)
+covers Action inputs and outputs.
 
 - [GitHub Actions](github-actions.yml)
 - [GitLab CI](gitlab-ci.yml)
@@ -258,6 +268,8 @@ explicit choice: reports intended only for employees or customers should be
 published behind the organization's existing access controls.
 
 ## Docker
+
+Build locally from the repository root:
 
 ```bash
 docker build -f docker/Dockerfile -t keylint .
