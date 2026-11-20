@@ -194,6 +194,75 @@ describe('angularScanAdapter', (): void => {
 		expect(findings.filter((finding: IFinding): boolean => finding.status === 'unused' || finding.status === 'missing-in-language')).toEqual([]);
 	});
 
+	it.each(['workspace/project', 'F:/workspace/project', '/workspace/project'])('resolves ngx-translate wrappers across files under %s', async (root: string): Promise<void> => {
+		const wrapperContext: IProjectContext = { ...context, projectRoot: root };
+		const filePath: string = `${root}/src/app/sample.component.ts`;
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			[`${root}/src/assets/i18n/en.json`]: JSON.stringify({
+				APP: { TITLE: 'Hello {{ name }}', SUBTITLE: 'Welcome {{ name }}', DEFAULT: 'Hi {{ name }}', UNUSED: 'Unused' }
+			}),
+			[`${root}/src/app/labels.service.ts`]: `
+				import { TranslateService as Translator } from '@ngx-translate/core';
+
+				export class Labels {
+					constructor(private readonly service: Translator) {}
+
+					labelFor(params: object = { name: 'Default' }, key: string): string {
+						return this.service.instant(key, params);
+					}
+
+					translate(scope: string, key: string, params?: object): string {
+						return this.service.instant(key, params);
+					}
+				}
+
+				export class Other {
+					labelFor(params: object, key: string): string { return key; }
+				}
+			`,
+			[filePath]: `
+				import { inject as useService } from '@angular/core';
+				import { Labels as Messages, Other } from './labels.service.js';
+
+				export class Screen {
+					private readonly labels = useService(Messages);
+					constructor(private readonly messages: Messages, private readonly other: Other) {}
+
+					read(key: string): string[] {
+						return [
+							this.labels.labelFor({ name: 'Reader' }, 'APP.TITLE'),
+							this.messages.translate('scope', 'APP.SUBTITLE', { name: 'Reader' }),
+							this.messages.translate('dynamic-scope', key, { name: 'Reader' }),
+							this.labels.labelFor(undefined, 'APP.DEFAULT'),
+							this.labels.labelFor({}, 'APP.MISSING'),
+							this.other.labelFor({}, 'APP.UNUSED')
+						];
+					}
+				}
+			`
+		});
+
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(wrapperContext, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationMatrix: ITranslationMatrix = await angularScanAdapter.buildTranslationMatrix(translationFiles, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(wrapperContext, fs, definedKeys);
+		const findings: IFinding[] = await angularScanAdapter.runRules({ definedKeys, usedKeys, translationMatrix, baseLocale: 'en', context: wrapperContext });
+
+		expect(usedKeys).toMatchObject([
+			{ key: 'APP.TITLE', filePath, placeholderParameters: { kind: 'static', names: ['name'] } },
+			{ key: 'APP.SUBTITLE', filePath, placeholderParameters: { kind: 'static', names: ['name'] } },
+			{ key: 'APP.DEFAULT', filePath, placeholderParameters: { kind: 'static', names: ['name'] } },
+			{ key: 'APP.MISSING', filePath, placeholderParameters: { kind: 'static', names: [] } }
+		]);
+		expect(findings).toMatchObject([
+			{ key: 'APP.DEFAULT', status: 'used' },
+			{ key: 'APP.MISSING', status: 'missing-in-language', language: 'en' },
+			{ key: 'APP.SUBTITLE', status: 'used' },
+			{ key: 'APP.TITLE', status: 'used' },
+			{ key: 'APP.UNUSED', status: 'unused' }
+		]);
+	});
+
 	it('detects keys used via translate method call in TypeScript', async (): Promise<void> => {
 		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
@@ -431,6 +500,40 @@ describe('angularScanAdapter', (): void => {
 			)
 		).toBeFalse();
 		expect(findings.some((item: IFinding): boolean => item.status === 'missing-in-language')).toBeFalse();
+	});
+
+	it('matches dynamic keys with literal parts before, between, and after runtime values', async (): Promise<void> => {
+		const matchedKeys: string[] = [
+			'SETTING.SECURITY.LABEL', 'SETTING.SECURITY.DESCRIPTION', 'PROFILE.PRIVACY.HELP',
+			'MENU.ACCOUNT', 'PAGE.STATUS.READY', 'PROJECT.DASH.SETTINGS.TITLE', 'SECTION.MAIN.HEADING'
+		];
+		const unusedKeys: string[] = [
+			'SETTING.SECURITY.INTERNAL', 'APP.SETTING.SECURITY.LABEL', 'PROFILE.PRIVACY.HELP.EXTRA',
+			'PROJECT.BOARD.SETTINGS.TITLE', 'PROJECT.DASH.SETTINGS.TITLE.EXTRA', 'SECTION.MAIN.INTERNAL'
+		];
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			'workspace/project/src/app/sample.component.ts': `
+				translationService.instant(\`SETTING.\${dto.key.toUpperCase()}.LABEL\`);
+				translationService.instant(\`SETTING.\${dto.key.toUpperCase()}.DESCRIPTION\`);
+				translationService.instant(\`\${context}.PRIVACY.HELP\`);
+				translationService.instant(\`MENU.\${section}\`);
+				translationService.instant(page + '.STATUS.READY');
+				translationService.instant(project + '.DASH.' + panel + '.TITLE');
+				translationService.instant(\`\${unknown}\`);
+			`,
+			'workspace/project/src/app/sample.component.html': `<h1 [title]="'SECTION.' + section + '.HEADING' | translate"></h1>`
+		});
+
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs, [...matchedKeys, ...unusedKeys]);
+		const findings: IFinding[] = await runRules([...matchedKeys, ...unusedKeys], usedKeys, context);
+		const findingsByKey: Map<string, IFinding> = new Map<string, IFinding>(findings.map((finding: IFinding): [string, IFinding] => [finding.key, finding]));
+
+		for (const key of matchedKeys) {
+			expect(findingsByKey.get(key), key).toMatchObject({ status: 'dynamic-uncertain', severity: 'info' });
+		}
+		for (const key of unusedKeys) {
+			expect(findingsByKey.get(key), key).toMatchObject({ status: 'unused' });
+		}
 	});
 
 	it('classifies indirect key literals in TypeScript object configs as indirect-uncertain', async (): Promise<void> => {

@@ -70,6 +70,8 @@ export interface IKeyUsage {
 	isDynamic?: boolean;
 	/** Anchored regular expressions matched against namespace-qualified keys. */
 	dynamicKeyPatterns?: string[];
+	/** Fixed parts of a dynamic Angular key, in order, with unknown text between them. */
+	dynamicKeyLiteralParts?: string[];
 	plural?: { count: number | 'dynamic'; ordinal?: boolean | 'dynamic' };
 	/** Locale selected when resolving a language-dependent usage. */
 	locale?: string;
