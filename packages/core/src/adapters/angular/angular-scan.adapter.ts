@@ -4,8 +4,10 @@ import { ITranslationMatrix, ITranslationMatrixRow } from '../../models/scan-res
 import { IAngularMarkers } from './angular.interfaces.js';
 import { DYNAMIC_PATTERNS, STATIC_HTML_PATTERNS, STATIC_TS_PATTERNS } from './extractors/translation-usage.patterns.js';
 import { extractMatches } from './extractors/pattern-matcher.util.js';
+import { matchesDynamicKeyLiteralParts, readDynamicKeyLiteralParts } from './extractors/dynamic-key-literal-parts.js';
 import { extractHtmlIndirectKeys } from './extractors/html-indirect-keys.extractor.js';
 import { extractNgxTranslateConditionalBindings } from './extractors/ngx-translate/ngx-translate-conditional.extractor.js';
+import { extractNgxTranslateWrapperUsages, INgxTranslateWrapperUsages } from './extractors/ngx-translate/ngx-translate-wrapper-usage.extractor.js';
 import { extractTranslocoStructuralMatches } from './extractors/transloco/transloco-structural.extractor.js';
 import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/translation-matrix.util.js';
 import { readTranslationJson } from '../../util/translation-json.util.js';
@@ -52,24 +54,6 @@ function flattenTranslationObject(value: unknown, prefix: string = ''): string[]
 	}
 
 	return result;
-}
-
-/**
- * Finds the first quoted key fragment and accepts it only when it ends with a dot.
- * The fragment is a heuristic prefix for possible dynamic usage, not a resolved expression value.
- *
- * @param expression - Dynamic translation expression to inspect.
- * @returns A dotted literal prefix, or `null` when the first supported fragment is absent or unsuitable.
- */
-function leadingLiteralPrefix(expression: string): string | null {
-	// Capture the first quoted translation-key fragment, allowing an empty fragment before concatenation.
-	const match: RegExpExecArray | null = /['"`]([A-Za-z0-9_.-]*)['"`]/.exec(expression);
-	if (!match) {
-		return null;
-	}
-
-	const prefix: string = match[1];
-	return prefix.endsWith('.') ? prefix : null;
 }
 
 /**
@@ -662,9 +646,13 @@ export const angularScanAdapter: IScanAdapter = {
 
 		const used: IKeyUsage[] = [];
 		const knownKeys: Set<string> = new Set<string>(definedKeys);
+		const typeScriptSources: Map<string, string> = new Map<string, string>();
 
 		for (const filePath of sourceFiles.map((file: string): string => normalizePath(file)).sort((a: string, b: string): number => a.localeCompare(b))) {
 			const source: string = await fs.readFile(filePath);
+			if (/\.[cm]?tsx?$/.test(filePath)) {
+				typeScriptSources.set(filePath, source);
+			}
 			const descriptors: IPatternDescriptor[] = filePath.endsWith('.html') ? [...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS] : [...STATIC_TS_PATTERNS, ...STATIC_HTML_PATTERNS, ...DYNAMIC_PATTERNS];
 			const fileUsages: IKeyUsage[] = extractMatches(source, filePath, descriptors);
 			for (const usage of fileUsages) {
@@ -688,14 +676,18 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 		}
 
+		const wrapperUsages: INgxTranslateWrapperUsages | undefined = extractNgxTranslateWrapperUsages(typeScriptSources);
 		const deduplicated: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
 		for (const usage of used) {
+			if (usage.matchType?.startsWith('ts-') && wrapperUsages?.handledCalls.has(`${usage.filePath}:${usage.sourceIndex ?? -1}`)) {
+				continue;
+			}
 			const identity: string = `${usage.filePath}:${usage.sourceIndex ?? `${usage.line}:${usage.column}`}:${usage.key}:${usage.isDynamic ? 'dynamic' : 'static'}`;
 			if (!deduplicated.has(identity)) {
 				deduplicated.set(identity, usage);
 			}
 		}
-		return [...deduplicated.values()];
+		return [...deduplicated.values(), ...(wrapperUsages?.usages ?? [])];
 	},
 
 	/**
@@ -719,7 +711,7 @@ export const angularScanAdapter: IScanAdapter = {
 		const findings: IFinding[] = [];
 		const staticUsage: Set<string> = new Set<string>();
 		const dynamicUsage: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
-		const dynamicPrefixes: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
+		const dynamicPatterns: Map<string, { parts: string[]; usage: IKeyUsage }> = new Map<string, { parts: string[]; usage: IKeyUsage }>();
 		const indirectLiteralUsage: Map<string, IKeyUsage> = new Map<string, IKeyUsage>();
 		const allDefined: Set<string> = new Set<string>(input.definedKeys);
 		const translationMatrix: ITranslationMatrix = input.translationMatrix ?? { locales: [], rows: [], totalKeys: 0 };
@@ -743,9 +735,12 @@ export const angularScanAdapter: IScanAdapter = {
 					dynamicUsage.set(usage.key, usage);
 				}
 
-				const prefix: string | null = leadingLiteralPrefix(usage.key);
-				if (prefix && !dynamicPrefixes.has(prefix)) {
-					dynamicPrefixes.set(prefix, usage);
+				const parts: string[] = usage.dynamicKeyLiteralParts ?? readDynamicKeyLiteralParts(usage.key);
+				if (parts.length > 0) {
+					const pattern: string = JSON.stringify(parts);
+					if (!dynamicPatterns.has(pattern)) {
+						dynamicPatterns.set(pattern, { parts, usage });
+					}
 				}
 				continue;
 			}
@@ -833,15 +828,9 @@ export const angularScanAdapter: IScanAdapter = {
 			}
 		}
 
-		/**
-		 * Finds the first recorded dynamic-prefix evidence covering a defined translation key.
-		 *
-		 * @param key - Defined key to compare with inferred literal prefixes.
-		 * @returns The first matching usage record, or `undefined` when no prefix covers the key.
-		 */
-		const matchDynamicPrefix: (key: string) => IKeyUsage | undefined = (key: string): IKeyUsage | undefined => {
-			for (const [prefix, usage] of dynamicPrefixes.entries()) {
-				if (key.startsWith(prefix)) {
+		const matchDynamicKey: (key: string) => IKeyUsage | undefined = (key: string): IKeyUsage | undefined => {
+			for (const { parts, usage } of dynamicPatterns.values()) {
+				if (matchesDynamicKeyLiteralParts(key, parts)) {
 					return usage;
 				}
 			}
@@ -895,7 +884,7 @@ export const angularScanAdapter: IScanAdapter = {
 				continue;
 			}
 
-			const dynamicEvidence: IKeyUsage | undefined = matchDynamicPrefix(key);
+			const dynamicEvidence: IKeyUsage | undefined = matchDynamicKey(key);
 			if (dynamicEvidence) {
 				findings.push({
 					id: `dynamic-key:${key}`,

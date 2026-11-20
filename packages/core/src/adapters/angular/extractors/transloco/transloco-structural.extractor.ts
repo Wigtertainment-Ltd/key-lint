@@ -1,5 +1,6 @@
 import { IKeyUsage } from '../../../scan-adapter.interface.js';
 import { extractCallArgumentList, extractSnippet, firstCallArgument, getLineColumn } from '../pattern-matcher.util.js';
+import { readDynamicKeyLiteralParts } from '../dynamic-key-literal-parts.js';
 import { parsePlaceholderParameters, splitTopLevel, IPlaceholderParameterUsage } from '../../../../util/placeholder.util.js';
 
 /**
@@ -75,6 +76,7 @@ export function extractTranslocoStructuralMatches(source: string, filePath: stri
 					snippet,
 					matchType: 'html-dynamic-transloco-structural-call',
 					isDynamic: true,
+					dynamicKeyLiteralParts: readDynamicKeyLiteralParts(firstArg),
 					sourceIndex: openParenIndex,
 					placeholderParameters
 				});

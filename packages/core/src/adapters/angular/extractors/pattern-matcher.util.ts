@@ -1,6 +1,7 @@
 import { IKeyUsage } from '../../scan-adapter.interface.js';
 import { IPatternDescriptor } from '../../adapter.interfaces.js';
 import { parsePlaceholderParameters, splitTopLevel, IPlaceholderParameterUsage } from '../../../util/placeholder.util.js';
+import { readDynamicKeyLiteralParts } from './dynamic-key-literal-parts.js';
 
 /**
  * Converts a source character offset to a one-based line and column by counting newline characters.
@@ -234,6 +235,7 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 						snippet,
 						matchType: 'ts-dynamic-translate-call',
 						isDynamic: true,
+						dynamicKeyLiteralParts: readDynamicKeyLiteralParts(argumentSource),
 						sourceIndex: openParenIndex,
 						placeholderParameters: callParameters
 					});
@@ -282,6 +284,8 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 					snippet,
 					matchType: descriptor.matchType,
 					isDynamic: descriptor.dynamic,
+					...(descriptor.dynamic && descriptor.matchType !== 'ts-indirect-key-literal'
+						? { dynamicKeyLiteralParts: readDynamicKeyLiteralParts(callArguments[0] ?? rawKey) } : {}),
 					sourceIndex: isTypeScriptCall ? openParenIndex : match.index,
 					placeholderParameters: callParameters ?? pipeParameters
 				});
