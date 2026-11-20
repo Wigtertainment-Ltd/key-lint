@@ -17,7 +17,7 @@
     {
       "key": "APP.LABELS.INDIRECT",
       "status": "indirect-uncertain",
-      "severity": "warning"
+      "severity": "info"
     },
     {
       "key": "APP.TITLE",

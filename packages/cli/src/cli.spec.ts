@@ -134,9 +134,9 @@ describe('runCli', (): void => {
 	it('applies React warning thresholds and namespace-qualified ignore patterns', async (): Promise<void> => {
 		const root: string = fileURLToPath(new URL('../../core/test/fixtures/react/react-i18next-json/plurals-dynamic', import.meta.url));
 		const passing: ICapturedIo = createIo();
-		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '3'], passing)).toBe(EXIT_OK);
+		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '1'], passing)).toBe(EXIT_OK);
 		const failing: ICapturedIo = createIo();
-		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '2'], failing)).toBe(EXIT_THRESHOLD_EXCEEDED);
+		expect(await runCli(['scan', root, '--quiet', '--reporter', 'json', '--max-errors', '3', '--max-warnings', '0'], failing)).toBe(EXIT_THRESHOLD_EXCEEDED);
 		const ignored: ICapturedIo = createIo();
 		expect(
 			await runCli(

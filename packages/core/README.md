@@ -52,8 +52,8 @@ an object as its root value. A violation rejects `runScan` with a
 
 The React adapter handles `useTranslation` and explicit `<Trans i18nKey>` usage,
 local JSON namespaces, `keyPrefix`, static `defaultNS`, and JSON v4 cardinal and
-ordinal plurals. Canonical keys use `namespace:key`; computed keys remain
-warnings. Dynamic namespace configuration, namespace fallback lists, React Intl,
+ordinal plurals. Canonical keys use `namespace:key`. Unresolved computed keys produce
+`dynamic-uncertain` info findings. Dynamic namespace configuration, namespace fallback lists, React Intl,
 Lingui and HTTP translation sources are unsupported by this adapter.
 
 ## Translation resources

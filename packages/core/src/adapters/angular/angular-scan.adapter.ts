@@ -871,7 +871,7 @@ export const angularScanAdapter: IScanAdapter = {
 					adapterId: this.id,
 					key,
 					status: 'indirect-uncertain',
-					severity: 'warning',
+					severity: 'info',
 					message: `Key "${key}" appears in TypeScript string literals but is not confirmed by direct translation usage patterns.`,
 					evidence: [
 						{
@@ -893,7 +893,7 @@ export const angularScanAdapter: IScanAdapter = {
 					adapterId: this.id,
 					key,
 					status: 'dynamic-uncertain',
-					severity: 'warning',
+					severity: 'info',
 					message: `Key "${key}" is likely used through a dynamic translation expression and could not be confirmed statically.`,
 					evidence: [
 						{
@@ -925,7 +925,7 @@ export const angularScanAdapter: IScanAdapter = {
 				adapterId: this.id,
 				key: dynamicExpression,
 				status: 'dynamic-uncertain',
-				severity: 'warning',
+				severity: 'info',
 				message: `Dynamic translation expression "${dynamicExpression}" could not be resolved statically.`,
 				evidence: [
 					{
