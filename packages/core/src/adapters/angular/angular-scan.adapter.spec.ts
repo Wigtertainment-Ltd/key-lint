@@ -153,6 +153,47 @@ describe('angularScanAdapter', (): void => {
 		expect(findings.some((item: IFinding): boolean => item.status === 'missing-in-language' && item.key === 'GENERIC.MISSING')).toBeTrue();
 	});
 
+	it.each(['translateService', 'translationService', 'languageService', 'labels'])('detects keys passed to %s.instant', async (serviceName: string): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			'workspace/project/src/assets/i18n/en.json': JSON.stringify({
+				ATTENDANCE: { START: 'Start', END: 'End', BREAKS: 'Breaks', CAPTUREZONE: 'Time zone', ACTIONS: 'Actions' }
+			}),
+			'workspace/project/src/app/sample.component.ts': `export class SampleComponent {
+				readonly tableConfig = computed<TableConfig<IAttendanceDto>>(() => {
+					this.language();
+					return { columns: [
+						{ field: 'startedAt', text: this.${serviceName}.instant('ATTENDANCE.START', { offset: hours + minutes }) },
+						{ field: 'endedAt', text: this.${serviceName}.instant('ATTENDANCE.END') },
+						{ field: 'breaks', text: this.${serviceName}.instant('ATTENDANCE.BREAKS') },
+						{ field: 'timeZone', text: this.${serviceName}.instant('ATTENDANCE.CAPTUREZONE') },
+						{ field: 'attendanceId', text: this.${serviceName}.instant('ATTENDANCE.ACTIONS') }
+					] };
+				});
+				getLabel(field: string) {
+					return this.${serviceName}.instant('ATTENDANCE.' + field);
+				}
+			}`
+		});
+
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings: IFinding[] = await runRules(definedKeys, usedKeys, context);
+
+		expect(usedKeys.filter((usage: IKeyUsage): boolean => !usage.isDynamic).map((usage: IKeyUsage): string => usage.key).sort()).toEqual([
+			'ATTENDANCE.ACTIONS',
+			'ATTENDANCE.BREAKS',
+			'ATTENDANCE.CAPTUREZONE',
+			'ATTENDANCE.END',
+			'ATTENDANCE.START'
+		]);
+		expect(usedKeys.filter((usage: IKeyUsage): boolean => usage.isDynamic)).toMatchObject([
+			{ key: "'ATTENDANCE.' + field" }
+		]);
+		expect(findings.filter((finding: IFinding): boolean => finding.status === 'used')).toHaveLength(5);
+		expect(findings.filter((finding: IFinding): boolean => finding.status === 'unused' || finding.status === 'missing-in-language')).toEqual([]);
+	});
+
 	it('detects keys used via translate method call in TypeScript', async (): Promise<void> => {
 		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
 			'workspace/project/angular.json': '{"version":1}',
@@ -231,6 +272,60 @@ describe('angularScanAdapter', (): void => {
 				(item: IFinding): boolean => item.status === 'used' && item.key === 'administration.groups.membership.inactive'
 			)
 		).toBeTrue();
+	});
+
+	it('detects both result branches of ternaries piped to translate in property bindings', async (): Promise<void> => {
+		const filePath: string = 'workspace/project/src/app/sample.component.html';
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			'workspace/project/src/assets/i18n/en.json': JSON.stringify({
+				ATTENDANCE: { EDITOR: { LATER: 'Later', CANCEL: 'Cancel', RETRY: 'Retry' }, DELETE: { ACTION: 'Delete' } }
+			}),
+			'workspace/project/src/assets/i18n/de.json': JSON.stringify({
+				ATTENDANCE: { EDITOR: { LATER: 'Später', CANCEL: 'Abbrechen' }, DELETE: { ACTION: 'Löschen' } }
+			}),
+			[filePath]: `<div class="delete-actions">
+				<wig-button severity="secondary" [disabled]="current.kind === 'saving'" (click)="visible.set(false)"
+					[label]="(current.kind === 'uncertain' ? 'ATTENDANCE.EDITOR.LATER' : 'ATTENDANCE.EDITOR.CANCEL') | translate" />
+				@if (current.kind !== 'rejected') {
+					<wig-button severity="danger" [loading]="current.kind === 'saving'" (click)="confirm()"
+						[label]="(current.kind === 'uncertain' ? 'ATTENDANCE.EDITOR.RETRY' : 'ATTENDANCE.DELETE.ACTION') | translate" />
+				}
+			</div>`
+		});
+
+		const translationFiles: string[] = await angularScanAdapter.collectTranslationFiles(context, fs);
+		const definedKeys: string[] = await angularScanAdapter.extractDefinedKeys(translationFiles, fs);
+		const translationMatrix: ITranslationMatrix = await angularScanAdapter.buildTranslationMatrix(translationFiles, fs);
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		const findings: IFinding[] = await angularScanAdapter.runRules({ definedKeys, usedKeys, translationMatrix, baseLocale: 'en', context });
+
+		expect(usedKeys.map((usage: IKeyUsage): string => usage.key).sort()).toEqual([
+			'ATTENDANCE.DELETE.ACTION',
+			'ATTENDANCE.EDITOR.CANCEL',
+			'ATTENDANCE.EDITOR.LATER',
+			'ATTENDANCE.EDITOR.RETRY'
+		]);
+		expect(findings.filter((finding: IFinding): boolean => finding.status === 'used')).toHaveLength(4);
+		expect(findings.filter((finding: IFinding): boolean => finding.status === 'unused')).toEqual([]);
+		expect(findings.filter((finding: IFinding): boolean => finding.status === 'missing-in-language')).toMatchObject([
+			{ key: 'ATTENDANCE.EDITOR.RETRY', language: 'de', evidence: [{ filePath, line: 6 }] }
+		]);
+	});
+
+	it('reads nested literal results and pipe parameters from a ternary binding in an inline template', async (): Promise<void> => {
+		const fs: InMemoryFsAdapter = new InMemoryFsAdapter({
+			'workspace/project/src/app/sample.component.ts': `@Component({ template: \`
+				<wig-button [label]='(ready || retry ? "APP.READY" : (blocked ? "APP.BLOCKED" : fallback)) | translate: { name: value } | uppercase' />
+				<wig-button [label]="(ready ? 'APP.NO_PIPE' : 'APP.OTHER') | uppercase" />
+				<wig-button [label]="ready ? 'APP.NOT_TRANSLATED' : fallback | translate" />
+			\` }) export class SampleComponent {}`
+		});
+
+		const usedKeys: IKeyUsage[] = await angularScanAdapter.extractUsedKeys(context, fs);
+		expect(usedKeys).toMatchObject([
+			{ key: 'APP.READY', isDynamic: false, placeholderParameters: { kind: 'static', names: ['name'] } },
+			{ key: 'APP.BLOCKED', isDynamic: false, placeholderParameters: { kind: 'static', names: ['name'] } }
+		]);
 	});
 
 	it('detects translate pipe keys inside an inline component template in a TS file', async (): Promise<void> => {

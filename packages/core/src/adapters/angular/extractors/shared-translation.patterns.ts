@@ -5,10 +5,18 @@ export const SHARED_STATIC_TS_PATTERNS: IPatternDescriptor[] = [
 		matchType: 'ts-translate-method',
 		description:
 			'Matches a static key passed to a supported translation service method and captures the key in group 1.',
-		examples: ["this.translateService.instant('APP.TITLE')"],
-		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
+		examples: ["this.translateService.get('APP.TITLE')"],
+		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:get|stream|translate)\s*\(\s*['"`]([A-Za-z0-9_.-]+)['"`]/gi,
 		dynamic: false,
 		keyCaptureIndex: 1
+	},
+	{
+		matchType: 'ts-translate-method',
+		description: 'Matches an instant call and inspects its first argument for a translation key.',
+		examples: ["this.languageService.instant('ATTENDANCE.START')"],
+		regex: /\.\s*instant\s*\(/g,
+		dynamic: false,
+		literalKeyExtraction: 'first-argument'
 	},
 	{
 		matchType: 'ts-translate-call',
@@ -17,7 +25,7 @@ export const SHARED_STATIC_TS_PATTERNS: IPatternDescriptor[] = [
 		examples: ["languageService.translate('APP.TITLE')"],
 		regex: /\.\s*translate\s*\(/g,
 		dynamic: false,
-		literalKeyExtraction: true
+		literalKeyExtraction: 'all-literals'
 	},
 	{
 		matchType: 'ts-indirect-key-literal',
@@ -35,8 +43,8 @@ export const SHARED_DYNAMIC_TS_PATTERNS: IPatternDescriptor[] = [
 		matchType: 'ts-dynamic-template-literal',
 		description:
 			'Matches a supported translation method called with a template literal containing interpolation and captures its contents in group 1.',
-		examples: ['this.translateService.instant(`APP.${section}`)'],
-		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
+		examples: ['this.translateService.get(`APP.${section}`)'],
+		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:get|stream|translate)\s*\(\s*`([^`]*\$\{[^}]+\}[^`]*)`\s*\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	},
@@ -44,8 +52,8 @@ export const SHARED_DYNAMIC_TS_PATTERNS: IPatternDescriptor[] = [
 		matchType: 'ts-dynamic-concat',
 		description:
 			'Matches a supported translation method called with a concatenated expression and captures the expression in group 1.',
-		examples: ["this.translateService.instant('APP.' + section)"],
-		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:instant|get|stream|translate)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
+		examples: ["this.translateService.get('APP.' + section)"],
+		regex: /\b(?:this\.)?(?:(?:translate|i18n|transloco)[\w$]*|[A-Za-z_$][\w$]+(?:translate|i18n|transloco)[\w$]*)\s*\.\s*(?:get|stream|translate)\s*\(\s*([^)\n]*\+[^)\n]*)\)/gi,
 		dynamic: true,
 		keyCaptureIndex: 1
 	}

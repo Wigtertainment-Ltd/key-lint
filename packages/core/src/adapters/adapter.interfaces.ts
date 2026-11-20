@@ -9,7 +9,7 @@ export interface IPatternDescriptor {
 	regex: RegExp;
 	dynamic: boolean;
 	keyCaptureIndex?: number;
-	literalKeyExtraction?: boolean;
+	literalKeyExtraction?: 'first-argument' | 'all-literals';
 }
 
 export interface IAdapterMatch {

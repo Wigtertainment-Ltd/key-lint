@@ -1,17 +1,17 @@
 {
   "adapterId": "angular",
   "summary": {
-    "totalKeys": 2,
+    "totalKeys": 8,
     "used": 1,
-    "unused": 0,
-    "dynamicOrUncertain": 1,
-    "indirectUncertain": 1,
+    "unused": 2,
+    "dynamicOrUncertain": 5,
+    "indirectUncertain": 5,
     "missingInLanguage": 0,
     "extraInLanguage": 0,
     "placeholderMissing": 0,
     "placeholderUncertain": 0,
     "placeholderMismatch": 0,
-    "totalFindings": 2
+    "totalFindings": 8
   },
   "findings": [
     {
@@ -22,6 +22,36 @@
     {
       "key": "APP.TITLE",
       "status": "used",
+      "severity": "info"
+    },
+    {
+      "key": "APP.LONGER",
+      "status": "unused",
+      "severity": "warning"
+    },
+    {
+      "key": "APP.COMMENTED",
+      "status": "unused",
+      "severity": "warning"
+    },
+    {
+      "key": "APP.TEXT",
+      "status": "indirect-uncertain",
+      "severity": "info"
+    },
+    {
+      "key": "CUSTOMER.PROJECTS.EMPTY",
+      "status": "indirect-uncertain",
+      "severity": "info"
+    },
+    {
+      "key": "CUSTOMER.PROJECTS.EMPTYHINT",
+      "status": "indirect-uncertain",
+      "severity": "info"
+    },
+    {
+      "key": "notice",
+      "status": "indirect-uncertain",
       "severity": "info"
     }
   ]

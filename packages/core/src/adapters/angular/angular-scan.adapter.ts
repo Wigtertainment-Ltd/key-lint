@@ -4,6 +4,8 @@ import { ITranslationMatrix, ITranslationMatrixRow } from '../../models/scan-res
 import { IAngularMarkers } from './angular.interfaces.js';
 import { DYNAMIC_PATTERNS, STATIC_HTML_PATTERNS, STATIC_TS_PATTERNS } from './extractors/translation-usage.patterns.js';
 import { extractMatches } from './extractors/pattern-matcher.util.js';
+import { extractHtmlIndirectKeys } from './extractors/html-indirect-keys.extractor.js';
+import { extractNgxTranslateConditionalBindings } from './extractors/ngx-translate/ngx-translate-conditional.extractor.js';
 import { extractTranslocoStructuralMatches } from './extractors/transloco/transloco-structural.extractor.js';
 import { BaseLocaleSelectionSource, hasTranslationKey } from '../../util/translation-matrix.util.js';
 import { readTranslationJson } from '../../util/translation-json.util.js';
@@ -646,18 +648,20 @@ export const angularScanAdapter: IScanAdapter = {
 	/**
 	 * Scans sorted project source files with static and dynamic translation patterns.
 	 * Also scans non-HTML files for inline HTML patterns, attaches ngx-translate directive parameters,
-	 * and extracts Transloco structural aliases from HTML files. Overlapping evidence is deduplicated
+	 * and extracts Transloco structural aliases and indirect references to known keys from HTML files. Overlapping evidence is deduplicated
 	 * by path, source offset, key, and dynamic classification while retaining the first match.
 	 *
 	 * @param context - Project root and configured source include/exclude patterns.
 	 * @param fs - Filesystem adapter used for source enumeration and reading.
+	 * @param definedKeys - Known translation keys used to recognize indirect references in HTML.
 	 * @returns Heuristic key-usage evidence with locations, snippets, and parameter metadata.
 	 * @throws {Error} When source enumeration or reading fails.
 	 */
-	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter): Promise<IKeyUsage[]> {
+	async extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter, definedKeys: readonly string[] = []): Promise<IKeyUsage[]> {
 		const sourceFiles: string[] = await fs.listFiles(context.projectRoot, context.config.includeSourceGlobs, context.config.excludeGlobs);
 
 		const used: IKeyUsage[] = [];
+		const knownKeys: Set<string> = new Set<string>(definedKeys);
 
 		for (const filePath of sourceFiles.map((file: string): string => normalizePath(file)).sort((a: string, b: string): number => a.localeCompare(b))) {
 			const source: string = await fs.readFile(filePath);
@@ -674,10 +678,13 @@ export const angularScanAdapter: IScanAdapter = {
 					usage.placeholderParameters = parsePlaceholderParameters(paramsMatch?.[2]);
 				}
 			}
-			used.push(...fileUsages);
+			used.push(...fileUsages, ...extractNgxTranslateConditionalBindings(source, filePath));
 
 			if (filePath.endsWith('.html')) {
 				used.push(...extractTranslocoStructuralMatches(source, filePath));
+				if (knownKeys.size > 0) {
+					used.push(...extractHtmlIndirectKeys(source, filePath, knownKeys));
+				}
 			}
 		}
 
@@ -724,7 +731,7 @@ export const angularScanAdapter: IScanAdapter = {
 		}
 
 		for (const usage of input.usedKeys) {
-			if (usage.matchType === 'ts-indirect-key-literal') {
+			if (usage.matchType === 'ts-indirect-key-literal' || usage.matchType === 'html-indirect-key-literal') {
 				if (!indirectLiteralUsage.has(usage.key)) {
 					indirectLiteralUsage.set(usage.key, usage);
 				}
@@ -872,7 +879,9 @@ export const angularScanAdapter: IScanAdapter = {
 					key,
 					status: 'indirect-uncertain',
 					severity: 'info',
-					message: `Key "${key}" appears in TypeScript string literals but is not confirmed by direct translation usage patterns.`,
+					message: indirectEvidence.matchType === 'html-indirect-key-literal'
+						? `Key "${key}" appears in an HTML template as a possible indirect translation usage.`
+						: `Key "${key}" appears in TypeScript string literals but is not confirmed by direct translation usage patterns.`,
 					evidence: [
 						{
 							filePath: indirectEvidence.filePath,
