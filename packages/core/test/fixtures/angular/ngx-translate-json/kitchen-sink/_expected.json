@@ -17,17 +17,17 @@
 		{
 			"key": "'APP.DYN.' + section + '.LABEL'",
 			"status": "dynamic-uncertain",
-			"severity": "warning"
+			"severity": "info"
 		},
 		{
 			"key": "APP.DYN.A.LABEL",
 			"status": "dynamic-uncertain",
-			"severity": "warning"
+			"severity": "info"
 		},
 		{
 			"key": "APP.DYN.B.LABEL",
 			"status": "dynamic-uncertain",
-			"severity": "warning"
+			"severity": "info"
 		},
 		{
 			"key": "APP.INDIRECT",

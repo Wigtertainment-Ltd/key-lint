@@ -23,7 +23,7 @@ npx @key-lint/cli scan . \
 | `--reporter <name>` | `text`, `json`, `markdown` or `html`. Repeatable. Default `text`. |
 | `--output <name>=<file>` | Redirect a reporter to a file. Implicitly enables that reporter. |
 | `--max-errors <n>` | Tolerated `error` findings (missing keys and placeholder contracts). Default `0`. |
-| `--max-warnings <n>` | Tolerated `warning` findings (unused, dynamic, indirect, extra). Default unlimited. |
+| `--max-warnings <n>` | Tolerated `warning` findings. Default unlimited. |
 | `--ignore <glob>` | Translation key glob to drop from the result. Repeatable. Replaces `ignoreKeys` from the config file. |
 | `--allow-network` | Explicitly enable configured remote translation requests. Disabled by default. |
 | `--pr-comment` | Create or update a GitHub PR or GitLab MR comment using CI credentials. Disabled by default. |
@@ -48,8 +48,8 @@ piped safely.
 | `missing-in-language` | `error` |
 | `placeholder-missing`, `placeholder-mismatch` | `error` |
 | `placeholder-uncertain` | `warning` |
-| `unused`, `dynamic-uncertain`, `indirect-uncertain`, `extra-in-language` | `warning` |
-| `used` | `info` (never counted against thresholds) |
+| `unused`, `extra-in-language` | `warning` |
+| `used`, `dynamic-uncertain`, `indirect-uncertain` | `info` (never counted against thresholds) |
 
 ## Configuration file
 

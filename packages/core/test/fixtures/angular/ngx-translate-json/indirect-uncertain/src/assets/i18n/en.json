@@ -1,8 +1,18 @@
 {
   "APP": {
     "TITLE": "Fixture title",
+    "LONGER": "Appears only as a key prefix",
+    "COMMENTED": "Appears only in a comment",
+    "TEXT": "Appears as template text",
     "LABELS": {
       "INDIRECT": "Appears only as TS literal"
     }
-  }
+  },
+  "CUSTOMER": {
+    "PROJECTS": {
+      "EMPTY": "No projects",
+      "EMPTYHINT": "Create a project for {{ customer }}"
+    }
+  },
+  "notice": "Appears as a binding literal"
 }

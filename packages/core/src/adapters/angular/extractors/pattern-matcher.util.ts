@@ -218,7 +218,7 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 			const pipeParameters: IPlaceholderParameterUsage | undefined = descriptor.matchType.includes('pipe-') ? placeholderParametersForPipe(match[0]) : undefined;
 
 			if (descriptor.literalKeyExtraction) {
-				const argumentSource: string = firstCallArgument(argumentList ?? '');
+				const argumentSource: string = firstCallArgument(argumentList ?? '').trim();
 				const lineCol: { line: number; column: number; } = getLineColumn(source, match.index);
 				// A plus sign denotes concatenation; an interpolated template contains at least one ${...} expression.
 				const isDynamicArgument: boolean = argumentSource.includes('+') || /`[^`]*\$\{[^}]+\}[^`]*`/.test(argumentSource);
@@ -242,12 +242,13 @@ export function extractMatches(source: string, filePath: string, descriptors: IP
 					continue;
 				}
 
-				// Capture every quoted static translation key in the first call argument.
-				const literalRegex: RegExp = /['"`]([A-Za-z0-9_.-]+)['"`]/g;
+				const literalRegex: RegExp = descriptor.literalKeyExtraction === 'first-argument'
+					? /^(['"`])([A-Za-z0-9_.-]+)\1$/g
+					: /(['"`])([A-Za-z0-9_.-]+)\1/g;
 				let literalMatch: RegExpExecArray | null = literalRegex.exec(argumentSource);
 
 				while (literalMatch) {
-					const literalKey: string = literalMatch[1]?.trim();
+					const literalKey: string = literalMatch[2];
 					if (literalKey) {
 						matches.push({
 							key: literalKey,

@@ -130,7 +130,7 @@ export async function runScan(options: IRunScanOptions): Promise<IProjectScanRes
 	const baseLocaleSelection: IBaseLocaleSelection = resolveBaseLocale(translationMatrix, config.baseLocale);
 
 	report('scanning-source-usage', 'Scanning source key usage...');
-	const usedKeys: IKeyUsage[] = await adapter.extractUsedKeys(context, fs);
+	const usedKeys: IKeyUsage[] = await adapter.extractUsedKeys(context, fs, definedKeys);
 
 	report('evaluating-rules', 'Evaluating scan rules...');
 	const rawFindings: IFinding[] = await adapter.runRules({

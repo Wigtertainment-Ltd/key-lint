@@ -13,7 +13,7 @@ dependencies. CLI and desktop scans use the same adapter.
 - JSON v4 cardinal and ordinal plurals using each locale's plural categories;
   count and optional `_zero` overrides.
 - Literal and computed keys, fallback key arrays, missing/unused keys, per-locale
-  consistency and interpolation contracts. Dynamic expressions produce warnings.
+  consistency and interpolation contracts. Unresolved key expressions produce `dynamic-uncertain` info findings.
 
 Keys are reported as `namespace:key`. Namespace files remain separate when the
 desktop adds a missing translation. Interpolation supports `{{name}}`,

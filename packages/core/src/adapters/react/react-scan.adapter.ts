@@ -229,7 +229,7 @@ export const reactScanAdapter: IScanAdapter = {
 				adapterId: this.id,
 				key,
 				status,
-				severity: status === 'used' ? 'info' : status === 'missing-in-language' ? 'error' : 'warning',
+				severity: status === 'used' || status === 'dynamic-uncertain' ? 'info' : status === 'missing-in-language' ? 'error' : 'warning',
 				message: messages[status],
 				language,
 				evidence: usages.map(({ filePath, line, column, snippet, matchType }: IKeyUsage): IFileEvidence => ({ filePath, line, column, snippet, matchType }))
@@ -253,7 +253,7 @@ export const reactScanAdapter: IScanAdapter = {
 				adapterId: this.id,
 				key: usage.key,
 				status: 'dynamic-uncertain',
-				severity: 'warning',
+				severity: 'info',
 				message: `Dynamic translation lookup "${usage.key}" cannot be resolved statically.`,
 				evidence: [{ filePath: usage.filePath, line: usage.line, column: usage.column, snippet: usage.snippet, matchType: usage.matchType }]
 			});

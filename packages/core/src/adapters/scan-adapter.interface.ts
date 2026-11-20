@@ -140,10 +140,11 @@ export interface IScanAdapter {
 	 *
 	 * @param context - Project root and source-scanning configuration.
 	 * @param fs - Filesystem implementation used to locate and read source files.
+	 * @param definedKeys - Known translation keys available for indirect usage detection.
 	 * @returns Usage evidence, including locations and dynamic or placeholder metadata when supported.
 	 * @throws {Error} When source usage extraction fails.
 	 */
-	extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter): Promise<IKeyUsage[]>;
+	extractUsedKeys(context: IProjectContext, fs: IFileSystemAdapter, definedKeys?: readonly string[]): Promise<IKeyUsage[]>;
 	/**
 	 * Optionally builds a locale-by-key matrix from translation files.
 	 * When neither matrix-building method is available, the pipeline uses an empty matrix.

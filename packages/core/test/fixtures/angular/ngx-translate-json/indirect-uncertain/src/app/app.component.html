@@ -1,1 +1,14 @@
 <h1>{{ 'APP.TITLE' | translate }}</h1>
+@for (project of projects; track project.id) {
+  <p>{{ project.name }}</p>
+} @empty {
+  <hello-empty-state
+    titleKey="CUSTOMER.PROJECTS.EMPTY"
+    copy="CUSTOMER.PROJECTS.EMPTYHINT"
+    [message]="'notice'"
+    heading="APP.TITLE"
+    data-kind="APP.LONGER.EXTRA"
+    data-fallback="APP.UNKNOWN" />
+}
+<p>APP.TEXT</p>
+<!-- <p>APP.COMMENTED</p> -->

@@ -220,7 +220,7 @@ describe('React dynamic keys', (): void => {
 
 	it('keeps an unresolved call visible even if no existing definition matches it', async (): Promise<void> => {
 		const result: IFinding[] = await findings("return t('unknown.' + state);", { en: { unrelated: 'Other' } });
-		expect(result.filter((item: IFinding): boolean => item.status === 'dynamic-uncertain')).toHaveLength(1);
+		expect(result.filter((item: IFinding): boolean => item.status === 'dynamic-uncertain').map((item: IFinding): string => item.severity)).toEqual(['info']);
 		expect(result.some((item: IFinding): boolean => item.status === 'missing-in-language')).toBe(false);
 	});
 
