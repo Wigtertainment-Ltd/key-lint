@@ -8,16 +8,18 @@ import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/se
 import { ToastService } from '../../shared/services/toast.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
 import { AnalysisDetailFocus } from '../analysis-detail-focus';
+import { TranslationDialogDirective } from '../translation-dialog.directive';
 
 @Component({
 	selector: 'app-results-overview-page',
-	imports: [CdkTrapFocus, ScrollingModule],
+	imports: [CdkTrapFocus, ScrollingModule, TranslationDialogDirective],
 	providers: [AnalysisDetailFocus],
 	templateUrl: './results-overview.page.html',
 	styleUrl: './results-overview.page.scss'
 })
 export class ResultsOverviewPage implements OnInit, OnDestroy {
 	@ViewChild(CdkVirtualScrollViewport) private tableViewport?: CdkVirtualScrollViewport;
+	@ViewChild(TranslationDialogDirective) private translationDialog?: TranslationDialogDirective;
 	readonly detailFocus: AnalysisDetailFocus = inject(AnalysisDetailFocus);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
@@ -37,7 +39,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	isDetailOpen: boolean = false;
 	private readonly keyCopiedSignal: WritableSignal<boolean> = signal(false);
 	private readonly copiedPathSignal: WritableSignal<string | undefined> = signal<string | undefined>(undefined);
-	isAddTranslationModalOpen: boolean = false;
+	translationTarget?: { projectRoot: string; findingId: string; key: string; locales: string[]; savedLocales: string[]; origin?: EventTarget | null };
 	isSavingTranslations: boolean = false;
 	private readonly addTranslationsErrorSignal: WritableSignal<string> = signal('');
 	translationDrafts: Partial<Record<string, string>> = {};
@@ -223,8 +225,8 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 	closeDetailPanel(): void {
 		this.isDetailOpen = false;
-		this.detailFocus.restore();
 		this.closeAddTranslationModal(true);
+		this.detailFocus.restore();
 	}
 
 	async copySelectedKey(): Promise<void> {
@@ -253,18 +255,25 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		}, 1500);
 	}
 
-	openAddTranslationModal(): void {
-		if (!this.selectedFinding || !this.canShowAddToTranslationsAction) {
+	get isAddTranslationModalOpen(): boolean {
+		return this.translationTarget !== undefined;
+	}
+
+	openAddTranslationModal(origin?: EventTarget | null): void {
+		const finding: IFinding | undefined = this.selectedFinding;
+		const projectRoot: string | undefined = this.scanResult?.projectRoot;
+		if (!finding || !projectRoot || !this.canShowAddToTranslationsAction || this.isAddTranslationModalOpen) {
 			return;
 		}
 
 		this.translationDrafts = {};
-		for (const locale of this.selectedMissingLocales) {
+		const locales: string[] = this.selectedMissingLocales;
+		for (const locale of locales) {
 			this.translationDrafts[locale] = '';
 		}
 
 		this.addTranslationsError = '';
-		this.isAddTranslationModalOpen = true;
+		this.translationTarget = { projectRoot, findingId: finding.id, key: finding.key, locales, savedLocales: [], origin };
 	}
 
 	closeAddTranslationModal(force: boolean = false): void {
@@ -272,22 +281,10 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		this.isAddTranslationModalOpen = false;
+		this.translationDialog?.close(!force && this.selectedFinding?.id === this.translationTarget?.findingId);
+		this.translationTarget = undefined;
 		this.addTranslationsError = '';
 		this.translationDrafts = {};
-	}
-
-	onAddTranslationModalBackdropClick(event: MouseEvent): void {
-		if (event.target === event.currentTarget) {
-			this.closeAddTranslationModal();
-		}
-	}
-
-	onAddTranslationModalBackdropKeydown(event: KeyboardEvent): void {
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			this.closeAddTranslationModal();
-		}
 	}
 
 	onTranslationDraftChange(locale: string, value: string): void {
@@ -295,31 +292,43 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 	}
 
 	async addSelectedKeyToTranslationFiles(): Promise<void> {
-		if (!this.selectedFinding || !this.selectedMissingLocales.length) {
+		const target: typeof this.translationTarget = this.translationTarget;
+		if (!target?.locales.length || this.isSavingTranslations || this.isRemoteReadOnly) {
 			return;
 		}
 
 		this.isSavingTranslations = true;
 		this.addTranslationsError = '';
+		const savedLocales: string[] = [];
 
 		try {
-			const key: string = this.selectedFinding.key;
-			const resolvedLocales: string[] = [...this.selectedMissingLocales];
-			const resolvedLocaleCount: number = resolvedLocales.length;
-			for (const locale of resolvedLocales) {
-				await this.scanOrchestrationService.addTranslationKeyForLocale(locale, key, this.translationDrafts[locale] ?? '', 'results-overview');
+			for (const locale of target.locales) {
+				if (this.scanOrchestrationService.snapshot.result?.projectRoot !== target.projectRoot) {
+					throw new Error('The active project changed. Reopen the dialog to continue.');
+				}
+				await this.scanOrchestrationService.addTranslationKeyForLocale(locale, target.key, this.translationDrafts[locale] ?? '', 'results-overview');
+				savedLocales.push(locale);
 			}
-
-			this.reconcileResolvedMissingFindings(key, resolvedLocales);
-			this.ensureSelectedFinding();
-
-			this.toastService.success(`Added key to ${resolvedLocaleCount} locale file(s).`);
-			this.closeAddTranslationModal(true);
 		} catch (error: unknown) {
-			this.addTranslationsError = error instanceof Error ? error.message : 'Unable to add key to translation files.';
+			const remainingLocales: string[] = target.locales.slice(savedLocales.length);
+			const completedLocales: string[] = [...target.savedLocales, ...savedLocales];
+			const savedMessage: string = completedLocales.length ? `Saved to ${completedLocales.join(', ')}. ` : '';
+			const message: string = error instanceof Error ? error.message : 'Unable to write the translation file.';
+			this.translationTarget = { ...target, locales: remainingLocales, savedLocales: completedLocales };
+			this.addTranslationsError = `${savedMessage}Could not save ${remainingLocales[0]}. ${message}`;
+			this.translationDialog?.focusError();
+			return;
 		} finally {
 			this.isSavingTranslations = false;
+			if (savedLocales.length && this.scanOrchestrationService.snapshot.result?.projectRoot === target.projectRoot) {
+				this.reconcileResolvedMissingFindings(target.key, savedLocales);
+				this.ensureSelectedFinding();
+			}
 		}
+
+		const savedCount: number = target.savedLocales.length + savedLocales.length;
+		this.toastService.success(`Added key to ${savedCount} locale file(s).`);
+		this.closeAddTranslationModal(true);
 	}
 
 	get findings(): IFinding[] {

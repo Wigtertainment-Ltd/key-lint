@@ -149,7 +149,7 @@
 						<p class="detail-note success" role="status">Successfully added. This entry will be removed in a moment.</p>
 					}
 					@if (canShowAddToTranslationsAction) {
-						<button type="button" class="detail-primary" (click)="openAddTranslationModal()">
+						<button type="button" class="detail-primary" (click)="openAddTranslationModal($event.currentTarget)">
 							<span class="material-symbols-outlined" aria-hidden="true">add</span>Add to translation files
 						</button>
 					}
@@ -193,49 +193,51 @@
 	}
 </div>
 
-@if (isAddTranslationModalOpen && selectedFinding) {
+@if (translationTarget; as target) {
 	<dialog
-		class="modal-backdrop"
-		open
-		tabindex="-1"
-		(click)="onAddTranslationModalBackdropClick($event)"
-		(keydown)="onAddTranslationModalBackdropKeydown($event)"
-		(cancel)="closeAddTranslationModal()">
+		appTranslationDialog
+		class="translation-dialog"
+		[origin]="target.origin"
+		(dismissed)="closeAddTranslationModal()"
+		aria-labelledby="finding-translation-title"
+		aria-describedby="finding-translation-hint">
 		<div class="modal-card">
 			<header class="modal-header">
-				<h4 id="add-translation-title">Add Missing Translations</h4>
-				<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">
-					<span class="material-symbols-outlined">close</span>
+				<h2 id="finding-translation-title">{{ target.locales.length === 1 ? 'Add translation' : 'Add missing translations' }}</h2>
+				<button type="button" class="modal-close" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations" aria-label="Close translation dialog">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
 				</button>
 			</header>
-			<p class="modal-context">
-				Key: <span>{{ selectedFinding.key }}</span>
-			</p>
-			<p class="modal-hint">Fill translations per missing locale. You can leave fields empty to add the key with an empty string.</p>
 
-			<div class="locale-input-list custom-scrollbar">
-				@for (locale of selectedMissingLocales; track locale) {
-					<div class="locale-input-item">
-						<label class="modal-label" [for]="'translation-locale-' + locale">{{ locale }}</label>
+			<div class="modal-body custom-scrollbar">
+				<dl class="modal-context">
+					<div><dt>Translation key</dt><dd><code>{{ target.key }}</code></dd></div>
+				</dl>
+				<p class="modal-hint" id="finding-translation-hint">Leave a field empty to add the key with an empty value.</p>
+				@if (addTranslationsError) {
+					<p class="modal-error" role="alert" tabindex="-1">{{ addTranslationsError }}</p>
+				}
+
+				@for (locale of target.locales; track locale) {
+					<div class="modal-field">
+						<label [for]="'translation-locale-' + locale">Translation text <code>{{ locale }}</code></label>
 						<textarea
+							#draftInput
 							[id]="'translation-locale-' + locale"
 							rows="3"
 							class="modal-textarea"
-							placeholder="Translation text"
+							[disabled]="isSavingTranslations"
 							[value]="translationDrafts[locale] ?? ''"
-							(input)="onTranslationDraftChange(locale, ($any($event.target).value ?? '').toString())"></textarea>
+							(input)="onTranslationDraftChange(locale, draftInput.value)"></textarea>
 					</div>
 				}
 			</div>
 
-			@if (addTranslationsError) {
-				<p class="modal-error">{{ addTranslationsError }}</p>
-			}
-
 			<footer class="modal-actions">
+				<span class="modal-progress" role="status">{{ isSavingTranslations ? 'Writing translation files…' : '' }}</span>
 				<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">Cancel</button>
-				<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations">
-					{{ isSavingTranslations ? 'Saving...' : 'Add Key to Files' }}
+				<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations || isRemoteReadOnly">
+					{{ isSavingTranslations ? 'Saving…' : target.locales.length === 1 ? 'Add translation' : 'Add translations' }}
 				</button>
 			</footer>
 		</div>

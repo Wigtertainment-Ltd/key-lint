@@ -121,7 +121,7 @@
 									type="button"
 									class="detail-primary add-missing-button"
 									[class.resolved-success]="isLocaleRecentlyResolved(locale)"
-									(click)="openAddTranslationModal(locale)"
+									(click)="openAddTranslationModal(locale, $event.currentTarget)"
 									[disabled]="isRemoteReadOnly || isLocaleRecentlyResolved(locale)">
 									<span class="material-symbols-outlined" aria-hidden="true">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
 									{{ isLocaleRecentlyResolved(locale) ? 'Added to ' + locale + ' file' : 'Add to ' + locale + ' file' }}
@@ -169,41 +169,58 @@
 	}
 </div>
 
-@if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
-	<dialog class="modal-backdrop" open tabindex="-1" (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
-		<div #modalCard class="modal-card" [style.transform]="modalCardTransform" [class.dragging]="isModalDragging">
+@if (translationTarget; as target) {
+	<dialog
+		#modalDialog
+		appTranslationDialog
+		class="translation-dialog"
+		[class.dragging]="isModalDragging"
+		[style.transform]="modalCardTransform"
+		[origin]="target.origin"
+		(dismissed)="closeAddTranslationModal()"
+		(window:resize)="clampModalToViewport(modalDialog)"
+		aria-labelledby="key-translation-title"
+		aria-describedby="key-translation-hint">
+		<div class="modal-card">
 			<header
 				class="modal-header modal-drag-handle"
-				(pointerdown)="onModalHeaderPointerDown($event, modalCard)"
-				(pointermove)="onModalHeaderPointerMove($event, modalCard)"
+				(pointerdown)="onModalHeaderPointerDown($event, modalDialog)"
+				(pointermove)="onModalHeaderPointerMove($event, modalDialog)"
 				(pointerup)="onModalHeaderPointerUp($event)"
 				(pointercancel)="onModalHeaderPointerUp($event)">
-				<h4 id="add-translation-title">Add Translation</h4>
-				<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">
-					<span class="material-symbols-outlined">close</span>
+				<h2 id="key-translation-title">Add translation</h2>
+				<button type="button" class="modal-close" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation" aria-label="Close translation dialog">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
 				</button>
 			</header>
-			<p class="modal-context">
-				Key: <span>{{ selectedRow.key }}</span>
-			</p>
-			<p class="modal-context">
-				Locale file: <span>{{ addTranslationLocale }}</span>
-			</p>
-			<label class="modal-label" for="translation-value-input">Translation text</label>
-			<textarea
-				id="translation-value-input"
-				rows="4"
-				class="modal-textarea"
-				placeholder="Type translation text"
-				(input)="addTranslationValue = ($any($event.target).value ?? '').toString()"></textarea>
-			<p class="modal-hint">You can leave this empty. The key will then be added with an empty string value.</p>
-			@if (addTranslationError) {
-				<p class="modal-error">{{ addTranslationError }}</p>
-			}
+
+			<div class="modal-body custom-scrollbar">
+				<dl class="modal-context">
+					<div><dt>Translation key</dt><dd><code>{{ target.key }}</code></dd></div>
+					<div><dt>Target locale</dt><dd><code>{{ target.locale }}</code></dd></div>
+				</dl>
+				<p class="modal-hint" id="key-translation-hint">Leave the field empty to add the key with an empty value.</p>
+				@if (addTranslationError) {
+					<p class="modal-error" role="alert" tabindex="-1">{{ addTranslationError }}</p>
+				}
+				<div class="modal-field">
+					<label for="translation-value-input">Translation text</label>
+					<textarea
+						#draftInput
+						id="translation-value-input"
+						rows="4"
+						class="modal-textarea"
+						[disabled]="isAddingTranslation"
+						[value]="addTranslationValue"
+						(input)="addTranslationValue = draftInput.value"></textarea>
+				</div>
+			</div>
+
 			<footer class="modal-actions">
+				<span class="modal-progress" role="status">{{ isAddingTranslation ? 'Writing translation file…' : '' }}</span>
 				<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">Cancel</button>
-				<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation">
-					{{ isAddingTranslation ? 'Saving...' : 'Add Key' }}
+				<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation || isRemoteReadOnly">
+					{{ isAddingTranslation ? 'Saving…' : 'Add translation' }}
 				</button>
 			</footer>
 		</div>

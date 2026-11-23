@@ -56,4 +56,15 @@ export class AnalysisDetailFocus {
 			this.host.querySelector<HTMLInputElement>('.search-box input')?.focus();
 		}, { injector: this.injector });
 	}
+
+	restoreAfterDialog(origin?: EventTarget | null): void {
+		afterNextRender((): void => {
+			if (origin instanceof HTMLButtonElement && origin.isConnected && !origin.disabled) {
+				origin.focus();
+				return;
+			}
+			const fallback: HTMLElement | null = this.host.querySelector<HTMLElement>('.detail-key') ?? this.host.querySelector<HTMLInputElement>('.search-box input');
+			fallback?.focus();
+		}, { injector: this.injector });
+	}
 }
