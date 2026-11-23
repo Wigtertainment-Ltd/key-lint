@@ -1,5 +1,5 @@
 <div class="keys-shell" [class.drawer-closed]="!selectedRow">
-	<section class="findings-pane" aria-labelledby="translation-keys-heading">
+	<section class="findings-pane" aria-labelledby="translation-keys-heading" [attr.inert]="selectedRow && detailFocus.isOverlay() ? '' : null">
 		<header class="table-toolbar">
 			<div class="list-heading">
 				<h1 id="translation-keys-heading">Translation keys</h1>
@@ -41,7 +41,7 @@
 								class="table-row table-grid"
 								role="row"
 								[attr.aria-rowindex]="rowIndex + 2"
-								(click)="onSelectRow(row)"
+								(click)="onSelectRow(row, $event.currentTarget)" [attr.data-detail-row-id]="row.key"
 								(keydown)="onRowKeydown($event, row)"
 								[attr.aria-current]="isDetailOpen && selectedKey === row.key ? 'true' : null"
 								[class.selected]="isDetailOpen && selectedKey === row.key"
@@ -71,59 +71,59 @@
 		</div>
 	</section>
 
-	@if (selectedRow) {
-		<button type="button" class="details-backdrop" (click)="closeDetailPanel()" aria-label="Close translation key details"></button>
-	}
 
-	<aside class="details-pane" [class.hidden]="!selectedRow">
-		@if (selectedRow) {
+	@if (selectedRow && detailFocus.isOverlay()) {
+		<button type="button" class="details-backdrop" tabindex="-1" (click)="closeDetailPanel()" aria-label="Close translation key details"></button>
+	}
+	@if (selectedRow; as row) {
+		<div
+			class="details-pane"
+			tabindex="-1"
+			[attr.role]="detailFocus.isOverlay() ? 'dialog' : 'complementary'"
+			[attr.aria-modal]="detailFocus.isOverlay() && !isAddTranslationModalOpen ? 'true' : null"
+			aria-labelledby="translation-detail-key"
+			[cdkTrapFocus]="detailFocus.isOverlay() && !isAddTranslationModalOpen"
+			(keydown.escape)="isAddTranslationModalOpen ? closeAddTranslationModal() : closeDetailPanel()">
 			<header class="details-head">
-				<div>
-					<p class="eyebrow">Translation Key</p>
-					<h3>{{ selectedRow.key }}</h3>
+				<div class="detail-heading">
+					<p>Translation key</p>
+					<h2 class="detail-key" id="translation-detail-key" tabindex="-1">{{ row.key }}</h2>
 				</div>
-				<button type="button" class="icon-button" (click)="closeDetailPanel()">
-					<span class="material-symbols-outlined">close</span>
+				<button type="button" class="detail-close" (click)="closeDetailPanel()" aria-label="Close translation key details" title="Close translation key details">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
+				</button>
+				<button type="button" class="detail-copy" (click)="copySelectedKey()">
+					<span class="material-symbols-outlined" aria-hidden="true">{{ keyCopied ? 'check' : 'content_copy' }}</span>
+					{{ keyCopied ? 'Copied' : 'Copy key' }}
 				</button>
 			</header>
 
-			<div class="details-scroll custom-scrollbar">
+			<div class="details-scroll custom-scrollbar" role="region" aria-label="Translation information" tabindex="0">
 				<section class="detail-section">
-					<div class="status-row">
-						<span
-							class="status-pill"
-							[class.missing]="selectedMissingLocales.length + selectedEmptyValueLocales.length > 0"
-							[class.used]="selectedMissingLocales.length + selectedEmptyValueLocales.length === 0">
+					<div class="detail-status-row">
+						<span class="detail-status" [attr.data-severity]="selectedMissingLocales.length || selectedEmptyValueLocales.length ? 'error' : 'complete'">
 							Coverage {{ selectedCoverageLabel }}
 						</span>
-						<span class="severity-label">{{ selectedMissingLocales.length + selectedEmptyValueLocales.length }} locale issue(s)</span>
 					</div>
-					<p class="detail-message">
-						@if (selectedMissingLocales.length || selectedEmptyValueLocales.length) {
-							@if (selectedMissingLocales.length) {
-								Missing key in: {{ selectedMissingLocales.join(', ') }}
-							}
-							@if (selectedEmptyValueLocales.length) {
-								<br />
-								Empty text in: {{ selectedEmptyValueLocales.join(', ') }}
-							}
-						} @else {
-							This key is available in all detected locales.
-						}
-					</p>
+					@if (selectedMissingLocales.length) {
+						<p>Missing key in: {{ selectedMissingLocales.join(', ') }}</p>
+					}
+					@if (selectedEmptyValueLocales.length) {
+						<p>Empty text in: {{ selectedEmptyValueLocales.join(', ') }}</p>
+					}
 					@if (displayedMissingLocales.length) {
 						@if (isRemoteReadOnly) {
-							<p class="modal-hint">Remote translations are read-only.</p>
+							<p class="detail-note"><span class="material-symbols-outlined" aria-hidden="true">lock</span>Remote translations are read-only.</p>
 						}
-						<div class="missing-actions">
+						<div class="detail-actions">
 							@for (locale of displayedMissingLocales; track locale) {
 								<button
 									type="button"
-									class="add-missing-button"
+									class="detail-primary add-missing-button"
 									[class.resolved-success]="isLocaleRecentlyResolved(locale)"
 									(click)="openAddTranslationModal(locale)"
 									[disabled]="isRemoteReadOnly || isLocaleRecentlyResolved(locale)">
-									<span class="material-symbols-outlined">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
+									<span class="material-symbols-outlined" aria-hidden="true">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
 									{{ isLocaleRecentlyResolved(locale) ? 'Added to ' + locale + ' file' : 'Add to ' + locale + ' file' }}
 								</button>
 							}
@@ -131,42 +131,42 @@
 					}
 				</section>
 
-				@if (hasPlaceholders(selectedRow)) {
-					<section class="detail-section">
-						<h4>Placeholders by Locale</h4>
-						<div class="placeholder-list">
-							@for (locale of locales; track locale) {
-								<div>
-									<strong>{{ locale }}</strong>
-									<span>{{ placeholderNamesForLocale(selectedRow, locale).length ? placeholderNamesForLocale(selectedRow, locale).join(', ') : 'None' }}</span>
-								</div>
-							}
-						</div>
-					</section>
-				}
-
-				<section class="detail-section">
-					<div class="section-head">
-						<h4>Values by Locale</h4>
-						<button type="button" class="link-button" (click)="copySelectedKey()">
-							<span class="material-symbols-outlined">content_copy</span>
-							{{ keyCopied ? 'Copied' : 'Copy key' }}
-						</button>
-					</div>
-					<div class="translations-list">
+				<section class="detail-section" aria-labelledby="translation-values-title">
+					<h3 id="translation-values-title">Values by Locale</h3>
+					<dl class="locale-list">
 						@for (locale of locales; track locale) {
-							<div class="translation-item" [class.is-missing]="!hasLocaleTranslation(selectedRow, locale)">
-								<p class="locale-name">{{ locale }}</p>
-								<p class="locale-value" [title]="valueFor(selectedRow, locale)">
-									{{ hasLocaleTranslation(selectedRow, locale) ? valueFor(selectedRow, locale) : 'Missing translation' }}
-								</p>
+							<div>
+								<dt>{{ locale }}</dt>
+								<dd [class.unavailable]="!hasLocaleTranslation(row, locale)">
+									@if (hasLocaleTranslation(row, locale)) {
+										{{ valueFor(row, locale) }}
+									} @else if (hasLocaleKey(row, locale)) {
+										Empty text
+									} @else {
+										Missing key
+									}
+								</dd>
 							</div>
 						}
-					</div>
+					</dl>
 				</section>
+
+				@if (hasPlaceholders(row)) {
+					<section class="detail-section" aria-labelledby="translation-placeholders-title">
+						<h3 id="translation-placeholders-title">Placeholders by Locale</h3>
+						<dl class="locale-list placeholders">
+							@for (locale of locales; track locale) {
+								<div>
+									<dt>{{ locale }}</dt>
+									<dd><code>{{ placeholderNamesForLocale(row, locale).join(', ') || 'None' }}</code></dd>
+								</div>
+							}
+						</dl>
+					</section>
+				}
 			</div>
-		}
-	</aside>
+		</div>
+	}
 </div>
 
 @if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {

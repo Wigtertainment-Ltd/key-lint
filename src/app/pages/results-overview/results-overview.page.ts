@@ -1,20 +1,24 @@
 import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal, ViewChild, Signal, WritableSignal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { hasTranslationKey, IFinding, IProjectScanResult, IFileEvidence, ITranslationMatrixRow, IScanSummary } from '@key-lint/core';
 import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
 import { ToastService } from '../../shared/services/toast.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
+import { AnalysisDetailFocus } from '../analysis-detail-focus';
 
 @Component({
 	selector: 'app-results-overview-page',
-	imports: [ScrollingModule],
+	imports: [CdkTrapFocus, ScrollingModule],
+	providers: [AnalysisDetailFocus],
 	templateUrl: './results-overview.page.html',
 	styleUrl: './results-overview.page.scss'
 })
 export class ResultsOverviewPage implements OnInit, OnDestroy {
 	@ViewChild(CdkVirtualScrollViewport) private tableViewport?: CdkVirtualScrollViewport;
+	readonly detailFocus: AnalysisDetailFocus = inject(AnalysisDetailFocus);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
 	private readonly toastService: ToastService = inject(ToastService);
@@ -204,12 +208,13 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		}
 
 		event.preventDefault();
-		this.onSelectFinding(finding);
+		this.onSelectFinding(finding, event.currentTarget);
 	}
 
-	onSelectFinding(finding: IFinding): void {
+	onSelectFinding(finding: IFinding, origin?: EventTarget | null): void {
 		this.selectedFindingId = finding.id;
 		this.isDetailOpen = true;
+		this.detailFocus.open(origin);
 	}
 
 	trackFinding(_index: number, finding: IFinding): string {
@@ -218,6 +223,7 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 
 	closeDetailPanel(): void {
 		this.isDetailOpen = false;
+		this.detailFocus.restore();
 		this.closeAddTranslationModal(true);
 	}
 

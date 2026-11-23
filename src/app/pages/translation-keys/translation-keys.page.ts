@@ -1,19 +1,23 @@
 import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal, ViewChild, Signal, WritableSignal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { IProjectScanResult, ITranslationMatrix, ITranslationMatrixRow } from '@key-lint/core';
 import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
 import { ToastService } from '../../shared/services/toast.service';
+import { AnalysisDetailFocus } from '../analysis-detail-focus';
 
 @Component({
 	selector: 'app-translation-keys-page',
-	imports: [ScrollingModule],
+	imports: [CdkTrapFocus, ScrollingModule],
+	providers: [AnalysisDetailFocus],
 	templateUrl: './translation-keys.page.html',
 	styleUrl: './translation-keys.page.scss'
 })
 export class TranslationKeysPage implements OnInit, OnDestroy {
 	@ViewChild(CdkVirtualScrollViewport) private tableViewport?: CdkVirtualScrollViewport;
+	readonly detailFocus: AnalysisDetailFocus = inject(AnalysisDetailFocus);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
 	private readonly toastService: ToastService = inject(ToastService);
@@ -166,9 +170,10 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.ensureSelectedRow();
 	}
 
-	onSelectRow(row: ITranslationMatrixRow): void {
+	onSelectRow(row: ITranslationMatrixRow, origin?: EventTarget | null): void {
 		this.selectedKey = row.key;
 		this.isDetailOpen = true;
+		this.detailFocus.open(origin);
 	}
 
 	trackRow(_index: number, row: ITranslationMatrixRow): string {
@@ -181,12 +186,13 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}
 
 		event.preventDefault();
-		this.onSelectRow(row);
+		this.onSelectRow(row, event.currentTarget);
 	}
 
 	closeDetailPanel(): void {
 		this.isDetailOpen = false;
 		this.isAddTranslationModalOpen = false;
+		this.detailFocus.restore();
 	}
 
 	get matrix(): ITranslationMatrix {
