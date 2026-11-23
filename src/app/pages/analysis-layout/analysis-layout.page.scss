@@ -308,6 +308,7 @@
 	min-height: 0;
 	overflow: auto;
 	padding: 1rem 1.25rem 1.25rem;
+	background: var(--analysis-canvas);
 
 	&.edge-to-edge {
 		padding: 0;

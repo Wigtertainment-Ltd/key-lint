@@ -1,8 +1,7 @@
-<main class="history-shell custom-scrollbar">
+<div class="history-shell">
 	<header class="history-header">
-		<div>
-			<p class="eyebrow">History / Changes</p>
-			<h2>Translation Timeline</h2>
+		<div class="history-heading">
+			<h1>Translation Timeline</h1>
 			<p class="project-path" [title]="projectPath">
 				@if (projectPath) {
 					{{ projectPath }}
@@ -11,45 +10,56 @@
 				}
 			</p>
 		</div>
-		<div class="filter-row">
-			<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">All</button>
-			<button type="button" class="filter-chip" [class.active]="activeFilter === 'scan'" (click)="setFilter('scan')">Scan</button>
-			<button type="button" class="filter-chip" [class.active]="activeFilter === 'translation'" (click)="setFilter('translation')">Translations</button>
-		</div>
+		@if (hasProjectContext) {
+			<div class="filter-row" role="group" aria-label="Filter timeline events">
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'all'" (click)="setFilter('all')">All</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'scan'" (click)="setFilter('scan')">Scan</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'translation'" (click)="setFilter('translation')">Translations</button>
+			</div>
+		}
 	</header>
 
 	@if (!hasProjectContext) {
 		<section class="empty-state">
-			<span class="material-symbols-outlined">history</span>
-			<h3>No project context</h3>
+			<span class="material-symbols-outlined" aria-hidden="true">history</span>
+			<h2>No project context</h2>
 			<p>Start a scan first so the app can determine which project history should be displayed.</p>
 		</section>
 	} @else if (!hasEvents) {
-		<section class="empty-state">
-			<span class="material-symbols-outlined">event_busy</span>
-			<h3>No events yet</h3>
-			<p>No scan or translation changes have been recorded for this project.</p>
+		<section class="empty-state" role="status">
+			<span class="material-symbols-outlined" aria-hidden="true">event_busy</span>
+			@if (activeFilter === 'all') {
+				<h2>No events yet</h2>
+				<p>No scan or translation changes have been recorded for this project.</p>
+			} @else {
+				<h2>No {{ activeFilter }} events</h2>
+				<p>Choose All to see the full translation timeline.</p>
+			}
 		</section>
 	} @else {
-		<section class="timeline">
+		<div class="timeline">
 			@for (group of groupedEvents; track group.label) {
-				<div class="day-group">
-					<p class="day-label">{{ group.label }}</p>
-					<ul>
+				<section class="day-group">
+					<h2 class="day-label">{{ group.label }}</h2>
+					<ul class="day-events" role="list">
 						@for (event of group.events; track event.id) {
-							<li>
-								<div class="timeline-marker" [class.scan]="event.type === 'scan-started' || event.type === 'scan-completed'" [class.translation]="event.type === 'translation-key-added'"></div>
-								<div class="timeline-card">
-									<p class="timeline-time">{{ formatTime(event.timestamp) }}</p>
-									<h4>{{ eventTitle(event) }}</h4>
+							<li class="timeline-entry">
+								<span class="timeline-icon material-symbols-outlined" [class.translation]="event.type === 'translation-key-added'" aria-hidden="true">
+									{{ event.type === 'translation-key-added' ? 'translate' : 'fact_check' }}
+								</span>
+								<div class="timeline-copy">
+									<div class="timeline-heading">
+										<h3>{{ eventTitle(event) }}</h3>
+										<time [attr.datetime]="event.timestamp">{{ formatTime(event.timestamp) }}</time>
+									</div>
 									<p>{{ eventDescription(event) }}</p>
 									<p class="meta" [title]="eventMeta(event)">{{ eventMeta(event) }}</p>
 								</div>
 							</li>
 						}
 					</ul>
-				</div>
+				</section>
 			}
-		</section>
+		</div>
 	}
-</main>
+</div>
