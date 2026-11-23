@@ -1,63 +1,74 @@
-<div class="page custom-scrollbar">
+<header class="flow-header">
+	<div class="flow-brand">
+		<img src="logo.png" alt="" width="36" height="36" />
+		<div><strong>KeyLint</strong><span>v{{ appVersion }}</span></div>
+	</div>
 	<button
 		type="button"
-		class="theme-toggle"
-		aria-label="Toggle theme"
-		(click)="toggleTheme()"
-	>
-		<span class="material-symbols-outlined">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+		class="flow-icon-button theme-toggle"
+		aria-label="Dark mode"
+		[attr.aria-pressed]="isDark"
+		[title]="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+		(click)="toggleTheme()">
+		<span class="material-symbols-outlined" aria-hidden="true">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
 	</button>
-	<div class="grid-bg" aria-hidden="true"></div>
+</header>
 
-	<main class="content">
-		<section class="hero">
-			<img class="brand-badge" src="logo.png" alt="" width="80" height="80" aria-hidden="true" />
-			<h1>KeyLint</h1>
-			<p>
-				Select an Angular or React project to begin. We will automatically detect your translation files.
-			</p>
-		</section>
+<main class="flow-content">
+	<header class="flow-title">
+		<h1>New analysis</h1>
+		<p>Choose an Angular or React project to scan for translation issues.</p>
+	</header>
 
-		<section class="card">
+	<div class="workspace" [class.with-recents]="hasRecentProjects">
+		<section class="flow-panel project-picker" aria-labelledby="project-folder-heading">
+			<h2 id="project-folder-heading">Project folder</h2>
 			<button
+				#folderPicker
 				type="button"
 				class="drop-zone"
+				[class.has-selection]="hasSelection"
 				[class.drag-over]="isDragOver"
 				(click)="openFolderDialog(folderInput)"
 				(dragenter)="onDragEnter($event)"
 				(dragover)="onDragOver($event)"
 				(dragleave)="onDragLeave($event)"
-				(drop)="onDrop($event)"
-			>
-				<span class="drop-icon-wrap">
-					<span class="material-symbols-outlined">folder_open</span>
-				</span>
-				<span class="drop-title">Select Project Folder</span>
-				<span class="drop-subtitle">Drag and drop your project here, or click to browse</span>
+				(drop)="onDrop($event)">
+				<span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+				<span class="drop-title">{{ hasSelection ? 'Change folder' : 'Browse for a folder' }}</span>
+				<span class="drop-subtitle">{{ hasSelection ? 'Or drop a different folder here' : 'Or drop a project folder here' }}</span>
 			</button>
 			<label class="sr-only" for="project-folder-input">Project folder input</label>
 			<input #folderInput id="project-folder-input" class="hidden-input" type="file" webkitdirectory directory multiple (change)="onFolderInputChange($event)" />
 
-			<div class="selection">
-				<p class="selection-label">Selected Path</p>
+			@if (hasSelection) {
 				<div class="path-box">
-					<span class="material-symbols-outlined marker">location_on</span>
-					<code class="path" [class.placeholder]="!hasSelection" [class.selected]="hasSelection">
-						{{ pathDisplay }}
-					</code>
-					<button
-						type="button"
-						class="clear-btn"
-						[class.hidden]="!hasSelection"
-						(click)="clearSelection($event)"
-						aria-label="Clear selected project"
-					>
-						<span class="material-symbols-outlined">close</span>
+					<div><span>Selected folder</span><code class="path selected">{{ pathDisplay }}</code></div>
+					<button type="button" class="flow-icon-button clear-btn" (click)="clearSelection($event); folderPicker.focus()" aria-label="Clear selected project" title="Clear selected project">
+						<span class="material-symbols-outlined" aria-hidden="true">close</span>
 					</button>
 				</div>
+			}
+			@if (folderSelectionError()) {
+				<p class="settings-state error" role="alert">{{ folderSelectionError() }}</p>
+			}
+			<div class="project-actions">
+				@if (scanSettingsLoading) {
+					<p class="settings-state" role="status">Loading project settings…</p>
+				} @else if (scanSettingsError) {
+					<p class="settings-state error" role="alert">{{ scanSettingsError }}</p>
+				} @else if (hasSelection && (scanSettingsValidationError || translationSourcesValidationError)) {
+					<p class="settings-state error">Check {{ scanSettingsValidationError ? 'scan settings' : 'translation sources' }} before starting.</p>
+				}
+				<button type="button" class="flow-primary start-btn" [disabled]="!canStartAnalysis" (click)="startAnalysis()">
+					Start analysis <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+				</button>
 			</div>
+		</section>
 
-			@if (hasSelection) {
+		@if (hasSelection) {
+			<section class="flow-panel advanced-settings" aria-labelledby="advanced-settings-heading">
+				<h2 id="advanced-settings-heading">Advanced settings</h2>
 				<details class="settings-disclosure">
 					<summary><span id="scan-settings-title">Scan settings</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
 					<section class="scan-settings" aria-labelledby="scan-settings-title">
@@ -72,9 +83,7 @@
 
 						@if (scanSettingsLoading) {
 							<p class="settings-state">Loading effective project configuration...</p>
-						} @else if (scanSettingsError) {
-							<p class="settings-state error" role="alert">{{ scanSettingsError }}</p>
-						} @else {
+						} @else if (!scanSettingsError) {
 							<div class="settings-grid">
 								<label class="setting-field">
 									<span class="setting-label">Maximum files</span>
@@ -242,7 +251,7 @@
 					</section>
 				</details>
 				<div class="source-storage-controls">
-					<button type="button" class="save-settings-btn" (click)="saveProjectSettings()" [disabled]="!canSaveProjectSettings">
+					<button type="button" class="flow-secondary save-settings-btn" (click)="saveProjectSettings()" [disabled]="!canSaveProjectSettings">
 						<span class="material-symbols-outlined" aria-hidden="true">save</span>
 						<span>Save project settings</span>
 					</button>
@@ -257,14 +266,12 @@
 				@if (projectSettingsStorageError()) {
 					<p class="settings-state error" role="alert">{{ projectSettingsStorageError() }}</p>
 				}
-			}
+			</section>
+		}
 
-			@if (hasRecentProjects) {
-				<section class="recent-projects" aria-label="Recently opened projects">
-					<div class="recent-header">
-						<h3>Recent Projects</h3>
-						<span>Last 5</span>
-					</div>
+		@if (hasRecentProjects) {
+			<section class="flow-panel recent-projects" aria-labelledby="recent-projects-heading">
+				<h2 id="recent-projects-heading">Recent projects</h2>
 					<ul class="recent-list">
 						@for (project of recentProjects; track project.path) {
 							<li>
@@ -277,43 +284,41 @@
 									>
 										<span class="recent-main">
 											<span class="recent-name">{{ project.name }}</span>
-											<span class="recent-path">{{ project.path }}</span>
+											<span class="recent-path" [title]="project.path">{{ project.path }}</span>
 										</span>
-										<span class="recent-status">{{ project.exists ? 'Available' : 'Not available' }}</span>
+										@if (!project.exists) { <span class="recent-status">Not available</span> }
 									</button>
 									<button
 										type="button"
-										class="remove-recent-btn"
+										class="flow-icon-button remove-recent-btn"
 										(click)="onRemoveRecentProject(project, $event)"
-										aria-label="Remove recent project"
+										[attr.aria-label]="'Remove ' + project.name + ' from recent projects'"
+										title="Remove from recent projects"
 									>
-										<span class="material-symbols-outlined">close</span>
+										<span class="material-symbols-outlined" aria-hidden="true">close</span>
 									</button>
 								</div>
 							</li>
 						}
 					</ul>
-				</section>
-			}
-
-			<button type="button" class="start-btn" [disabled]="!canStartAnalysis" (click)="startAnalysis()">
-				<span>Start Analysis</span>
-				<span class="material-symbols-outlined">arrow_forward</span>
-			</button>
-		</section>
-
-		<footer class="version">v{{ appVersion }}</footer>
-	</main>
-</div>
+			</section>
+		}
+	</div>
+</main>
 
 @if (remoteConfirmation) {
-	<dialog class="remote-confirmation-backdrop" open aria-labelledby="remote-confirmation-title">
+	<dialog
+		#remoteDialog
+		class="remote-confirmation"
+		aria-labelledby="remote-confirmation-title"
+		aria-describedby="remote-confirmation-description"
+		(cancel)="$event.preventDefault(); cancelRemoteConfirmation()">
 		<section class="remote-confirmation-card">
 			<header>
-				<span class="material-symbols-outlined">security</span>
+				<span class="material-symbols-outlined" aria-hidden="true">security</span>
 				<div>
-					<h2 id="remote-confirmation-title">Allow remote translation requests?</h2>
-					<p>No network request is made until you confirm this scan.</p>
+					<h2 id="remote-confirmation-title" tabindex="-1">Allow remote translation requests?</h2>
+					<p id="remote-confirmation-description">No network request is made until you confirm this scan.</p>
 				</div>
 			</header>
 
@@ -342,8 +347,8 @@
 
 			<p class="readonly-note">Remote translations are read-only.</p>
 			<footer>
-				<button type="button" class="reset-settings-btn" (click)="cancelRemoteConfirmation()">Cancel</button>
-				<button type="button" class="start-btn" (click)="confirmRemoteAnalysis()">Confirm and Start Analysis</button>
+				<button type="button" class="flow-secondary" (click)="cancelRemoteConfirmation()">Cancel</button>
+				<button type="button" class="flow-primary" (click)="confirmRemoteAnalysis()">Confirm and start analysis</button>
 			</footer>
 		</section>
 	</dialog>

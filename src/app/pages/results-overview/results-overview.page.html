@@ -1,59 +1,66 @@
-<main class="keys-shell" [class.drawer-closed]="!selectedFinding">
-	<section class="findings-pane">
+<div class="keys-shell" [class.drawer-closed]="!selectedFinding">
+	<section class="findings-pane" aria-labelledby="analysis-findings-heading" [attr.inert]="selectedFinding && detailFocus.isOverlay() ? '' : null">
 		<header class="table-toolbar">
-			<div class="chip-row">
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="onFilterChange('all')">All ({{ allFilterCount }})</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-in-language'" (click)="onFilterChange('missing-in-language')">
-					Missing ({{ missingFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'unused'" (click)="onFilterChange('unused')">Unused ({{ unusedFilterCount }})</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
-					Dynamic ({{ dynamicFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'indirect-uncertain'" (click)="onFilterChange('indirect-uncertain')">
-					Indirect ({{ indirectFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'extra-in-language'" (click)="onFilterChange('extra-in-language')">
-					Extra ({{ extraFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
-					Placeholders ({{ placeholderFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'used'" (click)="onFilterChange('used')">Used ({{ usedFilterCount }})</button>
+			<div class="list-heading">
+				<h1 id="analysis-findings-heading">Analysis results</h1>
+				<p class="result-count" role="status" aria-atomic="true">{{ filteredFindings.length }} of {{ allFilterCount }} findings</p>
 			</div>
-
-			<div class="toolbar-right">
-				<span class="result-count">{{ filteredFindings.length }} of {{ allFilterCount }} findings</span>
-				<label class="search-box">
-					<span class="material-symbols-outlined">search</span>
-					<input type="text" placeholder="Search key, message or file path" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
-				</label>
+			<div class="search-box">
+				<span class="material-symbols-outlined" aria-hidden="true">search</span>
+				<input #searchInput type="search" aria-label="Search findings by key, message or file path" placeholder="Search keys, messages or file paths" (input)="onSearchChange(searchInput.value)" />
+			</div>
+			<div class="chip-row" role="group" aria-label="Filter findings">
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'all'" (click)="onFilterChange('all')">
+					All <span class="filter-count">{{ allFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'missing-in-language'" (click)="onFilterChange('missing-in-language')">
+					Missing <span class="filter-count">{{ missingFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'unused'" (click)="onFilterChange('unused')">
+					Unused <span class="filter-count">{{ unusedFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
+					Dynamic <span class="filter-count">{{ dynamicFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'indirect-uncertain'" (click)="onFilterChange('indirect-uncertain')">
+					Indirect <span class="filter-count">{{ indirectFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'extra-in-language'" (click)="onFilterChange('extra-in-language')">
+					Extra <span class="filter-count">{{ extraFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
+					Placeholders <span class="filter-count">{{ placeholderFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'used'" (click)="onFilterChange('used')">
+					Used <span class="filter-count">{{ usedFilterCount }}</span>
+				</button>
 			</div>
 		</header>
 
 		<div class="table-scroll custom-scrollbar">
-			<div class="virtual-table" role="table" aria-label="Analysis findings" [attr.aria-rowcount]="filteredFindings.length + 1">
-				<div class="table-head table-grid" role="row" aria-rowindex="1">
-					<div role="columnheader">Key Name</div>
-					<div role="columnheader">Status</div>
-					<div role="columnheader">Last Used / File Path</div>
-					<div role="columnheader">Severity</div>
-				</div>
-				@if (filteredFindings.length) {
+			@if (filteredFindings.length) {
+				<div class="virtual-table" role="table" aria-labelledby="analysis-findings-heading" [attr.aria-rowcount]="filteredFindings.length + 1">
+					<div class="table-head table-grid custom-scrollbar" role="row" aria-rowindex="1">
+						<div role="columnheader">Translation key</div>
+						<div role="columnheader">Status</div>
+						<div role="columnheader">Evidence file</div>
+						<div role="columnheader">Severity</div>
+					</div>
 					<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
 						<div
 							*cdkVirtualFor="let finding of filteredFindings; let rowIndex = index; trackBy: trackFinding"
 							class="table-row table-grid"
 							role="row"
 							[attr.aria-rowindex]="rowIndex + 2"
-							(click)="onSelectFinding(finding)"
-							(keydown.enter)="onSelectFinding(finding)"
-							(keydown.space)="onSelectFinding(finding); $event.preventDefault()"
+							(click)="onSelectFinding(finding, $event.currentTarget)" [attr.data-detail-row-id]="finding.id"
+							(keydown.enter)="onFindingRowKeydown($event, finding)"
+							(keydown.space)="onFindingRowKeydown($event, finding)"
 							tabindex="0"
+							[attr.aria-current]="isDetailOpen && selectedFindingId === finding.id ? 'true' : null"
 							[class.selected]="isDetailOpen && selectedFindingId === finding.id"
 							[class.resolved-success]="isResolvedFinding(finding)">
 							<div class="table-cell" role="cell">
-								<span class="key-cell">{{ finding.key }}</span>
+								<span class="key-cell" [title]="finding.key">{{ finding.key }}</span>
 							</div>
 							<div class="table-cell" role="cell">
 								<span
@@ -62,7 +69,8 @@
 									[class.unused]="finding.status === 'unused'"
 									[class.dynamic]="isUncertainStatus(finding.status)"
 									[class.missing]="finding.status === 'missing-in-language' || isPlaceholderError(finding.status)"
-									[class.extra]="finding.status === 'extra-in-language'">
+									[class.extra]="finding.status === 'extra-in-language'"
+									[title]="statusLabel(finding.status) + (finding.language ? ' · ' + finding.language : '')">
 									{{ statusLabel(finding.status) }}{{ finding.language ? ' · ' + finding.language : '' }}
 								</span>
 							</div>
@@ -73,176 +81,163 @@
 										type="button"
 										class="copy-path-btn"
 										(click)="onCopyPath($event, finding.evidence[0].filePath)"
+										[attr.aria-label]="copiedPath === finding.evidence[0].filePath ? 'Path copied' : 'Copy full path'"
 										[title]="copiedPath === finding.evidence[0].filePath ? 'Copied!' : 'Copy full path'">
-										<span class="material-symbols-outlined">{{ copiedPath === finding.evidence[0].filePath ? 'check' : 'content_copy' }}</span>
+										<span class="material-symbols-outlined" aria-hidden="true">{{ copiedPath === finding.evidence[0].filePath ? 'check' : 'content_copy' }}</span>
 									</button>
 								} @else {
-									<span class="path-text">No evidence path available</span>
+									<span class="path-text">No file</span>
 								}
 							</div>
 							<div class="table-cell" role="cell">
-								<div class="severity-meter">
-									<div
-										class="severity-bar"
-										[class.error]="finding.severity === 'error'"
-										[class.warning]="finding.severity === 'warning'"
-										[class.info]="finding.severity === 'info'"
-										[style.width.%]="severityPercent(finding.severity)"></div>
-								</div>
+								<span class="severity-badge" [attr.data-severity]="finding.severity">{{ severityLabel(finding.severity) }}</span>
 							</div>
 						</div>
 					</cdk-virtual-scroll-viewport>
-				} @else {
-					<div class="empty-state">No keys matched your current filter.</div>
-				}
-			</div>
+				</div>
+			} @else if (allFilterCount) {
+				<div class="empty-state">
+					<p>No findings match your search and filter.</p>
+					<button type="button" class="reset-list" (click)="clearSearchAndFilters(searchInput)">Clear search and filters</button>
+				</div>
+			} @else {
+				<p class="empty-state">No findings from this scan.</p>
+			}
 		</div>
 	</section>
 
-	@if (selectedFinding) {
-		<button type="button" class="details-backdrop" (click)="closeDetailPanel()" aria-label="Close finding details"></button>
-	}
 
-	<aside class="details-pane" [class.hidden]="!selectedFinding">
-		@if (selectedFinding) {
+	@if (selectedFinding && detailFocus.isOverlay()) {
+		<button type="button" class="details-backdrop" tabindex="-1" (click)="closeDetailPanel()" aria-label="Close finding details"></button>
+	}
+	@if (selectedFinding; as finding) {
+		<div
+			class="details-pane"
+			tabindex="-1"
+			[attr.role]="detailFocus.isOverlay() ? 'dialog' : 'complementary'"
+			[attr.aria-modal]="detailFocus.isOverlay() && !isAddTranslationModalOpen ? 'true' : null"
+			aria-labelledby="finding-detail-key"
+			[cdkTrapFocus]="detailFocus.isOverlay() && !isAddTranslationModalOpen"
+			(keydown.escape)="isAddTranslationModalOpen ? closeAddTranslationModal() : closeDetailPanel()">
 			<header class="details-head">
-				<div>
-					<p class="eyebrow">Key Details</p>
-					<h3>{{ selectedFinding.key }}</h3>
+				<div class="detail-heading">
+					<p>Finding details</p>
+					<h2 class="detail-key" id="finding-detail-key" tabindex="-1">{{ finding.key }}</h2>
 				</div>
-				<button type="button" class="icon-button" (click)="closeDetailPanel()">
-					<span class="material-symbols-outlined">close</span>
+				<button type="button" class="detail-close" (click)="closeDetailPanel()" aria-label="Close finding details" title="Close finding details">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
+				</button>
+				<button type="button" class="detail-copy" (click)="copySelectedKey()">
+					<span class="material-symbols-outlined" aria-hidden="true">{{ keyCopied ? 'check' : 'content_copy' }}</span>
+					{{ keyCopied ? 'Copied' : 'Copy key' }}
 				</button>
 			</header>
 
-			<div class="details-scroll custom-scrollbar">
+			<div class="details-scroll custom-scrollbar" role="region" aria-label="Finding information" tabindex="0">
 				<section class="detail-section">
-					<div class="status-row">
-						<span
-							class="status-pill"
-							[class.used]="selectedFinding.status === 'used'"
-							[class.unused]="selectedFinding.status === 'unused'"
-							[class.dynamic]="isUncertainStatus(selectedFinding.status)"
-							[class.missing]="selectedFinding.status === 'missing-in-language' || isPlaceholderError(selectedFinding.status)"
-							[class.extra]="selectedFinding.status === 'extra-in-language'">
-							{{ statusLabel(selectedFinding.status) }}{{ selectedFinding.language ? ' · ' + selectedFinding.language : '' }}
+					<div class="detail-status-row">
+						<span class="detail-status" [attr.data-severity]="finding.severity">
+							{{ statusLabel(finding.status) }}{{ finding.language ? ' · ' + finding.language : '' }}
 						</span>
-						<span class="severity-label">{{ severityLabel(selectedFinding.severity) }} severity</span>
+						<span class="detail-meta">{{ severityLabel(finding.severity) }} severity</span>
 					</div>
-					<p class="detail-message">{{ selectedFinding.message }}</p>
-				</section>
-
-				@if (selectedFinding.placeholderDetails) {
-					<section class="detail-section">
-						<h4>Placeholder Contract</h4>
-						<p class="detail-message">Required: {{ selectedFinding.placeholderDetails.required.join(', ') || 'None' }}</p>
-						@if (selectedFinding.placeholderDetails.provided) {
-							<p class="detail-message">Provided: {{ selectedFinding.placeholderDetails.provided.join(', ') || 'None' }}</p>
-						}
-						@if (selectedFinding.placeholderDetails.missing?.length) {
-							<p class="detail-message">Missing: {{ selectedFinding.placeholderDetails.missing.join(', ') }}</p>
-						}
-						@if (selectedFinding.placeholderDetails.actual) {
-							<p class="detail-message">Locale placeholders: {{ selectedFinding.placeholderDetails.actual.join(', ') || 'None' }}</p>
-						}
-					</section>
-				}
-
-				<section class="detail-section">
-					<h4>Evidence</h4>
-					<div class="info-block">
-						<span class="material-symbols-outlined">description</span>
-						<div>
-							<p class="mono">{{ selectedEvidencePath }}</p>
-							<p>Adapter: {{ frameworkLabel }} • Duration: {{ scanDurationLabel }}</p>
-						</div>
-					</div>
-				</section>
-
-				<section class="detail-section">
-					<div class="section-head">
-						<h4>Code Context</h4>
-						<button type="button" class="link-button" (click)="copySelectedKey()">
-							<span class="material-symbols-outlined">content_copy</span>
-							{{ keyCopied ? 'Copied' : 'Copy key' }}
+					<p>{{ finding.message }}</p>
+					@if (isRemoteReadOnly && finding.status === 'missing-in-language') {
+						<p class="detail-note"><span class="material-symbols-outlined" aria-hidden="true">lock</span>Remote translations are read-only.</p>
+					}
+					@if (isSelectedFindingResolved) {
+						<p class="detail-note success" role="status">Successfully added. This entry will be removed in a moment.</p>
+					}
+					@if (canShowAddToTranslationsAction) {
+						<button type="button" class="detail-primary" (click)="openAddTranslationModal($event.currentTarget)">
+							<span class="material-symbols-outlined" aria-hidden="true">add</span>Add to translation files
 						</button>
-					</div>
-					<pre><code>{{ selectedSnippet }}</code></pre>
+					}
 				</section>
 
-				<section class="detail-section metric-grid">
-					<div class="metric-card">
-						<p>Occurrences</p>
-						<strong>{{ selectedFinding.evidence.length }}</strong>
-					</div>
-					<div class="metric-card">
-						<p>Affected locale</p>
-						<strong>{{ selectedFinding.language ?? 'All' }}</strong>
-					</div>
-				</section>
-
-				@if (isSelectedFindingResolved || canShowAddToTranslationsAction || (isRemoteReadOnly && selectedFinding.status === 'missing-in-language')) {
-					<section class="detail-section action-stack">
-						@if (isRemoteReadOnly && selectedFinding.status === 'missing-in-language') {
-							<p class="modal-hint">Remote translations are read-only.</p>
-						}
-						@if (isSelectedFindingResolved) {
-							<p class="success-message">Successfully added. This entry will be removed in a moment.</p>
-						}
-						@if (canShowAddToTranslationsAction) {
-							<button type="button" class="primary-action" (click)="openAddTranslationModal()">Add to Translation Files</button>
-						}
-						<!-- <button type="button" class="secondary-action">Ignore Key</button> -->
+				@if (finding.placeholderDetails; as placeholders) {
+					<section class="detail-section" aria-labelledby="finding-placeholders-title">
+						<h3 id="finding-placeholders-title">Placeholder Contract</h3>
+						<div class="detail-lines">
+							<p>Required: <code>{{ placeholders.required.join(', ') || 'None' }}</code></p>
+							@if (placeholders.provided) {
+								<p>Provided: <code>{{ placeholders.provided.join(', ') || 'None' }}</code></p>
+							}
+							@if (placeholders.missing?.length) {
+								<p>Missing: <code>{{ placeholders.missing.join(', ') }}</code></p>
+							}
+							@if (placeholders.actual) {
+								<p>Locale placeholders: <code>{{ placeholders.actual.join(', ') || 'None' }}</code></p>
+							}
+						</div>
 					</section>
 				}
-			</div>
-		}
-	</aside>
-</main>
 
-@if (isAddTranslationModalOpen && selectedFinding) {
+				<section class="detail-section" aria-labelledby="finding-evidence-title">
+					<h3 id="finding-evidence-title">Evidence</h3>
+					<code class="detail-path">{{ selectedEvidencePath }}</code>
+					<dl class="detail-data">
+						<div><dt>Occurrences</dt><dd>{{ finding.evidence.length }}</dd></div>
+						<div><dt>Affected locale</dt><dd>{{ finding.language ?? 'All' }}</dd></div>
+						<div><dt>Adapter</dt><dd>{{ frameworkLabel }}</dd></div>
+						<div><dt>Scan duration</dt><dd>{{ scanDurationLabel }}</dd></div>
+					</dl>
+				</section>
+
+				<section class="detail-section" aria-labelledby="finding-code-title">
+					<h3 id="finding-code-title">Code context</h3>
+					<pre class="detail-code"><code>{{ selectedSnippet }}</code></pre>
+				</section>
+			</div>
+		</div>
+	}
+</div>
+
+@if (translationTarget; as target) {
 	<dialog
-		class="modal-backdrop"
-		open
-		tabindex="-1"
-		(click)="onAddTranslationModalBackdropClick($event)"
-		(keydown)="onAddTranslationModalBackdropKeydown($event)"
-		(cancel)="closeAddTranslationModal()">
+		appTranslationDialog
+		class="translation-dialog"
+		[origin]="target.origin"
+		(dismissed)="closeAddTranslationModal()"
+		aria-labelledby="finding-translation-title"
+		aria-describedby="finding-translation-hint">
 		<div class="modal-card">
 			<header class="modal-header">
-				<h4 id="add-translation-title">Add Missing Translations</h4>
-				<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">
-					<span class="material-symbols-outlined">close</span>
+				<h2 id="finding-translation-title">{{ target.locales.length === 1 ? 'Add translation' : 'Add missing translations' }}</h2>
+				<button type="button" class="modal-close" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations" aria-label="Close translation dialog">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
 				</button>
 			</header>
-			<p class="modal-context">
-				Key: <span>{{ selectedFinding.key }}</span>
-			</p>
-			<p class="modal-hint">Fill translations per missing locale. You can leave fields empty to add the key with an empty string.</p>
 
-			<div class="locale-input-list custom-scrollbar">
-				@for (locale of selectedMissingLocales; track locale) {
-					<div class="locale-input-item">
-						<label class="modal-label" [for]="'translation-locale-' + locale">{{ locale }}</label>
+			<div class="modal-body custom-scrollbar">
+				<dl class="modal-context">
+					<div><dt>Translation key</dt><dd><code>{{ target.key }}</code></dd></div>
+				</dl>
+				<p class="modal-hint" id="finding-translation-hint">Leave a field empty to add the key with an empty value.</p>
+				@if (addTranslationsError) {
+					<p class="modal-error" role="alert" tabindex="-1">{{ addTranslationsError }}</p>
+				}
+
+				@for (locale of target.locales; track locale) {
+					<div class="modal-field">
+						<label [for]="'translation-locale-' + locale">Translation text <code>{{ locale }}</code></label>
 						<textarea
+							#draftInput
 							[id]="'translation-locale-' + locale"
 							rows="3"
 							class="modal-textarea"
-							placeholder="Translation text"
+							[disabled]="isSavingTranslations"
 							[value]="translationDrafts[locale] ?? ''"
-							(input)="onTranslationDraftChange(locale, ($any($event.target).value ?? '').toString())"></textarea>
+							(input)="onTranslationDraftChange(locale, draftInput.value)"></textarea>
 					</div>
 				}
 			</div>
 
-			@if (addTranslationsError) {
-				<p class="modal-error">{{ addTranslationsError }}</p>
-			}
-
 			<footer class="modal-actions">
+				<span class="modal-progress" role="status">{{ isSavingTranslations ? 'Writing translation files…' : '' }}</span>
 				<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isSavingTranslations">Cancel</button>
-				<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations">
-					{{ isSavingTranslations ? 'Saving...' : 'Add Key to Files' }}
+				<button type="button" class="primary-button" (click)="addSelectedKeyToTranslationFiles()" [disabled]="isSavingTranslations || isRemoteReadOnly">
+					{{ isSavingTranslations ? 'Saving…' : target.locales.length === 1 ? 'Add translation' : 'Add translations' }}
 				</button>
 			</footer>
 		</div>

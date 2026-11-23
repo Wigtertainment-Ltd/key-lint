@@ -1,7 +1,10 @@
-import { Component, computed, effect, inject, Injector, OnInit, signal, Signal, WritableSignal, EffectCleanupRegisterFn } from '@angular/core';
+import {
+	afterNextRender, Component, computed, effect, EffectCleanupRegisterFn, ElementRef, inject, Injector, LOCALE_ID, OnInit,
+	signal, Signal, viewChild, viewChildren, WritableSignal
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { DecimalPipe } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IScanCompletedHistoryPayload, IProjectScanResult, normalizePath, IProjectHistoryEvent } from '@key-lint/core';
 import { ProjectHistoryService } from '../../shared/services/project-history.service';
 import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
@@ -10,7 +13,7 @@ import type { Subscription } from 'rxjs';
 
 @Component({
 	selector: 'app-dashboard-page',
-	imports: [DecimalPipe],
+	imports: [DecimalPipe, NgTemplateOutlet, RouterLink],
 	templateUrl: './dashboard.page.html',
 	styleUrl: './dashboard.page.scss'
 })
@@ -20,6 +23,7 @@ export class DashboardPage implements OnInit {
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
 	private readonly injector: Injector = inject(Injector);
+	private readonly locale: string = inject(LOCALE_ID);
 	private readonly scanSnapshot: Signal<ScanExecutionSnapshot> = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
 	});
@@ -27,6 +31,8 @@ export class DashboardPage implements OnInit {
 	private watchedProjectPath: string = '';
 	private readonly scanTrendEvents: WritableSignal<ITrendBar[]> = signal<ITrendBar[]>([]);
 	private readonly selectedTrendDayKey: WritableSignal<string | undefined> = signal<string | undefined>(undefined);
+	private readonly trendBackButton: Signal<ElementRef<HTMLButtonElement> | undefined> = viewChild('trendBackButton');
+	private readonly trendDayButtons: Signal<readonly ElementRef<HTMLButtonElement>[]> = viewChildren('trendDayButton');
 
 	ngOnInit(): void {
 		effect(
@@ -90,28 +96,8 @@ export class DashboardPage implements OnInit {
 		return this.scanResultSignal();
 	}
 
-	openMissingKeys(): void {
-		void this.router.navigate(['/analysis/results']);
-	}
-
-	openUnusedKeys(): void {
-		void this.router.navigate(['/analysis/results']);
-	}
-
-	openTranslationKeys(): void {
-		void this.router.navigate(['/analysis/translation-keys']);
-	}
-
 	get totalKeys(): number {
 		return this.scanResult?.summary.totalKeys ?? 0;
-	}
-
-	get totalKeysTooltip(): string {
-		return [
-			'Total Keys counts distinct keys in the translation files.',
-			`Usage categories: Used (${this.usedKeys}) + Dynamic (${this.dynamicKeys}) + Unused (${this.unusedKeys}).`,
-			'Dynamic keys may be used at runtime; their usage cannot be confirmed statically.'
-		].join('\n');
 	}
 
 	get usedKeys(): number {
@@ -138,28 +124,8 @@ export class DashboardPage implements OnInit {
 		return this.missingKeys + this.unusedKeys + this.placeholderIssues;
 	}
 
-	get criticalTitle(): string {
-		if (this.missingKeys > 0 || this.placeholderIssues > 0) {
-			return 'Critical Issues Detected';
-		}
-
-		return 'No Critical Translation Breaks';
-	}
-
-	get criticalDescription(): string {
-		if (this.missingKeys === 0 && this.placeholderIssues === 0) {
-			return 'No missing translations or placeholder contract errors found in the current scan.';
-		}
-
-		return `${this.missingKeys} missing translation(s) and ${this.placeholderIssues} placeholder contract error(s) found.`;
-	}
-
-	get optimizationDescription(): string {
-		if (this.totalKeys === 0) {
-			return 'No keys available yet. Start by scanning a project with translation files.';
-		}
-
-		return `${this.unusedPercent}% of your keys (${this.unusedKeys}) are currently unused. Pruning these keys can reduce bundle size.`;
+	get hasCriticalFindings(): boolean {
+		return this.missingKeys > 0 || this.placeholderIssues > 0;
 	}
 
 	get frameworkLabel(): string {
@@ -171,7 +137,7 @@ export class DashboardPage implements OnInit {
 		return adapterId.charAt(0).toUpperCase() + adapterId.slice(1);
 	}
 
-	get filesScanned(): number {
+	get usageReferences(): number {
 		const value: unknown = this.scanResult?.metadata?.['usedKeyEvidenceCount'];
 		return typeof value === 'number' ? value : 0;
 	}
@@ -179,10 +145,10 @@ export class DashboardPage implements OnInit {
 	get scanDurationLabel(): string {
 		const durationMs: number = this.scanResult?.durationMs ?? 0;
 		if (durationMs >= 1000) {
-			return `${(durationMs / 1000).toFixed(1)}s`;
+			return `${(durationMs / 1000).toFixed(1)} s`;
 		}
 
-		return `${durationMs}ms`;
+		return `${durationMs} ms`;
 	}
 
 	get localeLabels(): string[] {
@@ -207,10 +173,14 @@ export class DashboardPage implements OnInit {
 		return Boolean(this.selectedTrendDayKey());
 	}
 
+	get canOpenTrendDay(): boolean {
+		return !this.isTrendDrilldown && this.scanTrendEvents().length > 0;
+	}
+
 	get trendViewLabel(): string {
 		const selectedDayKey: string | undefined = this.selectedTrendDayKey();
 		if (!selectedDayKey) {
-			return 'Last 5 scan days';
+			return 'Latest scan per day';
 		}
 
 		const activeDay: string = this.trendBars[0]?.timestamp;
@@ -223,7 +193,7 @@ export class DashboardPage implements OnInit {
 			return 'Selected day scans';
 		}
 
-		return date.toLocaleDateString([], {
+		return date.toLocaleDateString(this.locale, {
 			weekday: 'long',
 			month: 'short',
 			day: '2-digit'
@@ -232,39 +202,28 @@ export class DashboardPage implements OnInit {
 
 	get trendGridTemplateColumns(): string {
 		const columnCount: number = Math.max(this.trendBars.length, 1);
-		return `repeat(${columnCount}, minmax(0, 1fr))`;
+		return `repeat(${columnCount}, minmax(5rem, 1fr))`;
 	}
 
 	barHeightPercent(value: number): number {
-		if (this.maxTrendMetric <= 0) {
-			return 10;
-		}
-
-		return Math.max(10, Math.round((value / this.maxTrendMetric) * 100));
-	}
-
-	trackTrendBar(_: number, bar: ITrendBar): string {
-		return bar.id;
+		return (value / this.maxTrendMetric) * 100;
 	}
 
 	onTrendBarClick(bar: ITrendBar): void {
-		if (this.isTrendDrilldown) {
+		if (!this.canOpenTrendDay) {
 			return;
 		}
 
 		this.selectedTrendDayKey.set(bar.dayKey);
+		afterNextRender((): void => this.trendBackButton()?.nativeElement.focus(), { injector: this.injector });
 	}
 
 	closeTrendDrilldown(): void {
+		const selectedDayKey: string | undefined = this.selectedTrendDayKey();
 		this.selectedTrendDayKey.set(undefined);
-	}
-
-	private get unusedPercent(): number {
-		if (this.totalKeys === 0) {
-			return 0;
-		}
-
-		return Math.round((this.unusedKeys / this.totalKeys) * 100);
+		afterNextRender((): void => {
+			this.trendDayButtons().find((button: ElementRef<HTMLButtonElement>): boolean => button.nativeElement.dataset['trendDay'] === selectedDayKey)?.nativeElement.focus();
+		}, { injector: this.injector });
 	}
 
 	private get maxTrendMetric(): number {
@@ -374,7 +333,7 @@ export class DashboardPage implements OnInit {
 			return 'Unknown';
 		}
 
-		return date.toLocaleDateString([], {
+		return date.toLocaleDateString(this.locale, {
 			month: 'short',
 			day: '2-digit'
 		});
@@ -386,7 +345,7 @@ export class DashboardPage implements OnInit {
 			return 'Unknown';
 		}
 
-		return date.toLocaleTimeString([], {
+		return date.toLocaleTimeString(this.locale, {
 			hour: '2-digit',
 			minute: '2-digit'
 		});

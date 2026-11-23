@@ -1,91 +1,115 @@
-<section class="scan-content custom-scrollbar">
-	<section class="progress-block">
+<header class="flow-header">
+	<div class="flow-brand">
+		<img src="logo.png" alt="" width="36" height="36" />
+		<div><strong>KeyLint</strong><span>v{{ appVersionService.version }}</span></div>
+	</div>
+	<button
+		type="button"
+		class="flow-icon-button theme-toggle"
+		aria-label="Dark mode"
+		[attr.aria-pressed]="themeService.getCurrent() === 'dark'"
+		[title]="themeService.getCurrent() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+		(click)="themeService.toggle()">
+		<span class="material-symbols-outlined" aria-hidden="true">{{ themeService.getCurrent() === 'dark' ? 'light_mode' : 'dark_mode' }}</span>
+	</button>
+</header>
+
+<main class="flow-content">
+	<header class="flow-title">
+		<h1>
+			@if (scanState() === 'completed') {
+				Scan complete
+			} @else if (scanState() === 'failed') {
+				Scan failed
+			} @else {
+				Scanning project
+			}
+		</h1>
+		<p class="project-context">
+			<span class="material-symbols-outlined" aria-hidden="true">folder</span>
+			<code [title]="projectPath">{{ selectedProjectShort }}</code>
+		</p>
+	</header>
+
+	<section class="flow-panel progress-block" aria-labelledby="progress-heading">
 		<div class="progress-header">
 			<div>
-				<h2>
+				<h2 id="progress-heading">Scan progress</h2>
+				<p class="scan-status" role="status">
 					@if (scanState() === 'completed') {
-						Scan Completed
+						Results are ready to review.
 					} @else if (scanState() === 'failed') {
-						Scan Failed
+						The scan could not finish.
 					} @else {
-						Scanning Repository...
+						Step {{ activeStepId }} of {{ steps.length }}
 					}
-				</h2>
-				<p>Deep analysis of source code and translation assets in progress.</p>
+				</p>
 			</div>
-			<div class="percent">{{ scanPercentLabel }}</div>
+			<strong class="percent">{{ scanPercentLabel }}</strong>
 		</div>
-		<div class="progress-rail">
-			<div class="scan-line"></div>
-			<div class="progress-fill" [style.width.%]="progressPercent()"></div>
+		<progress [value]="progressPercent()" max="100" aria-labelledby="progress-heading" [class.failed]="scanState() === 'failed'"></progress>
+		@if (scanError(); as error) {
+			<p class="scan-error" role="alert"><span class="material-symbols-outlined" aria-hidden="true">error_outline</span>{{ error }}</p>
+		}
+		<div class="actions">
+			@if (scanState() === 'completed') {
+				<button #viewResults type="button" class="flow-primary show-result-btn" (click)="showResults()">
+					View results <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+				</button>
+			} @else {
+				<button #cancelScan type="button" class="flow-secondary cancel-btn" (click)="cancelAnalysis()" [disabled]="isCancelling">
+					@if (scanState() === 'failed') {
+						<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+						Back to project selection
+					} @else {
+						{{ isCancelling ? 'Cancelling…' : 'Cancel analysis' }}
+					}
+				</button>
+			}
 		</div>
 	</section>
 
-	<section class="scan-grid">
-		<div class="steps-col">
-			@for (step of steps; track step.id) {
-				<div class="step-card" [class.active]="isStepActive(step)" [class.completed]="isStepCompleted(step)" [class.pending]="!isStepActive(step) && !isStepCompleted(step)">
-					<div class="step-icon-wrap">
-						@if (isStepCompleted(step)) {
-							<span class="material-symbols-outlined">check</span>
-						} @else if (isStepActive(step)) {
-							<span class="material-symbols-outlined spin">sync</span>
-							<span class="pulse-effect"></span>
-						} @else {
-							<span class="material-symbols-outlined">radio_button_unchecked</span>
-						}
-					</div>
-					<div>
-						<p class="step-title">{{ step.title }}</p>
-						<p class="step-state">
+	<div class="scan-grid">
+		<section class="flow-panel steps-col" aria-labelledby="scan-steps-heading">
+			<h2 id="scan-steps-heading">Scan steps</h2>
+			<ol class="steps">
+				@for (step of steps; track step.id) {
+					<li class="step" [class.active]="isStepActive(step)" [class.completed]="isStepCompleted(step)" [attr.aria-current]="isStepActive(step) ? 'step' : null">
+						<span class="step-marker" aria-hidden="true">
+							@if (isStepCompleted(step)) {
+								<span class="material-symbols-outlined">check</span>
+							} @else {
+								{{ step.id }}
+							}
+						</span>
+						<span class="step-title">{{ step.title }}</span>
+						<span class="step-state">
 							@if (isStepCompleted(step)) {
 								Completed
 							} @else if (isStepActive(step)) {
-								Active
+								In progress
 							} @else {
 								Pending
 							}
-						</p>
-					</div>
-				</div>
-			}
-		</div>
+						</span>
+					</li>
+				}
+			</ol>
+		</section>
 
-		<div class="log-col">
-			<div class="console">
-				<div class="console-top">
-					<div class="dots">
-						<div class="dot red"></div>
-						<div class="dot yellow"></div>
-						<div class="dot green"></div>
-					</div>
-					<span>Process Console</span>
-				</div>
-				<div class="console-body custom-scrollbar">
-					@for (line of logLines(); track $index) {
-						<p>{{ line }}</p>
-					}
-					<span class="cursor"></span>
-				</div>
+		<section class="flow-panel log-col" aria-labelledby="scan-log-heading">
+			<h2 id="scan-log-heading">Scan log</h2>
+			<div class="console-body custom-scrollbar">
+				@if (logLines().length) {
+					<ol class="log-lines">
+						@for (line of logLines(); track $index) {
+							<li>{{ line }}</li>
+						}
+					</ol>
+				} @else {
+					<p>Waiting for scan activity…</p>
+				}
 			</div>
-		</div>
-	</section>
-
-	@if (scanState() !== 'completed') {
-		<div class="actions">
-			<button class="cancel-btn" (click)="cancelAnalysis()" [disabled]="isCancelling">
-				<span class="material-symbols-outlined">cancel</span>
-				{{ isCancelling ? 'Cancelling...' : 'Cancel Analysis' }}
-			</button>
-		</div>
-	} @else {
-		<div class="actions">
-			<button class="show-result-btn" (click)="showResults()">
-				<span class="material-symbols-outlined">insights</span>
-				Show Result
-			</button>
-		</div>
-	}
-
-	<div class="ambient-circle" aria-hidden="true"></div>
-</section>
+		</section>
+	</div>
+</main>

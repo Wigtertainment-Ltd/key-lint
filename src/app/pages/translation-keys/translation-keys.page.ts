@@ -1,19 +1,25 @@
 import { Component, computed, effect, inject, Injector, OnDestroy, OnInit, signal, ViewChild, Signal, WritableSignal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { IProjectScanResult, ITranslationMatrix, ITranslationMatrixRow } from '@key-lint/core';
 import { ScanOrchestrationService, ScanExecutionSnapshot } from '../../shared/services/scan-orchestration.service';
 import { ToastService } from '../../shared/services/toast.service';
+import { AnalysisDetailFocus } from '../analysis-detail-focus';
+import { TranslationDialogDirective } from '../translation-dialog.directive';
 
 @Component({
 	selector: 'app-translation-keys-page',
-	imports: [ScrollingModule],
+	imports: [CdkTrapFocus, ScrollingModule, TranslationDialogDirective],
+	providers: [AnalysisDetailFocus],
 	templateUrl: './translation-keys.page.html',
 	styleUrl: './translation-keys.page.scss'
 })
 export class TranslationKeysPage implements OnInit, OnDestroy {
 	@ViewChild(CdkVirtualScrollViewport) private tableViewport?: CdkVirtualScrollViewport;
+	@ViewChild(TranslationDialogDirective) private translationDialog?: TranslationDialogDirective;
+	readonly detailFocus: AnalysisDetailFocus = inject(AnalysisDetailFocus);
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly router: Router = inject(Router);
 	private readonly toastService: ToastService = inject(ToastService);
@@ -31,8 +37,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	selectedKey?: string;
 	isDetailOpen: boolean = false;
 	private readonly keyCopiedSignal: WritableSignal<boolean> = signal(false);
-	isAddTranslationModalOpen: boolean = false;
-	addTranslationLocale?: string;
+	translationTarget?: { projectRoot: string; key: string; locale: string; resolvesMissingKey: boolean; origin?: EventTarget | null };
 	addTranslationValue: string = '';
 	isAddingTranslation: boolean = false;
 	private readonly addTranslationErrorSignal: WritableSignal<string> = signal('');
@@ -153,15 +158,23 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.ensureSelectedRow();
 	}
 
+	clearSearchAndFilters(input: HTMLInputElement): void {
+		this.searchTermSignal.set('');
+		this.onFilterChange('all');
+		input.value = '';
+		input.focus();
+	}
+
 	onFilterChange(filter: 'all' | 'missing-key' | 'empty-value' | 'placeholders'): void {
 		this.activeFilterSignal.set(filter);
 		this.tableViewport?.scrollToIndex(0);
 		this.ensureSelectedRow();
 	}
 
-	onSelectRow(row: ITranslationMatrixRow): void {
+	onSelectRow(row: ITranslationMatrixRow, origin?: EventTarget | null): void {
 		this.selectedKey = row.key;
 		this.isDetailOpen = true;
+		this.detailFocus.open(origin);
 	}
 
 	trackRow(_index: number, row: ITranslationMatrixRow): string {
@@ -174,12 +187,13 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}
 
 		event.preventDefault();
-		this.onSelectRow(row);
+		this.onSelectRow(row, event.currentTarget);
 	}
 
 	closeDetailPanel(): void {
 		this.isDetailOpen = false;
-		this.isAddTranslationModalOpen = false;
+		this.closeAddTranslationModal(true);
+		this.detailFocus.restore();
 	}
 
 	get matrix(): ITranslationMatrix {
@@ -320,8 +334,14 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		}, 1500);
 	}
 
-	openAddTranslationModal(locale: string): void {
-		if (!this.selectedRow || this.isRemoteReadOnly) {
+	get isAddTranslationModalOpen(): boolean {
+		return this.translationTarget !== undefined;
+	}
+
+	openAddTranslationModal(locale: string, origin?: EventTarget | null): void {
+		const row: ITranslationMatrixRow | undefined = this.selectedRow;
+		const projectRoot: string | undefined = this.scanResult?.projectRoot;
+		if (!row || !projectRoot || this.isRemoteReadOnly || this.isAddTranslationModalOpen) {
 			return;
 		}
 
@@ -329,14 +349,14 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		this.addTranslationLocale = locale;
+		const missingLocales: string[] = this.selectedMissingLocales;
+		this.translationTarget = { projectRoot, key: row.key, locale, resolvesMissingKey: missingLocales.length === 1 && missingLocales[0] === locale, origin };
 		this.addTranslationValue = '';
 		this.addTranslationError = '';
 		this.modalOffsetX = 0;
 		this.modalOffsetY = 0;
 		this.isModalDragging = false;
 		this.modalDragPointerId = undefined;
-		this.isAddTranslationModalOpen = true;
 	}
 
 	closeAddTranslationModal(force: boolean = false): void {
@@ -344,25 +364,12 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		this.isAddTranslationModalOpen = false;
-		this.addTranslationLocale = undefined;
+		this.translationDialog?.close(!force && this.selectedRow?.key === this.translationTarget?.key);
+		this.translationTarget = undefined;
 		this.addTranslationValue = '';
 		this.addTranslationError = '';
 		this.isModalDragging = false;
 		this.modalDragPointerId = undefined;
-	}
-
-	onModalBackdropClick(event: MouseEvent): void {
-		if (event.target === event.currentTarget) {
-			this.closeAddTranslationModal();
-		}
-	}
-
-	onModalBackdropKeydown(event: KeyboardEvent): void {
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			this.closeAddTranslationModal();
-		}
 	}
 
 	onModalHeaderPointerDown(event: PointerEvent, modalCard: HTMLElement): void {
@@ -416,7 +423,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		return `translate(${this.modalOffsetX}px, ${this.modalOffsetY}px)`;
 	}
 
-	private clampModalToViewport(modalCard: HTMLElement): void {
+	clampModalToViewport(modalCard: HTMLElement): void {
 		const { x, y }: { x: number; y: number; } = this.clampOffsets(this.modalOffsetX, this.modalOffsetY, modalCard);
 		this.modalOffsetX = x;
 		this.modalOffsetY = y;
@@ -436,18 +443,19 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 	}
 
 	async addSelectedKeyToLocale(): Promise<void> {
-		if (!this.selectedRow || !this.addTranslationLocale) {
+		const target: typeof this.translationTarget = this.translationTarget;
+		if (!target || this.isAddingTranslation || this.isRemoteReadOnly) {
 			return;
 		}
 
 		this.isAddingTranslation = true;
 		this.addTranslationError = '';
-		const locale: string = this.addTranslationLocale;
-		const key: string = this.selectedRow.key;
-		const missingLocalesBeforeAdd: string[] = [...this.selectedMissingLocales];
-		const resolvesMissingKey: boolean = missingLocalesBeforeAdd.length === 1 && missingLocalesBeforeAdd[0] === locale;
+		const { key, locale, resolvesMissingKey }: NonNullable<typeof this.translationTarget> = target;
 
 		try {
+			if (this.scanOrchestrationService.snapshot.result?.projectRoot !== target.projectRoot) {
+				throw new Error('The active project changed. Reopen the dialog to continue.');
+			}
 			await this.scanOrchestrationService.addTranslationKeyForLocale(locale, key, this.addTranslationValue, 'translation-keys');
 			this.markLocaleResolvedForAnimation(key, locale);
 			if (resolvesMissingKey) {
@@ -458,6 +466,7 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 			this.closeAddTranslationModal(true);
 		} catch (error: unknown) {
 			this.addTranslationError = error instanceof Error ? error.message : 'Unable to add key to translation file.';
+			this.translationDialog?.focusError();
 		} finally {
 			this.isAddingTranslation = false;
 		}

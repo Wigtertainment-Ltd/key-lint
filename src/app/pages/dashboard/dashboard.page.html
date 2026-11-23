@@ -1,127 +1,129 @@
-<main class="dashboard-shell custom-scrollbar">
-	<section class="kpi-grid">
-		<article class="kpi-card total" [title]="totalKeysTooltip">
-			<p>Total Keys</p>
-			<strong>{{ totalKeys | number }}</strong>
-			<div class="underline"></div>
-		</article>
-		<article class="kpi-card used">
-			<p>Used</p>
-			<strong>{{ usedKeys | number }}</strong>
-			<div class="underline"></div>
-		</article>
-		<article class="kpi-card dynamic">
-			<p>Dynamic</p>
-			<strong>{{ dynamicKeys | number }}</strong>
-			<div class="underline"></div>
-		</article>
-		<article class="kpi-card unused">
-			<p>Unused</p>
-			<strong>{{ unusedKeys | number }}</strong>
-			<div class="underline"></div>
-		</article>
-		<article class="kpi-card missing">
-			<p>Missing Translations</p>
-			<strong>{{ missingKeys | number }}</strong>
-			<div class="underline"></div>
-		</article>
-	</section>
+<div class="dashboard-shell">
+	<header class="dashboard-header">
+		<h1>Scan overview</h1>
+		<a class="action" routerLink="/analysis/translation-keys">
+			<span class="material-symbols-outlined" aria-hidden="true">translate</span>
+			Translation keys
+			<span class="material-symbols-outlined arrow" aria-hidden="true">arrow_forward</span>
+		</a>
+	</header>
 
-	<section class="insights-grid">
-		<article class="panel interpretation">
-			<header>
-				<span class="material-symbols-outlined">monitoring</span>
-				<h3>System Interpretation</h3>
+	<div class="overview-grid">
+		<section class="panel findings-panel" aria-labelledby="scan-findings-heading">
+			<header class="panel-header">
+				<h2 id="scan-findings-heading">Scan findings</h2>
+				<span class="finding-status" [class.needs-review]="hasCriticalFindings">
+					<span class="material-symbols-outlined" aria-hidden="true">{{ hasCriticalFindings ? 'error_outline' : 'check_circle' }}</span>
+					{{ hasCriticalFindings ? 'Needs review' : 'No critical findings' }}
+				</span>
 			</header>
-
-			<div class="callout critical">
-				<h4>{{ criticalTitle }}</h4>
-				<p>{{ criticalDescription }}</p>
-			</div>
-
-			<div class="callout optimize">
-				<h4>Optimization Opportunity</h4>
-				<p>{{ optimizationDescription }}</p>
-			</div>
-
-			<div class="actions-row">
-				<button type="button" class="btn primary" (click)="openMissingKeys()">View Missing Translations</button>
-				<button type="button" class="btn" (click)="openUnusedKeys()">Purge Unused</button>
-			</div>
-		</article>
-
-		<div class="right-stack">
-			<article class="panel project-context">
-				<header>
-					<span class="material-symbols-outlined">description</span>
-					<h3>Project Context</h3>
-				</header>
-				<ul>
-					<li><span>Framework</span><strong>{{ frameworkLabel }}</strong></li>
-					<li><span>Files Scanned</span><strong>{{ filesScanned }}</strong></li>
-					<li><span>Scan Duration</span><strong>{{ scanDurationLabel }}</strong></li>
-					<li><span>Locales</span><strong>{{ localeLabels.length }}</strong></li>
-				</ul>
-				<div class="locale-tags">
-					@for (locale of localeLabels; track locale) {
-						<span>{{ locale.toUpperCase() }}</span>
-					} @empty {
-						<span>N/A</span>
-					}
+			<dl class="finding-counts">
+				<div [class.has-issue]="missingKeys > 0">
+					<dt>Missing translations</dt>
+					<dd>{{ missingKeys | number }}</dd>
 				</div>
-			</article>
+				<div [class.has-issue]="placeholderIssues > 0">
+					<dt>Placeholder issues</dt>
+					<dd>{{ placeholderIssues | number }}</dd>
+				</div>
+				<div>
+					<dt>Unused findings</dt>
+					<dd>{{ unusedKeys | number }}</dd>
+				</div>
+			</dl>
+			<a class="action primary" routerLink="/analysis/results">
+				Review findings
+				<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+			</a>
+		</section>
 
-			<article class="panel export-card">
-				<h3>Explore Translation Assets</h3>
-				<p>Jump directly into the translation matrix to inspect missing keys and empty values.</p>
-				<button type="button" class="btn primary full" (click)="openTranslationKeys()">Open Translation Keys</button>
-			</article>
-		</div>
+		<section class="panel project-context" aria-labelledby="scan-context-heading">
+			<header class="panel-header">
+				<h2 id="scan-context-heading">Scan details</h2>
+			</header>
+			<dl class="context-list">
+				<div><dt>Framework</dt><dd>{{ frameworkLabel }}</dd></div>
+				<div><dt>Usage references</dt><dd>{{ usageReferences | number }}</dd></div>
+				<div><dt>Duration</dt><dd>{{ scanDurationLabel }}</dd></div>
+				<div>
+					<dt>Locales ({{ localeLabels.length }})</dt>
+					<dd class="locale-tags">
+						@for (locale of localeLabels; track locale) {
+							<span>{{ locale }}</span>
+						} @empty {
+							<span>None detected</span>
+						}
+					</dd>
+				</div>
+			</dl>
+		</section>
+	</div>
+
+	<section class="panel inventory-panel" aria-labelledby="scan-inventory-heading">
+		<header class="panel-header">
+			<h2 id="scan-inventory-heading">Keys and usage</h2>
+		</header>
+		<dl class="inventory">
+			<div><dt>Defined keys</dt><dd>{{ totalKeys | number }}</dd></div>
+			<div><dt>Confirmed usage findings</dt><dd>{{ usedKeys | number }}</dd></div>
+			<div><dt>Uncertain usage findings</dt><dd>{{ dynamicKeys | number }}</dd></div>
+			<div><dt>Unused findings</dt><dd>{{ unusedKeys | number }}</dd></div>
+		</dl>
 	</section>
 
-	<article class="panel trend-panel">
-		<header class="trend-header">
-			<div class="trend-header-left">
-				<h3>Scan Trend</h3>
-				<span class="trend-context">{{ trendViewLabel }}</span>
+	<section class="panel trend-panel" aria-labelledby="scan-trend-heading">
+		<header class="panel-header trend-header">
+			<div>
+				<h2 id="scan-trend-heading">Scan trend</h2>
+				<p>{{ trendViewLabel }}</p>
 			</div>
-			<div class="trend-header-right">
-				@if (isTrendDrilldown) {
-					<button type="button" class="trend-back-btn" (click)="closeTrendDrilldown()">
-						<span class="material-symbols-outlined">arrow_back</span>
-						Back to Last 5 Days
-					</button>
-				}
-				<p><span class="dot keys"></span>Keys <span class="dot issues"></span>Issues</p>
-			</div>
+			@if (isTrendDrilldown) {
+				<button #trendBackButton class="action trend-back-btn" type="button" (click)="closeTrendDrilldown()">
+					<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+					Back to scan days
+				</button>
+			}
+			<ul class="chart-legend" aria-label="Chart legend">
+				<li><span class="legend-dot keys" aria-hidden="true"></span>Keys</li>
+				<li><span class="legend-dot issues" aria-hidden="true"></span>Issues</li>
+			</ul>
 		</header>
 
-		@if (trendBars.length === 0) {
-			<p class="trend-empty">No completed scans yet.</p>
-		} @else {
-			<div class="bars" [style.gridTemplateColumns]="trendGridTemplateColumns">
-				@for (bar of trendBars; track trackTrendBar($index, bar)) {
-					<div
-						class="bar-col"
-						[class.latest]="bar.isLatest"
-						[class.clickable]="!isTrendDrilldown"
-						(click)="onTrendBarClick(bar)"
-						(keydown.enter)="onTrendBarClick(bar)"
-						(keydown.space)="onTrendBarClick(bar); $event.preventDefault()"
-						[attr.tabindex]="!isTrendDrilldown ? 0 : null"
-					>
-						<div class="series" [attr.aria-label]="bar.label + ': ' + bar.keys + ' keys, ' + bar.issues + ' issues'">
-							<div class="bar keys" [style.height.%]="barHeightPercent(bar.keys)">
-								<span class="value">{{ bar.keys }}</span>
-							</div>
-							<div class="bar issues" [style.height.%]="barHeightPercent(bar.issues)">
-								<span class="value">{{ bar.issues }}</span>
-							</div>
+		@if (trendBars.length) {
+			<div class="bars custom-scrollbar" [style.gridTemplateColumns]="trendGridTemplateColumns">
+				@for (bar of trendBars; track bar.id) {
+					@if (canOpenTrendDay) {
+						<button
+							#trendDayButton
+							type="button"
+							class="bar-col"
+							[class.latest]="bar.isLatest"
+							[attr.data-trend-day]="bar.dayKey"
+							[attr.aria-label]="bar.label + ': ' + bar.keys + ' keys, ' + bar.issues + ' issues. Show scans from this day.'"
+							(click)="onTrendBarClick(bar)">
+							<ng-container [ngTemplateOutlet]="trendValues" [ngTemplateOutletContext]="{ $implicit: bar }" />
+						</button>
+					} @else {
+						<div class="bar-col" [class.latest]="bar.isLatest">
+							<ng-container [ngTemplateOutlet]="trendValues" [ngTemplateOutletContext]="{ $implicit: bar }" />
 						</div>
-						<p>{{ bar.label }}{{ bar.isLatest ? ' (latest)' : '' }}</p>
-					</div>
+					}
 				}
 			</div>
+		} @else {
+			<p class="trend-empty">No completed scans yet.</p>
 		}
-	</article>
-</main>
+	</section>
+</div>
+
+<ng-template #trendValues let-bar>
+	<span class="series" aria-hidden="true">
+		<span class="bar keys" [style.height.%]="barHeightPercent(bar.keys)"></span>
+		<span class="bar issues" [style.height.%]="barHeightPercent(bar.issues)"></span>
+	</span>
+	<span class="bar-label">{{ bar.label }}@if (bar.isLatest) { <span class="latest-label">Latest</span> }</span>
+	<span class="bar-values">
+		<span><strong>{{ bar.keys | number }}</strong> keys</span>
+		<span><strong>{{ bar.issues | number }}</strong> issues</span>
+	</span>
+</ng-template>

@@ -1,52 +1,54 @@
-<main class="keys-shell" [class.drawer-closed]="!selectedRow">
-	<section class="findings-pane">
+<div class="keys-shell" [class.drawer-closed]="!selectedRow">
+	<section class="findings-pane" aria-labelledby="translation-keys-heading" [attr.inert]="selectedRow && detailFocus.isOverlay() ? '' : null">
 		<header class="table-toolbar">
-			<div class="chip-row">
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="onFilterChange('all')">All ({{ allFilterCount }})</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-key'" (click)="onFilterChange('missing-key')">
-					Missing Key ({{ missingFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'empty-value'" (click)="onFilterChange('empty-value')">
-					Empty Text ({{ emptyValueFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
-					Placeholders ({{ placeholderFilterCount }})
-				</button>
+			<div class="list-heading">
+				<h1 id="translation-keys-heading">Translation keys</h1>
+				<p class="result-count" role="status" aria-atomic="true">{{ totalRowsLabel }}</p>
 			</div>
-
-			<div class="toolbar-right">
-				<span class="result-count">{{ totalRowsLabel }}</span>
-				<label class="search-box">
-					<span class="material-symbols-outlined">search</span>
-					<input type="text" placeholder="Search key" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
-				</label>
+			<div class="search-box">
+				<span class="material-symbols-outlined" aria-hidden="true">search</span>
+				<input #searchInput type="search" aria-label="Search translation keys by name" placeholder="Search translation keys" (input)="onSearchChange(searchInput.value)" />
+			</div>
+			<div class="chip-row" role="group" aria-label="Filter translation keys">
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'all'" (click)="onFilterChange('all')">
+					All <span class="filter-count">{{ allFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'missing-key'" (click)="onFilterChange('missing-key')">
+					Missing key <span class="filter-count">{{ missingFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'empty-value'" (click)="onFilterChange('empty-value')">
+					Empty text <span class="filter-count">{{ emptyValueFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
+					Placeholders <span class="filter-count">{{ placeholderFilterCount }}</span>
+				</button>
 			</div>
 		</header>
 
 		<div class="table-scroll custom-scrollbar">
 			@if (!locales.length || !matrix.rows.length) {
-				<div class="empty-state">No translation data available yet. Run an analysis to populate this table.</div>
-			} @else {
-				<div class="virtual-table" role="table" aria-label="Translation keys" [attr.aria-rowcount]="filteredRows.length + 1">
-					<div class="table-head table-grid" role="row" aria-rowindex="1">
-						<div role="columnheader">Key Name</div>
-						<div role="columnheader">Locales</div>
+				<p class="empty-state">No translation data is available for this scan.</p>
+			} @else if (filteredRows.length) {
+				<div class="virtual-table" role="table" aria-labelledby="translation-keys-heading" [attr.aria-rowcount]="filteredRows.length + 1">
+					<div class="table-head table-grid custom-scrollbar" role="row" aria-rowindex="1">
+						<div role="columnheader">Translation key</div>
+						<div role="columnheader">Locale coverage</div>
 						<div role="columnheader">Issues</div>
 					</div>
-					@if (filteredRows.length) {
-						<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
+					<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
 							<div
 								*cdkVirtualFor="let row of filteredRows; let rowIndex = index; trackBy: trackRow"
 								class="table-row table-grid"
 								role="row"
 								[attr.aria-rowindex]="rowIndex + 2"
-								(click)="onSelectRow(row)"
+								(click)="onSelectRow(row, $event.currentTarget)" [attr.data-detail-row-id]="row.key"
 								(keydown)="onRowKeydown($event, row)"
+								[attr.aria-current]="isDetailOpen && selectedKey === row.key ? 'true' : null"
 								[class.selected]="isDetailOpen && selectedKey === row.key"
 								[class.resolved-success]="isResolvedRow(row)"
 								tabindex="0">
 								<div class="table-cell key-with-badge" role="cell">
-									<span class="key-cell">{{ row.key }}</span>
+									<span class="key-cell" [title]="row.key">{{ row.key }}</span>
 									@if (hasPlaceholders(row)) {
 										<span class="placeholder-badge" [title]="placeholderNames(row).join(', ')">{{ placeholderNames(row).length }} param</span>
 									}
@@ -58,68 +60,70 @@
 								</div>
 								<div class="table-cell path-cell" role="cell" [title]="missingLocalesLabel(row)">{{ missingLocalesLabel(row) }}</div>
 							</div>
-						</cdk-virtual-scroll-viewport>
-					} @else {
-						<div class="empty-state">No keys matched your current filter.</div>
-					}
+					</cdk-virtual-scroll-viewport>
+				</div>
+			} @else {
+				<div class="empty-state">
+					<p>No keys match your search and filter.</p>
+					<button type="button" class="reset-list" (click)="clearSearchAndFilters(searchInput)">Clear search and filters</button>
 				</div>
 			}
 		</div>
 	</section>
 
-	@if (selectedRow) {
-		<button type="button" class="details-backdrop" (click)="closeDetailPanel()" aria-label="Close translation key details"></button>
-	}
 
-	<aside class="details-pane" [class.hidden]="!selectedRow">
-		@if (selectedRow) {
+	@if (selectedRow && detailFocus.isOverlay()) {
+		<button type="button" class="details-backdrop" tabindex="-1" (click)="closeDetailPanel()" aria-label="Close translation key details"></button>
+	}
+	@if (selectedRow; as row) {
+		<div
+			class="details-pane"
+			tabindex="-1"
+			[attr.role]="detailFocus.isOverlay() ? 'dialog' : 'complementary'"
+			[attr.aria-modal]="detailFocus.isOverlay() && !isAddTranslationModalOpen ? 'true' : null"
+			aria-labelledby="translation-detail-key"
+			[cdkTrapFocus]="detailFocus.isOverlay() && !isAddTranslationModalOpen"
+			(keydown.escape)="isAddTranslationModalOpen ? closeAddTranslationModal() : closeDetailPanel()">
 			<header class="details-head">
-				<div>
-					<p class="eyebrow">Translation Key</p>
-					<h3>{{ selectedRow.key }}</h3>
+				<div class="detail-heading">
+					<p>Translation key</p>
+					<h2 class="detail-key" id="translation-detail-key" tabindex="-1">{{ row.key }}</h2>
 				</div>
-				<button type="button" class="icon-button" (click)="closeDetailPanel()">
-					<span class="material-symbols-outlined">close</span>
+				<button type="button" class="detail-close" (click)="closeDetailPanel()" aria-label="Close translation key details" title="Close translation key details">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
+				</button>
+				<button type="button" class="detail-copy" (click)="copySelectedKey()">
+					<span class="material-symbols-outlined" aria-hidden="true">{{ keyCopied ? 'check' : 'content_copy' }}</span>
+					{{ keyCopied ? 'Copied' : 'Copy key' }}
 				</button>
 			</header>
 
-			<div class="details-scroll custom-scrollbar">
+			<div class="details-scroll custom-scrollbar" role="region" aria-label="Translation information" tabindex="0">
 				<section class="detail-section">
-					<div class="status-row">
-						<span
-							class="status-pill"
-							[class.missing]="selectedMissingLocales.length + selectedEmptyValueLocales.length > 0"
-							[class.used]="selectedMissingLocales.length + selectedEmptyValueLocales.length === 0">
+					<div class="detail-status-row">
+						<span class="detail-status" [attr.data-severity]="selectedMissingLocales.length || selectedEmptyValueLocales.length ? 'error' : 'complete'">
 							Coverage {{ selectedCoverageLabel }}
 						</span>
-						<span class="severity-label">{{ selectedMissingLocales.length + selectedEmptyValueLocales.length }} locale issue(s)</span>
 					</div>
-					<p class="detail-message">
-						@if (selectedMissingLocales.length || selectedEmptyValueLocales.length) {
-							@if (selectedMissingLocales.length) {
-								Missing key in: {{ selectedMissingLocales.join(', ') }}
-							}
-							@if (selectedEmptyValueLocales.length) {
-								<br />
-								Empty text in: {{ selectedEmptyValueLocales.join(', ') }}
-							}
-						} @else {
-							This key is available in all detected locales.
-						}
-					</p>
+					@if (selectedMissingLocales.length) {
+						<p>Missing key in: {{ selectedMissingLocales.join(', ') }}</p>
+					}
+					@if (selectedEmptyValueLocales.length) {
+						<p>Empty text in: {{ selectedEmptyValueLocales.join(', ') }}</p>
+					}
 					@if (displayedMissingLocales.length) {
 						@if (isRemoteReadOnly) {
-							<p class="modal-hint">Remote translations are read-only.</p>
+							<p class="detail-note"><span class="material-symbols-outlined" aria-hidden="true">lock</span>Remote translations are read-only.</p>
 						}
-						<div class="missing-actions">
+						<div class="detail-actions">
 							@for (locale of displayedMissingLocales; track locale) {
 								<button
 									type="button"
-									class="add-missing-button"
+									class="detail-primary add-missing-button"
 									[class.resolved-success]="isLocaleRecentlyResolved(locale)"
-									(click)="openAddTranslationModal(locale)"
+									(click)="openAddTranslationModal(locale, $event.currentTarget)"
 									[disabled]="isRemoteReadOnly || isLocaleRecentlyResolved(locale)">
-									<span class="material-symbols-outlined">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
+									<span class="material-symbols-outlined" aria-hidden="true">{{ isLocaleRecentlyResolved(locale) ? 'check' : 'add' }}</span>
 									{{ isLocaleRecentlyResolved(locale) ? 'Added to ' + locale + ' file' : 'Add to ' + locale + ' file' }}
 								</button>
 							}
@@ -127,79 +131,96 @@
 					}
 				</section>
 
-				@if (hasPlaceholders(selectedRow)) {
-					<section class="detail-section">
-						<h4>Placeholders by Locale</h4>
-						<div class="placeholder-list">
-							@for (locale of locales; track locale) {
-								<div>
-									<strong>{{ locale }}</strong>
-									<span>{{ placeholderNamesForLocale(selectedRow, locale).length ? placeholderNamesForLocale(selectedRow, locale).join(', ') : 'None' }}</span>
-								</div>
-							}
-						</div>
-					</section>
-				}
-
-				<section class="detail-section">
-					<div class="section-head">
-						<h4>Values by Locale</h4>
-						<button type="button" class="link-button" (click)="copySelectedKey()">
-							<span class="material-symbols-outlined">content_copy</span>
-							{{ keyCopied ? 'Copied' : 'Copy key' }}
-						</button>
-					</div>
-					<div class="translations-list">
+				<section class="detail-section" aria-labelledby="translation-values-title">
+					<h3 id="translation-values-title">Values by Locale</h3>
+					<dl class="locale-list">
 						@for (locale of locales; track locale) {
-							<div class="translation-item" [class.is-missing]="!hasLocaleTranslation(selectedRow, locale)">
-								<p class="locale-name">{{ locale }}</p>
-								<p class="locale-value" [title]="valueFor(selectedRow, locale)">
-									{{ hasLocaleTranslation(selectedRow, locale) ? valueFor(selectedRow, locale) : 'Missing translation' }}
-								</p>
+							<div>
+								<dt>{{ locale }}</dt>
+								<dd [class.unavailable]="!hasLocaleTranslation(row, locale)">
+									@if (hasLocaleTranslation(row, locale)) {
+										{{ valueFor(row, locale) }}
+									} @else if (hasLocaleKey(row, locale)) {
+										Empty text
+									} @else {
+										Missing key
+									}
+								</dd>
 							</div>
 						}
-					</div>
+					</dl>
 				</section>
-			</div>
-		}
-	</aside>
-</main>
 
-@if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
-	<dialog class="modal-backdrop" open tabindex="-1" (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">
-		<div #modalCard class="modal-card" [style.transform]="modalCardTransform" [class.dragging]="isModalDragging">
+				@if (hasPlaceholders(row)) {
+					<section class="detail-section" aria-labelledby="translation-placeholders-title">
+						<h3 id="translation-placeholders-title">Placeholders by Locale</h3>
+						<dl class="locale-list placeholders">
+							@for (locale of locales; track locale) {
+								<div>
+									<dt>{{ locale }}</dt>
+									<dd><code>{{ placeholderNamesForLocale(row, locale).join(', ') || 'None' }}</code></dd>
+								</div>
+							}
+						</dl>
+					</section>
+				}
+			</div>
+		</div>
+	}
+</div>
+
+@if (translationTarget; as target) {
+	<dialog
+		#modalDialog
+		appTranslationDialog
+		class="translation-dialog"
+		[class.dragging]="isModalDragging"
+		[style.transform]="modalCardTransform"
+		[origin]="target.origin"
+		(dismissed)="closeAddTranslationModal()"
+		(window:resize)="clampModalToViewport(modalDialog)"
+		aria-labelledby="key-translation-title"
+		aria-describedby="key-translation-hint">
+		<div class="modal-card">
 			<header
 				class="modal-header modal-drag-handle"
-				(pointerdown)="onModalHeaderPointerDown($event, modalCard)"
-				(pointermove)="onModalHeaderPointerMove($event, modalCard)"
+				(pointerdown)="onModalHeaderPointerDown($event, modalDialog)"
+				(pointermove)="onModalHeaderPointerMove($event, modalDialog)"
 				(pointerup)="onModalHeaderPointerUp($event)"
 				(pointercancel)="onModalHeaderPointerUp($event)">
-				<h4 id="add-translation-title">Add Translation</h4>
-				<button type="button" class="icon-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">
-					<span class="material-symbols-outlined">close</span>
+				<h2 id="key-translation-title">Add translation</h2>
+				<button type="button" class="modal-close" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation" aria-label="Close translation dialog">
+					<span class="material-symbols-outlined" aria-hidden="true">close</span>
 				</button>
 			</header>
-			<p class="modal-context">
-				Key: <span>{{ selectedRow.key }}</span>
-			</p>
-			<p class="modal-context">
-				Locale file: <span>{{ addTranslationLocale }}</span>
-			</p>
-			<label class="modal-label" for="translation-value-input">Translation text</label>
-			<textarea
-				id="translation-value-input"
-				rows="4"
-				class="modal-textarea"
-				placeholder="Type translation text"
-				(input)="addTranslationValue = ($any($event.target).value ?? '').toString()"></textarea>
-			<p class="modal-hint">You can leave this empty. The key will then be added with an empty string value.</p>
-			@if (addTranslationError) {
-				<p class="modal-error">{{ addTranslationError }}</p>
-			}
+
+			<div class="modal-body custom-scrollbar">
+				<dl class="modal-context">
+					<div><dt>Translation key</dt><dd><code>{{ target.key }}</code></dd></div>
+					<div><dt>Target locale</dt><dd><code>{{ target.locale }}</code></dd></div>
+				</dl>
+				<p class="modal-hint" id="key-translation-hint">Leave the field empty to add the key with an empty value.</p>
+				@if (addTranslationError) {
+					<p class="modal-error" role="alert" tabindex="-1">{{ addTranslationError }}</p>
+				}
+				<div class="modal-field">
+					<label for="translation-value-input">Translation text</label>
+					<textarea
+						#draftInput
+						id="translation-value-input"
+						rows="4"
+						class="modal-textarea"
+						[disabled]="isAddingTranslation"
+						[value]="addTranslationValue"
+						(input)="addTranslationValue = draftInput.value"></textarea>
+				</div>
+			</div>
+
 			<footer class="modal-actions">
+				<span class="modal-progress" role="status">{{ isAddingTranslation ? 'Writing translation file…' : '' }}</span>
 				<button type="button" class="ghost-button" (click)="closeAddTranslationModal()" [disabled]="isAddingTranslation">Cancel</button>
-				<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation">
-					{{ isAddingTranslation ? 'Saving...' : 'Add Key' }}
+				<button type="button" class="primary-button" (click)="addSelectedKeyToLocale()" [disabled]="isAddingTranslation || isRemoteReadOnly">
+					{{ isAddingTranslation ? 'Saving…' : 'Add translation' }}
 				</button>
 			</footer>
 		</div>

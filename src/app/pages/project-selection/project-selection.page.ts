@@ -1,4 +1,4 @@
-import { Component, OnInit, PendingTasks, inject, signal, WritableSignal } from '@angular/core';
+import { afterRenderEffect, Component, ElementRef, OnInit, PendingTasks, Signal, inject, signal, viewChild, WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ElectronService } from '../../shared/services/electron.service';
 import { AppVersionService } from '../../shared/services/app-version.service';
@@ -38,6 +38,8 @@ export class ProjectSelectionPage implements OnInit {
 	private readonly maxFileSizeMbInputSignal: WritableSignal<string> = signal('');
 	private readonly translationSourcesSignal: WritableSignal<IDesktopTranslationSourceDraft[]> = signal<IDesktopTranslationSourceDraft[]>([]);
 	private readonly remoteConfirmationSignal: WritableSignal<IRemoteScanConfirmation | undefined> = signal<IRemoteScanConfirmation | undefined>(undefined);
+	private readonly remoteDialog: Signal<ElementRef<HTMLDialogElement> | undefined> = viewChild('remoteDialog');
+	readonly folderSelectionError: WritableSignal<string> = signal('');
 	readonly hasSavedProjectSettings: WritableSignal<boolean> = signal(false);
 	readonly projectSettingsStorageBusy: WritableSignal<boolean> = signal(false);
 	readonly projectSettingsStorageError: WritableSignal<string> = signal('');
@@ -58,6 +60,16 @@ export class ProjectSelectionPage implements OnInit {
 
 	readonly themeService: ThemeService = inject(ThemeService);
 	readonly appVersionService: AppVersionService = inject(AppVersionService);
+
+	constructor() {
+		afterRenderEffect((): void => {
+			const dialog: HTMLDialogElement | undefined = this.remoteDialog()?.nativeElement;
+			if (dialog && !dialog.open) {
+				dialog.showModal();
+				dialog.querySelector<HTMLElement>('h2')?.focus();
+			}
+		});
+	}
 
 	get isDark(): boolean {
 		return this.themeService.getCurrent() === 'dark';
@@ -168,6 +180,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	async openFolderDialog(folderInput?: HTMLInputElement): Promise<void> {
+		this.folderSelectionError.set('');
 		if (!this.electronService.isElectron) {
 			if (folderInput) {
 				// Reset input so selecting the same folder again still fires change.
@@ -185,6 +198,7 @@ export class ProjectSelectionPage implements OnInit {
 
 			this.setSelectedPath(selected);
 		} catch (error: unknown) {
+			this.folderSelectionError.set('The folder picker could not open. Try browsing again or drop a project folder here.');
 			console.error(error);
 		}
 	}
@@ -241,6 +255,7 @@ export class ProjectSelectionPage implements OnInit {
 
 	clearSelection(event?: Event): void {
 		event?.stopPropagation();
+		this.folderSelectionError.set('');
 		this.projectPathSignal.set(undefined);
 		this.projectNameSignal.set(undefined);
 		this.clearScanSettings();
@@ -289,11 +304,13 @@ export class ProjectSelectionPage implements OnInit {
 			return;
 		}
 		const prepared: IPreparedDesktopRemoteScan = this.desktopRemoteTranslationService.prepareScan();
+		this.remoteDialog()?.nativeElement.close();
 		this.remoteConfirmationSignal.set(undefined);
 		this.beginAnalysis(projectPath, prepared, true);
 	}
 
 	cancelRemoteConfirmation(): void {
+		this.remoteDialog()?.nativeElement.close();
 		this.remoteConfirmationSignal.set(undefined);
 		this.desktopRemoteTranslationService.clearSecrets();
 		this.syncTranslationSources();
@@ -320,6 +337,7 @@ export class ProjectSelectionPage implements OnInit {
 	}
 
 	private setSelectedPath(path: string): void {
+		this.folderSelectionError.set('');
 		this.loggerService.info('ProjectSelectionPage', 'Selected project path:', path);
 		this.projectPathSignal.set(path);
 		this.projectNameSignal.set(this.getProjectName(path));

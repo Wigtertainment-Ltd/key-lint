@@ -41,6 +41,29 @@ app-root {
 }
 
 :root {
+	--analysis-canvas: #f5f6fa;
+	--analysis-panel: #fff;
+	--analysis-sidebar: #eef0f6;
+	--analysis-line: #dce0e9;
+	--analysis-control: #7f89a0;
+	--analysis-text: #1c2334;
+	--analysis-muted: #515d73;
+	--analysis-hover: #e9edf5;
+	--analysis-selected: #e4e7fb;
+	--analysis-selected-text: #3324a3;
+	--analysis-accent: #4835c3;
+	--analysis-accent-hover: #3928a5;
+	--analysis-on-accent: #fff;
+	--analysis-focus: #4835c3;
+	--analysis-danger: #9a283f;
+	--analysis-danger-bg: #fbe9ed;
+	--analysis-success: #14644d;
+	--analysis-success-bg: #e3f4ed;
+	--analysis-chart-keys: #6960be;
+	--analysis-chart-issues: #ab4359;
+	--analysis-warning: #784b0e;
+	--analysis-warning-bg: #fff1d5;
+
 	/* Global design tokens for all pages/components */
 	--surface: #fcf8ff;
 	--surface-container-lowest: #ffffff;
@@ -79,6 +102,29 @@ app-root {
 }
 
 :root[data-theme='dark'] {
+	--analysis-canvas: #171a25;
+	--analysis-panel: #1f2332;
+	--analysis-sidebar: #1a1e2c;
+	--analysis-line: #353c50;
+	--analysis-control: #75819d;
+	--analysis-text: #eef0f9;
+	--analysis-muted: #b3bdd4;
+	--analysis-hover: #2a3043;
+	--analysis-selected: #342f55;
+	--analysis-selected-text: #d6cbff;
+	--analysis-accent: #c3b6ff;
+	--analysis-accent-hover: #d4c9ff;
+	--analysis-on-accent: #211739;
+	--analysis-focus: #c3b6ff;
+	--analysis-danger: #ffadbc;
+	--analysis-danger-bg: #422836;
+	--analysis-success: #9ce2ca;
+	--analysis-success-bg: #233f39;
+	--analysis-chart-keys: #ab9eff;
+	--analysis-chart-issues: #ef91a6;
+	--analysis-warning: #ffd79a;
+	--analysis-warning-bg: #44361e;
+
 	--bg: #0d0b2e;
 	--surface: #16143a;
 	--surface-container-lowest: #0c092a;
