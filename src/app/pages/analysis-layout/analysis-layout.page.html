@@ -1,27 +1,28 @@
 <div class="scan-layout" [class.sidebar-collapsed]="isSidebarCollapsed">
-	<aside class="side-nav" [class.collapsed]="isSidebarCollapsed">
+	<aside id="analysis-sidebar" class="side-nav" [class.collapsed]="isSidebarCollapsed">
 		<div class="brand">
-			<img class="brand-logo" src="logo.png" alt="Check i18n" width="40" height="40" />
+			<img class="brand-logo" src="logo.png" alt="" width="36" height="36" />
 			<div class="brand-text">
-				<h1>KeyLint</h1>
-				<p>v{{ appVersionService.version }}</p>
+				<strong>KeyLint</strong>
+				<span>v{{ appVersionService.version }}</span>
 			</div>
 		</div>
 
 		<button class="new-analysis-btn" type="button" (click)="startNewAnalysis()" title="New Analysis">
-			<span class="material-symbols-outlined">add</span>
-			<span class="label">New Analysis</span>
+			<span class="material-symbols-outlined" aria-hidden="true">add</span>
+			<span class="label">New analysis</span>
 		</button>
 
-		<nav class="nav-links">
+		<nav class="nav-links" aria-label="Analysis">
 			<a
 				class="nav-item"
 				title="Dashboard"
 				routerLink="/analysis/dashboard"
 				routerLinkActive="active"
+				ariaCurrentWhenActive="page"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
-				<span class="material-symbols-outlined">dashboard</span>
+				<span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
 				<span class="label">Dashboard</span>
 			</a>
 			<a
@@ -29,9 +30,10 @@
 				title="Translation Keys"
 				routerLink="/analysis/translation-keys"
 				routerLinkActive="active"
+				ariaCurrentWhenActive="page"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
-				<span class="material-symbols-outlined">translate</span>
+				<span class="material-symbols-outlined" aria-hidden="true">translate</span>
 				<span class="label">Translation Keys</span>
 			</a>
 			<a
@@ -39,9 +41,10 @@
 				title="Analysis Results"
 				routerLink="/analysis/results"
 				routerLinkActive="active"
+				ariaCurrentWhenActive="page"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
-				<span class="material-symbols-outlined">analytics</span>
+				<span class="material-symbols-outlined" aria-hidden="true">analytics</span>
 				<span class="label">Analysis Results</span>
 			</a>
 			<a
@@ -49,22 +52,24 @@
 				title="History"
 				routerLink="/analysis/history"
 				routerLinkActive="active"
+				ariaCurrentWhenActive="page"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
-				<span class="material-symbols-outlined">history</span>
+				<span class="material-symbols-outlined" aria-hidden="true">history</span>
 				<span class="label">History</span>
 			</a>
 		</nav>
 
-		<div class="side-bottom">
+		<nav class="side-bottom" aria-label="Help">
 			<a
 				class="nav-item"
 				title="Documentation"
 				routerLink="/analysis/documentation"
 				routerLinkActive="active"
+				ariaCurrentWhenActive="page"
 				[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
 			>
-				<span class="material-symbols-outlined">menu_book</span>
+				<span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
 				<span class="label">Documentation</span>
 			</a>
 			<a
@@ -75,48 +80,45 @@
 				rel="noopener noreferrer"
 				(click)="openSupport($event)"
 			>
-				<span class="material-symbols-outlined">contact_support</span>
+				<span class="material-symbols-outlined" aria-hidden="true">contact_support</span>
 				<span class="label">Support</span>
 			</a>
-		</div>
+		</nav>
 	</aside>
 
 	<main class="main-content">
 		<header class="top-bar">
 			<div class="top-left">
-				<button class="menu-toggle-btn" type="button" (click)="toggleSidebar()" [attr.aria-expanded]="!isSidebarCollapsed" aria-label="Toggle menu" title="Toggle menu">
-					<span class="material-symbols-outlined">menu</span>
+				<button
+					class="menu-toggle-btn"
+					type="button"
+					(click)="toggleSidebar()"
+					[attr.aria-expanded]="!isSidebarCollapsed"
+					aria-controls="analysis-sidebar"
+					aria-label="Toggle sidebar"
+					title="Toggle sidebar">
+					<span class="material-symbols-outlined" aria-hidden="true">dock_to_left</span>
 				</button>
 
 				<div class="project-info">
-				<h4 [title]="displayProjectPath">Project: {{ displayProjectName }}</h4>
-				<span class="last-scan-chip">Last Scan: {{ lastScanText }}</span>
+					<span class="material-symbols-outlined project-icon" aria-hidden="true">folder</span>
+					<strong [title]="displayProjectPath">{{ displayProjectName || 'Current project' }}</strong>
 				</div>
 			</div>
 
 			<div class="top-right">
+				@if (lastScanAt; as timestamp) {
+					<span class="last-scan"><span>Last scan</span> <time [attr.datetime]="timestamp">{{ timestamp | date: 'MMM d, y, HH:mm' }}</time></span>
+				}
 				<button
 					type="button"
 					class="theme-toggle"
-					aria-label="Toggle theme"
+					aria-label="Dark mode"
+					[attr.aria-pressed]="isDark"
 					(click)="toggleTheme()"
-					title="Toggle theme"
-				>
-					<span class="material-symbols-outlined">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+					[title]="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+					<span class="material-symbols-outlined" aria-hidden="true">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
 				</button>
-
-				<div class="toolbar-icons">
-					<span class="material-symbols-outlined">notifications</span>
-					<a
-						class="toolbar-icon-btn"
-						title="History"
-						routerLink="/analysis/history"
-						routerLinkActive="active"
-						[routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
-					>
-						<span class="material-symbols-outlined">history</span>
-					</a>
-				</div>
 			</div>
 		</header>
 

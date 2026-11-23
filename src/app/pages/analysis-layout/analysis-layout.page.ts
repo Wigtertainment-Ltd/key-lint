@@ -1,4 +1,4 @@
-import { DOCUMENT } from '@angular/common';
+import { DatePipe, DOCUMENT } from '@angular/common';
 import { Component, OnDestroy, OnInit, WritableSignal, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IFileSystemWarning } from '@key-lint/core';
@@ -11,7 +11,7 @@ import { LoggerService } from '../../shared/services/logging/logger.service';
 
 @Component({
 	selector: 'app-analysis-layout-page',
-	imports: [RouterOutlet, RouterLink, RouterLinkActive],
+	imports: [DatePipe, RouterOutlet, RouterLink, RouterLinkActive],
 	templateUrl: './analysis-layout.page.html',
 	styleUrl: './analysis-layout.page.scss'
 })
@@ -23,7 +23,7 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 	private readonly electronService: ElectronService = inject(ElectronService);
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	projectPath: string = '';
-	lastScanText: string = 'Running now';
+	lastScanAt?: string;
 	isSidebarCollapsed: boolean = false;
 	private readonly fileSystemWarningsSignal: WritableSignal<IFileSystemWarning[]> = signal<IFileSystemWarning[]>([]);
 	private readonly remoteReadOnlySignal: WritableSignal<boolean> = signal(false);
@@ -41,12 +41,13 @@ export class AnalysisLayoutPage implements OnInit, OnDestroy {
 		this.document.documentElement.classList.add('analysis-scroll-lock');
 		this.document.body.classList.add('analysis-scroll-lock');
 
-		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '/root/apps/web-client';
+		this.projectPath = this.route.snapshot.queryParamMap.get('projectPath') ?? '';
 
 		this.stateSubscription = this.scanOrchestrationService.state$.subscribe((snapshot: ScanExecutionSnapshot): void => {
-			if (snapshot.result?.finishedAt) {
-				this.lastScanText = snapshot.result.finishedAt;
+			if (snapshot.result?.projectRoot) {
+				this.projectPath = snapshot.result.projectRoot;
 			}
+			this.lastScanAt = snapshot.result?.finishedAt;
 
 			this.fileSystemWarningsSignal.set(this.readFileSystemWarnings(
 				snapshot.result?.metadata?.['fileSystemWarnings']

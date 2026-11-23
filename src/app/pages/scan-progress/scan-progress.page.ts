@@ -1,8 +1,11 @@
-import { Component, computed, DestroyRef, inject, OnInit, signal, Signal, WritableSignal } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, ElementRef, inject, Injector, OnInit, signal, Signal, viewChild, WritableSignal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ScanExecutionSnapshot, ScanOrchestrationService, ScanExecutionState } from '../../shared/services/scan-orchestration.service';
 import { IProjectScanResult } from '@key-lint/core';
+import { ThemeService } from '../../services/theme.service';
+import { AppVersionService } from '../../shared/services/app-version.service';
 import { LoggerService } from '../../shared/services/logging/logger.service';
 import { IStepItem } from './scan-progress.interfaces';
 
@@ -18,12 +21,18 @@ export class ScanProgressPage implements OnInit {
 	readonly scanError: Signal<string | undefined> = computed((): string | undefined => this.scanSnapshot().error);
 	readonly scanResult: Signal<IProjectScanResult | undefined> = computed<IProjectScanResult | undefined>((): IProjectScanResult | undefined => this.scanSnapshot().result);
 	readonly progressPercent: WritableSignal<number> = signal(0);
+	readonly themeService: ThemeService = inject(ThemeService);
+	readonly appVersionService: AppVersionService = inject(AppVersionService);
 	isCancelling: boolean = false;
 
 	private readonly loggerService: LoggerService = inject(LoggerService);
 	private readonly route: ActivatedRoute = inject(ActivatedRoute);
 	private readonly router: Router = inject(Router);
 	private readonly destroyRef: DestroyRef = inject(DestroyRef);
+	private readonly injector: Injector = inject(Injector);
+	private readonly document: Document = inject(DOCUMENT);
+	private readonly cancelButton: Signal<ElementRef<HTMLButtonElement> | undefined> = viewChild('cancelScan');
+	private readonly resultButton: Signal<ElementRef<HTMLButtonElement> | undefined> = viewChild('viewResults');
 	private readonly scanOrchestrationService: ScanOrchestrationService = inject(ScanOrchestrationService);
 	private readonly scanSnapshot: Signal<ScanExecutionSnapshot> = toSignal(this.scanOrchestrationService.state$, {
 		initialValue: this.scanOrchestrationService.snapshot
@@ -71,6 +80,9 @@ export class ScanProgressPage implements OnInit {
 			if (snapshot.state === 'completed' && !this.hasLoggedCompletionMessage) {
 				this.hasLoggedCompletionMessage = true;
 				this.appendLog(`Scan completed in ${snapshot.result?.durationMs ?? 0} ms.`);
+				if (this.cancelButton()?.nativeElement === this.document.activeElement) {
+					afterNextRender((): void => this.resultButton()?.nativeElement.focus(), { injector: this.injector });
+				}
 			}
 
 			if (snapshot.state === 'failed' && snapshot.error && !this.hasLoggedFailureMessage) {
