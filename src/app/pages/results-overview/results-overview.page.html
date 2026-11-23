@@ -1,45 +1,51 @@
-<main class="keys-shell" [class.drawer-closed]="!selectedFinding">
-	<section class="findings-pane">
+<div class="keys-shell" [class.drawer-closed]="!selectedFinding">
+	<section class="findings-pane" aria-labelledby="analysis-findings-heading">
 		<header class="table-toolbar">
-			<div class="chip-row">
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="onFilterChange('all')">All ({{ allFilterCount }})</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-in-language'" (click)="onFilterChange('missing-in-language')">
-					Missing ({{ missingFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'unused'" (click)="onFilterChange('unused')">Unused ({{ unusedFilterCount }})</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
-					Dynamic ({{ dynamicFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'indirect-uncertain'" (click)="onFilterChange('indirect-uncertain')">
-					Indirect ({{ indirectFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'extra-in-language'" (click)="onFilterChange('extra-in-language')">
-					Extra ({{ extraFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
-					Placeholders ({{ placeholderFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'used'" (click)="onFilterChange('used')">Used ({{ usedFilterCount }})</button>
+			<div class="list-heading">
+				<h1 id="analysis-findings-heading">Analysis results</h1>
+				<p class="result-count" role="status" aria-atomic="true">{{ filteredFindings.length }} of {{ allFilterCount }} findings</p>
 			</div>
-
-			<div class="toolbar-right">
-				<span class="result-count">{{ filteredFindings.length }} of {{ allFilterCount }} findings</span>
-				<label class="search-box">
-					<span class="material-symbols-outlined">search</span>
-					<input type="text" placeholder="Search key, message or file path" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
-				</label>
+			<div class="search-box">
+				<span class="material-symbols-outlined" aria-hidden="true">search</span>
+				<input #searchInput type="search" aria-label="Search findings by key, message or file path" placeholder="Search keys, messages or file paths" (input)="onSearchChange(searchInput.value)" />
+			</div>
+			<div class="chip-row" role="group" aria-label="Filter findings">
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'all'" (click)="onFilterChange('all')">
+					All <span class="filter-count">{{ allFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'missing-in-language'" (click)="onFilterChange('missing-in-language')">
+					Missing <span class="filter-count">{{ missingFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'unused'" (click)="onFilterChange('unused')">
+					Unused <span class="filter-count">{{ unusedFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'dynamic-uncertain'" (click)="onFilterChange('dynamic-uncertain')">
+					Dynamic <span class="filter-count">{{ dynamicFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'indirect-uncertain'" (click)="onFilterChange('indirect-uncertain')">
+					Indirect <span class="filter-count">{{ indirectFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'extra-in-language'" (click)="onFilterChange('extra-in-language')">
+					Extra <span class="filter-count">{{ extraFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
+					Placeholders <span class="filter-count">{{ placeholderFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'used'" (click)="onFilterChange('used')">
+					Used <span class="filter-count">{{ usedFilterCount }}</span>
+				</button>
 			</div>
 		</header>
 
 		<div class="table-scroll custom-scrollbar">
-			<div class="virtual-table" role="table" aria-label="Analysis findings" [attr.aria-rowcount]="filteredFindings.length + 1">
-				<div class="table-head table-grid" role="row" aria-rowindex="1">
-					<div role="columnheader">Key Name</div>
-					<div role="columnheader">Status</div>
-					<div role="columnheader">Last Used / File Path</div>
-					<div role="columnheader">Severity</div>
-				</div>
-				@if (filteredFindings.length) {
+			@if (filteredFindings.length) {
+				<div class="virtual-table" role="table" aria-labelledby="analysis-findings-heading" [attr.aria-rowcount]="filteredFindings.length + 1">
+					<div class="table-head table-grid custom-scrollbar" role="row" aria-rowindex="1">
+						<div role="columnheader">Translation key</div>
+						<div role="columnheader">Status</div>
+						<div role="columnheader">Evidence file</div>
+						<div role="columnheader">Severity</div>
+					</div>
 					<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
 						<div
 							*cdkVirtualFor="let finding of filteredFindings; let rowIndex = index; trackBy: trackFinding"
@@ -47,13 +53,14 @@
 							role="row"
 							[attr.aria-rowindex]="rowIndex + 2"
 							(click)="onSelectFinding(finding)"
-							(keydown.enter)="onSelectFinding(finding)"
-							(keydown.space)="onSelectFinding(finding); $event.preventDefault()"
+							(keydown.enter)="onFindingRowKeydown($event, finding)"
+							(keydown.space)="onFindingRowKeydown($event, finding)"
 							tabindex="0"
+							[attr.aria-current]="isDetailOpen && selectedFindingId === finding.id ? 'true' : null"
 							[class.selected]="isDetailOpen && selectedFindingId === finding.id"
 							[class.resolved-success]="isResolvedFinding(finding)">
 							<div class="table-cell" role="cell">
-								<span class="key-cell">{{ finding.key }}</span>
+								<span class="key-cell" [title]="finding.key">{{ finding.key }}</span>
 							</div>
 							<div class="table-cell" role="cell">
 								<span
@@ -62,7 +69,8 @@
 									[class.unused]="finding.status === 'unused'"
 									[class.dynamic]="isUncertainStatus(finding.status)"
 									[class.missing]="finding.status === 'missing-in-language' || isPlaceholderError(finding.status)"
-									[class.extra]="finding.status === 'extra-in-language'">
+									[class.extra]="finding.status === 'extra-in-language'"
+									[title]="statusLabel(finding.status) + (finding.language ? ' · ' + finding.language : '')">
 									{{ statusLabel(finding.status) }}{{ finding.language ? ' · ' + finding.language : '' }}
 								</span>
 							</div>
@@ -73,29 +81,28 @@
 										type="button"
 										class="copy-path-btn"
 										(click)="onCopyPath($event, finding.evidence[0].filePath)"
+										[attr.aria-label]="copiedPath === finding.evidence[0].filePath ? 'Path copied' : 'Copy full path'"
 										[title]="copiedPath === finding.evidence[0].filePath ? 'Copied!' : 'Copy full path'">
-										<span class="material-symbols-outlined">{{ copiedPath === finding.evidence[0].filePath ? 'check' : 'content_copy' }}</span>
+										<span class="material-symbols-outlined" aria-hidden="true">{{ copiedPath === finding.evidence[0].filePath ? 'check' : 'content_copy' }}</span>
 									</button>
 								} @else {
-									<span class="path-text">No evidence path available</span>
+									<span class="path-text">No file</span>
 								}
 							</div>
 							<div class="table-cell" role="cell">
-								<div class="severity-meter">
-									<div
-										class="severity-bar"
-										[class.error]="finding.severity === 'error'"
-										[class.warning]="finding.severity === 'warning'"
-										[class.info]="finding.severity === 'info'"
-										[style.width.%]="severityPercent(finding.severity)"></div>
-								</div>
+								<span class="severity-badge" [attr.data-severity]="finding.severity">{{ severityLabel(finding.severity) }}</span>
 							</div>
 						</div>
 					</cdk-virtual-scroll-viewport>
-				} @else {
-					<div class="empty-state">No keys matched your current filter.</div>
-				}
-			</div>
+				</div>
+			} @else if (allFilterCount) {
+				<div class="empty-state">
+					<p>No findings match your search and filter.</p>
+					<button type="button" class="reset-list" (click)="clearSearchAndFilters(searchInput)">Clear search and filters</button>
+				</div>
+			} @else {
+				<p class="empty-state">No findings from this scan.</p>
+			}
 		</div>
 	</section>
 
@@ -198,7 +205,7 @@
 			</div>
 		}
 	</aside>
-</main>
+</div>
 
 @if (isAddTranslationModalOpen && selectedFinding) {
 	<dialog

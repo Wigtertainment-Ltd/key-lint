@@ -191,6 +191,22 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		this.ensureSelectedFinding();
 	}
 
+	clearSearchAndFilters(input: HTMLInputElement): void {
+		this.searchTermSignal.set('');
+		this.onFilterChange('all');
+		input.value = '';
+		input.focus();
+	}
+
+	onFindingRowKeydown(event: Event, finding: IFinding): void {
+		if (event.target !== event.currentTarget) {
+			return;
+		}
+
+		event.preventDefault();
+		this.onSelectFinding(finding);
+	}
+
 	onSelectFinding(finding: IFinding): void {
 		this.selectedFindingId = finding.id;
 		this.isDetailOpen = true;
@@ -539,18 +555,6 @@ export class ResultsOverviewPage implements OnInit, OnDestroy {
 		}
 
 		return 'Low';
-	}
-
-	severityPercent(severity: IFinding['severity']): number {
-		if (severity === 'error') {
-			return 100;
-		}
-
-		if (severity === 'warning') {
-			return 66;
-		}
-
-		return 33;
 	}
 
 	private ensureSelectedFinding(): void {

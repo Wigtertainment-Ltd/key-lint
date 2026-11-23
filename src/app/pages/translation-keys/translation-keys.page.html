@@ -1,40 +1,41 @@
-<main class="keys-shell" [class.drawer-closed]="!selectedRow">
-	<section class="findings-pane">
+<div class="keys-shell" [class.drawer-closed]="!selectedRow">
+	<section class="findings-pane" aria-labelledby="translation-keys-heading">
 		<header class="table-toolbar">
-			<div class="chip-row">
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'all'" (click)="onFilterChange('all')">All ({{ allFilterCount }})</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'missing-key'" (click)="onFilterChange('missing-key')">
-					Missing Key ({{ missingFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'empty-value'" (click)="onFilterChange('empty-value')">
-					Empty Text ({{ emptyValueFilterCount }})
-				</button>
-				<button type="button" class="filter-chip" [class.active]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
-					Placeholders ({{ placeholderFilterCount }})
-				</button>
+			<div class="list-heading">
+				<h1 id="translation-keys-heading">Translation keys</h1>
+				<p class="result-count" role="status" aria-atomic="true">{{ totalRowsLabel }}</p>
 			</div>
-
-			<div class="toolbar-right">
-				<span class="result-count">{{ totalRowsLabel }}</span>
-				<label class="search-box">
-					<span class="material-symbols-outlined">search</span>
-					<input type="text" placeholder="Search key" (input)="onSearchChange(($any($event.target).value ?? '').toString())" />
-				</label>
+			<div class="search-box">
+				<span class="material-symbols-outlined" aria-hidden="true">search</span>
+				<input #searchInput type="search" aria-label="Search translation keys by name" placeholder="Search translation keys" (input)="onSearchChange(searchInput.value)" />
+			</div>
+			<div class="chip-row" role="group" aria-label="Filter translation keys">
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'all'" (click)="onFilterChange('all')">
+					All <span class="filter-count">{{ allFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'missing-key'" (click)="onFilterChange('missing-key')">
+					Missing key <span class="filter-count">{{ missingFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'empty-value'" (click)="onFilterChange('empty-value')">
+					Empty text <span class="filter-count">{{ emptyValueFilterCount }}</span>
+				</button>
+				<button type="button" class="filter-chip" [attr.aria-pressed]="activeFilter === 'placeholders'" (click)="onFilterChange('placeholders')">
+					Placeholders <span class="filter-count">{{ placeholderFilterCount }}</span>
+				</button>
 			</div>
 		</header>
 
 		<div class="table-scroll custom-scrollbar">
 			@if (!locales.length || !matrix.rows.length) {
-				<div class="empty-state">No translation data available yet. Run an analysis to populate this table.</div>
-			} @else {
-				<div class="virtual-table" role="table" aria-label="Translation keys" [attr.aria-rowcount]="filteredRows.length + 1">
-					<div class="table-head table-grid" role="row" aria-rowindex="1">
-						<div role="columnheader">Key Name</div>
-						<div role="columnheader">Locales</div>
+				<p class="empty-state">No translation data is available for this scan.</p>
+			} @else if (filteredRows.length) {
+				<div class="virtual-table" role="table" aria-labelledby="translation-keys-heading" [attr.aria-rowcount]="filteredRows.length + 1">
+					<div class="table-head table-grid custom-scrollbar" role="row" aria-rowindex="1">
+						<div role="columnheader">Translation key</div>
+						<div role="columnheader">Locale coverage</div>
 						<div role="columnheader">Issues</div>
 					</div>
-					@if (filteredRows.length) {
-						<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
+					<cdk-virtual-scroll-viewport class="table-viewport custom-scrollbar" itemSize="52" minBufferPx="520" maxBufferPx="1040">
 							<div
 								*cdkVirtualFor="let row of filteredRows; let rowIndex = index; trackBy: trackRow"
 								class="table-row table-grid"
@@ -42,11 +43,12 @@
 								[attr.aria-rowindex]="rowIndex + 2"
 								(click)="onSelectRow(row)"
 								(keydown)="onRowKeydown($event, row)"
+								[attr.aria-current]="isDetailOpen && selectedKey === row.key ? 'true' : null"
 								[class.selected]="isDetailOpen && selectedKey === row.key"
 								[class.resolved-success]="isResolvedRow(row)"
 								tabindex="0">
 								<div class="table-cell key-with-badge" role="cell">
-									<span class="key-cell">{{ row.key }}</span>
+									<span class="key-cell" [title]="row.key">{{ row.key }}</span>
 									@if (hasPlaceholders(row)) {
 										<span class="placeholder-badge" [title]="placeholderNames(row).join(', ')">{{ placeholderNames(row).length }} param</span>
 									}
@@ -58,10 +60,12 @@
 								</div>
 								<div class="table-cell path-cell" role="cell" [title]="missingLocalesLabel(row)">{{ missingLocalesLabel(row) }}</div>
 							</div>
-						</cdk-virtual-scroll-viewport>
-					} @else {
-						<div class="empty-state">No keys matched your current filter.</div>
-					}
+					</cdk-virtual-scroll-viewport>
+				</div>
+			} @else {
+				<div class="empty-state">
+					<p>No keys match your search and filter.</p>
+					<button type="button" class="reset-list" (click)="clearSearchAndFilters(searchInput)">Clear search and filters</button>
 				</div>
 			}
 		</div>
@@ -163,7 +167,7 @@
 			</div>
 		}
 	</aside>
-</main>
+</div>
 
 @if (isAddTranslationModalOpen && selectedRow && addTranslationLocale) {
 	<dialog class="modal-backdrop" open tabindex="-1" (click)="onModalBackdropClick($event)" (keydown)="onModalBackdropKeydown($event)" (cancel)="closeAddTranslationModal()">

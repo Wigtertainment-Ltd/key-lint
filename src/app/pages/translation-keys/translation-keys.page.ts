@@ -153,6 +153,13 @@ export class TranslationKeysPage implements OnInit, OnDestroy {
 		this.ensureSelectedRow();
 	}
 
+	clearSearchAndFilters(input: HTMLInputElement): void {
+		this.searchTermSignal.set('');
+		this.onFilterChange('all');
+		input.value = '';
+		input.focus();
+	}
+
 	onFilterChange(filter: 'all' | 'missing-key' | 'empty-value' | 'placeholders'): void {
 		this.activeFilterSignal.set(filter);
 		this.tableViewport?.scrollToIndex(0);
